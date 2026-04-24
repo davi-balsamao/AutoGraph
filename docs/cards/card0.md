@@ -7,3 +7,4 @@ Os cards devem ser criados em formato markdown e devem seguir a estrutura abaixo
 - card2.md é o segundo card
 - e assim por diante
 - card0.md é apenas uma ajuda para identificar onde os cards devem ser colocados, ele não deve ser usado como card
+- os cards devem seguir o modelo de @Edtech_Métodos Ágeis_Cards.pdf
