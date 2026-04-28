@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Serviço do Banco de Dados PostgreSQL
+  db:
+    image: postgres:15
+    container_name: omniconnect_db
+    restart: always
+    environment:
+      # Credenciais padrão (User, Password e Nome do Banco)
+      POSTGRES_USER: user_grafica
+      POSTGRES_PASSWORD: password_segura
+      POSTGRES_DB: printflow_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Garante que os dados não sumam se o container parar
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - omniconnect_net
+
+  # Configuração inicial do serviço de Backend Node.js
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: omniconnect_backend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://user_grafica:password_segura@db:5432/printflow_db
+    networks:
+      - omniconnect_net
+
+# Definição de rede interna e volumes persistentes
+networks:
+  omniconnect_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
