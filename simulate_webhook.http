@@ -1,0 +1,51 @@
+### Validação do Webhook (GET)
+# A Meta enviará essa requisição quando formos configurar o Webhook no painel do Facebook Developers.
+# O servidor deve responder com o mesmo valor de "hub.challenge" enviado.
+GET http://localhost:3000/webhook?hub.mode=subscribe&hub.verify_token=dev_token_123&hub.challenge=1158201444
+Accept: application/json
+
+
+### Simulação de Recebimento de Mensagem (POST)
+# Payload exato de uma mensagem de texto enviada por um cliente para o WhatsApp da Gráfica.
+POST http://localhost:3000/webhook
+Content-Type: application/json
+
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "1234567890_BUSINESS_ACCOUNT_ID",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "5511900000000",
+              "phone_number_id": "123456123_PHONE_ID"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "João da Silva (Cliente Mock)"
+                },
+                "wa_id": "5511999998888"
+              }
+            ],
+            "messages": [
+              {
+                "from": "5511999998888",
+                "id": "wamid.HBgLMTY1MD...",
+                "timestamp": "1665476043",
+                "text": {
+                  "body": "Olá, gostaria de imprimir 1000 cartões de visita."
+                },
+                "type": "text"
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
