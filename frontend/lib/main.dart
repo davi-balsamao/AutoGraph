@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
+import 'core/routes/app_routes.dart';
 
 void main() {
   runApp(const AutoGraphApp());
@@ -16,23 +17,8 @@ class AutoGraphApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const _SplashPlaceholder(),
-    );
-  }
-}
-
-class _SplashPlaceholder extends StatelessWidget {
-  const _SplashPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          'AutoGraph',
-          style: Theme.of(context).textTheme.displayLarge,
-        ),
-      ),
+      initialRoute: AppRoutes.login,
+      onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }
 }
