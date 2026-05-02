@@ -1,0 +1,74 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+enum Role {
+  CLIENTE
+  GERENTE
+}
+
+enum StatusOS {
+  CRIADA
+  EM_PRODUCAO
+  PRONTA_PARA_RETIRADA
+  ENTREGUE
+  CANCELADA
+}
+
+enum OrigemMensagem {
+  CLIENTE
+  BOT
+  GERENTE
+}
+
+model Usuario {
+  id           String   @id @default(uuid())
+  nome         String
+  email        String?  @unique
+  telefone     String   @unique
+  senha        String?
+  role         Role     @default(CLIENTE)
+  fcmToken     String?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  ordensDeServico OrdensDeServico[]
+  mensagens       Mensagens[]
+}
+
+model OrdensDeServico {
+  id             String   @id @default(uuid())
+  clienteId      String
+  status         StatusOS @default(CRIADA)
+  especificacoes Json
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
+  cliente        Usuario  @relation(fields: [clienteId], references: [id])
+  mensagens      Mensagens[]
+}
+
+model Mensagens {
+  id             String         @id @default(uuid())
+  usuarioId      String
+  ordemId        String?
+  origem         OrigemMensagem
+  payload        Json
+  criadoEm       DateTime       @default(now())
+
+  usuario        Usuario          @relation(fields: [usuarioId], references: [id])
+  ordemDeServico OrdensDeServico? @relation(fields: [ordemId], references: [id])
+}
+
+model DocumentosConhecimento {
+  id        String                 @id @default(uuid())
+  conteudo  String
+  vetor     Unsupported("vector")?
+  criadoEm  DateTime               @default(now())
+}

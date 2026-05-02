@@ -16,5 +16,4 @@ COPY . .
 # Expõe a porta do servidor
 EXPOSE 3000
 
-# Comando para manter o container rodando (provisório)
-CMD ["node", "-e", "console.log('Backend pronto!'); setInterval(() => {}, 1000);"]
+CMD ["npm", "run", "dev"]
