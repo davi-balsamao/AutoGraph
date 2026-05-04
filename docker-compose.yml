@@ -4,7 +4,7 @@ services:
   # Serviço do Banco de Dados PostgreSQL
   db:
     image: pgvector/pgvector:pg15
-    container_name: omniconnect_db
+    container_name: autograph_db
     restart: always
     environment:
       # Credenciais padrão (User, Password e Nome do Banco)
@@ -17,14 +17,14 @@ services:
       # Garante que os dados não sumam se o container parar
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - omniconnect_net
+      - autograph_net
 
   # Configuração inicial do serviço de Backend Node.js
   app:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: omniconnect_backend
+    container_name: autograph_backend
     ports:
       - "3000:3000"
     depends_on:
@@ -32,11 +32,11 @@ services:
     environment:
       DATABASE_URL: postgres://user_grafica:password_segura@db:5432/printflow_db
     networks:
-      - omniconnect_net
+      - autograph_net
 
 # Definição de rede interna e volumes persistentes
 networks:
-  omniconnect_net:
+  autograph_net:
     driver: bridge
 
 volumes:

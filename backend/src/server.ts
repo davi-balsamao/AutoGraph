@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { WebhookController } from './controllers/webhook.controller'; 
+import webhookRoutes from './routes/webhook.routes';
 
 dotenv.config();
 
@@ -16,8 +16,8 @@ app.get('/', (req, res) => {
   res.json({ message: 'Hello World from AutoGraph API!' });
 });
 
-// Rota do webhook
-app.get('/webhook', WebhookController.validate);
+// Rotas do webhook (Cards 5 e 6)
+app.use(webhookRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
