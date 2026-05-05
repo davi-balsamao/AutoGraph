@@ -1,0 +1,76 @@
+[
+  {
+    "categoria": "Cartões de Visita",
+    "itens": [
+      {
+        "produto": "Cartão de Visita Couchê 250g",
+        "tamanho": "9x5 cm",
+        "cores": "4x0 (Frente Colorida, Verso Branco)",
+        "quantidade": 1000,
+        "preco": 65.00,
+        "prazo_entrega": "3 dias úteis",
+        "descricao": "Cartão de visita padrão ideal para negócios locais e distribuição em massa."
+      },
+      {
+        "produto": "Cartão de Visita Couchê 300g com Verniz Localizado",
+        "tamanho": "9x5 cm",
+        "cores": "4x4 (Frente e Verso Coloridos)",
+        "quantidade": 1000,
+        "preco": 120.00,
+        "prazo_entrega": "5 dias úteis",
+        "descricao": "Cartão premium com brilho localizado em logos ou textos específicos."
+      }
+    ]
+  },
+  {
+    "categoria": "Panfletos e Flyers",
+    "itens": [
+      {
+        "produto": "Panfleto Couchê 90g",
+        "tamanho": "10x14 cm",
+        "cores": "4x0",
+        "quantidade": 5000,
+        "preco": 150.00,
+        "prazo_entrega": "4 dias úteis",
+        "descricao": "Excelente para campanhas promocionais de alto volume e baixo custo."
+      },
+      {
+        "produto": "Flyer Couchê 150g",
+        "tamanho": "15x21 cm (A5)",
+        "cores": "4x4",
+        "quantidade": 1000,
+        "preco": 280.00,
+        "prazo_entrega": "4 dias úteis",
+        "descricao": "Flyer de média gramatura com melhor percepção de qualidade para encartes."
+      }
+    ]
+  },
+  {
+    "categoria": "Banners",
+    "itens": [
+      {
+        "produto": "Banner Lona Brilho 440g",
+        "tamanho": "90x120 cm",
+        "acabamento": "Bastão, Ponteira e Cordinha",
+        "quantidade": 1,
+        "preco": 85.00,
+        "prazo_entrega": "2 dias úteis",
+        "descricao": "Banner para fachadas, festas ou eventos corporativos, resistente a chuva e sol."
+      }
+    ]
+  },
+  {
+    "categoria": "Adesivos",
+    "itens": [
+      {
+        "produto": "Adesivo Vinil Branco",
+        "tamanho": "5x5 cm",
+        "corte": "Meio Corte Padrão (Redondo ou Quadrado)",
+        "quantidade": 1000,
+        "preco": 90.00,
+        "prazo_entrega": "3 dias úteis",
+        "descricao": "Adesivos em vinil resistentes à água. Ideal para embalagens de doces e produtos artesanais."
+      }
+    ]
+  }
+]
