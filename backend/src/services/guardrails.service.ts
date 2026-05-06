@@ -88,20 +88,29 @@ export class GuardrailsService {
     return false;
   }
 
-  /**
-   * Extrai todos os valores em reais (R$ X,XX) de um texto.
-   */
   public extractPrices(text: string): number[] {
-    // Regex para pegar valores após "R$" ou "RS"
-    const regex = /(?:R\$|RS)\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)/gi;
     const prices: number[] = [];
-    let match;
     
-    while ((match = regex.exec(text)) !== null) {
-      // Normalizar: remover pontos de milhar e trocar vírgula por ponto
-      const priceStr = match[1].replace(/\./g, '').replace(',', '.');
-      prices.push(parseFloat(priceStr));
-    }
+    // Regex 1: Prefixos monetários (R$, RS, $, US$)
+    const regexPrefix = /(?:R\$|RS|\$|US\$)\s*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)/gi;
+    
+    // Regex 2: Sufixos monetários (reais, real, dólares)
+    const regexSuffix = /(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)\s*(?:reais|real|dólares)/gi;
+    
+    // Regex 3: Palavras-chave de valor
+    const regexKeywords = /(?:custa|valor|preço|orçamento)[^\d]*(\d{1,3}(?:\.\d{3})*(?:,\d{2})?|\d+(?:,\d{2})?)/gi;
+
+    const extractAndPush = (regex: RegExp) => {
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const priceStr = match[1].replace(/\./g, '').replace(',', '.');
+        prices.push(parseFloat(priceStr));
+      }
+    };
+
+    extractAndPush(regexPrefix);
+    extractAndPush(regexSuffix);
+    extractAndPush(regexKeywords);
     
     return prices;
   }

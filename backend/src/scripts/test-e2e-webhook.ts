@@ -8,9 +8,10 @@
  */
 
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 dotenv.config();
 
-const BASE_URL = `http://localhost:${process.env.PORT || 3000}`;
+const BASE_URL = `http://127.0.0.1:${process.env.PORT || 3000}`;
 
 function buildPayload(from: string, name: string, text: string) {
   return {
@@ -50,28 +51,35 @@ function buildPayload(from: string, name: string, text: string) {
   };
 }
 
-import { webhookService } from '../services/webhook.service';
-import { parseWhatsAppPayload } from '../utils/whatsapp.parser';
-
 async function sendMessage(from: string, name: string, text: string) {
   console.log(`\n📤 [${name}] → "${text}"`);
 
   const payload = buildPayload(from, name, text);
-  const messages = parseWhatsAppPayload(payload);
-
-  if (messages.length === 0) {
-    console.error('Falha ao parsear payload de teste');
-    return;
-  }
+  const bodyString = JSON.stringify(payload);
+  const appSecret = process.env.APP_SECRET || '';
+  const signature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(bodyString).digest('hex');
 
   try {
-    // Chama o serviço diretamente (bypass HTTP)
-    await webhookService.processIncomingMessage(messages[0]);
+    // Realiza requisição HTTP para o webhook em vez de bypassar
+    const res = await fetch(`${BASE_URL}/webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Hub-Signature-256': signature,
+      },
+      body: bodyString,
+    });
+    
+    if (res.ok) {
+       console.log('   ✅ Requisição aceita (200 OK) pelo Webhook. Assinatura validada.');
+       // Aguarda um momento para permitir o processamento assíncrono antes do próximo teste
+       await new Promise(resolve => setTimeout(resolve, 3000));
+    } else {
+       console.log(`   ❌ Erro HTTP ${res.status}: Requisição rejeitada pelo Webhook.`);
+    }
   } catch (err: any) {
-    console.log(`   ⚠️ Erro no processamento:`, err);
+    console.log(`   ⚠️ Erro de conexão com o servidor:`, err.message);
   }
-
-  console.log('   ✅ Fluxo finalizado.\n');
 }
 
 async function main() {

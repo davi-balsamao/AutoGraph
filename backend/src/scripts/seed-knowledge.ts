@@ -91,7 +91,7 @@ async function main() {
   if (embeddings) {
     queryVector = await embeddings.embedQuery(testQuery);
   } else {
-    queryVector = Array(1536).fill(0).map(() => Math.random() * 2 - 1);
+    queryVector = Array(768).fill(0).map(() => Math.random() * 2 - 1);
   }
 
   const queryVectorString = `[${queryVector.join(',')}]`;

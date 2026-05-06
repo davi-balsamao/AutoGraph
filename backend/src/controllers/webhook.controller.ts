@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { parseWhatsAppPayload } from '../utils/whatsapp.parser';
 import { webhookService } from '../services/webhook.service';
 
@@ -28,6 +29,35 @@ export class WebhookController {
    * Responde 200 OK imediatamente e processa a mensagem de forma assíncrona.
    */
   public static async receive(req: Request, res: Response) {
+    const signature = req.headers['x-hub-signature-256'] as string;
+    const isMock = process.env.USE_MOCK_WHATSAPP === 'true';
+
+    // Em produção, a assinatura é obrigatória. Em mock, validamos apenas se ela for enviada.
+    if (!isMock || signature) {
+      if (!signature) {
+        console.error('❌ Falha na validação do Webhook: Assinatura ausente.');
+        return res.sendStatus(403);
+      }
+
+      const rawBody = (req as any).rawBody;
+      const appSecret = process.env.APP_SECRET;
+
+      if (!appSecret) {
+        console.error('❌ Falha na configuração: APP_SECRET não definido no .env');
+        return res.sendStatus(500);
+      }
+
+      if (rawBody) {
+        const expectedSignature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
+        if (signature !== expectedSignature) {
+          console.error('❌ Falha na validação do Webhook: Assinatura inválida.');
+          return res.sendStatus(403);
+        }
+      } else {
+        console.warn('⚠️ rawBody não encontrado. Ignorando validação (apenas para ambiente de desenvolvimento/mock sem rawBody config)');
+      }
+    }
+
     // Responde 200 OK imediatamente para evitar retentativas da Meta
     res.sendStatus(200);
 
