@@ -1,0 +1,195 @@
+/**
+ * RagService — Card 13: Implementação da RAG Chain
+ *
+ * Serviço que implementa o pipeline RAG completo:
+ *   Query → Embeddings → Busca Vetorial → Montagem de Contexto → LLM → Resposta
+ *
+ * Diretrizes de segurança aplicadas:
+ * - Temperature 0.0 (determinístico, sem criatividade em preços/prazos)
+ * - Threshold de similaridade mínima (minScore: 0.75)
+ * - No Math Policy (codificada no prompt)
+ * - Prompt Injection Guard (pergunta isolada como variável)
+ * - Context Transparency (retorna IDs dos documentos usados)
+ */
+
+import { prisma } from '../config/prisma';
+import { OpenAIEmbeddings } from '@langchain/openai';
+import { ChatOpenAI } from '@langchain/openai';
+import { RunnableSequence } from '@langchain/core/runnables';
+import {
+  ChatPromptTemplate,
+  SystemMessagePromptTemplate,
+  HumanMessagePromptTemplate,
+} from '@langchain/core/prompts';
+import { StringOutputParser } from '@langchain/core/output_parsers';
+import { RAG_SYSTEM_PROMPT, RAG_HUMAN_PROMPT } from './rag-template';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// --- Tipos ---
+
+/** Documento recuperado da busca vetorial com score de similaridade. */
+interface RetrievedDocument {
+  id: string;
+  conteudo: string;
+  similaridade: number;
+}
+
+/** Resultado da query RAG com transparência de contexto. */
+export interface RagQueryResult {
+  answer: string;
+  sourceDocuments: Array<{ id: string; similaridade: number }>;
+}
+
+// --- Configurações ---
+
+/** Número de documentos retornados pelo retriever (top-K). */
+const TOP_K = 4;
+
+/** Score mínimo de similaridade. Documentos abaixo disso são descartados. */
+const MIN_SIMILARITY_SCORE = 0.75;
+
+/** Resposta padrão quando não há contexto suficiente. */
+const FALLBACK_RESPONSE = 'Não tenho essa informação no momento.';
+
+// --- Classe RagService ---
+
+export class RagService {
+  private embeddings: OpenAIEmbeddings;
+  private llm: ChatOpenAI;
+  private chain: RunnableSequence;
+
+  constructor() {
+    // Embeddings — mesmo modelo usado no seed-knowledge.ts (Card 12)
+    this.embeddings = new OpenAIEmbeddings({
+      modelName: 'text-embedding-3-small',
+    });
+
+    // LLM — Temperature 0.0 (determinístico, conforme AGENTE.md)
+    this.llm = new ChatOpenAI({
+      temperature: 0.0,
+      modelName: process.env.OPENAI_MODEL || 'gpt-4o',
+    });
+
+    // Monta a RunnableSequence: Retriever → Prompt → LLM → Parser
+    const prompt = ChatPromptTemplate.fromMessages([
+      SystemMessagePromptTemplate.fromTemplate(RAG_SYSTEM_PROMPT),
+      HumanMessagePromptTemplate.fromTemplate(RAG_HUMAN_PROMPT),
+    ]);
+
+    const outputParser = new StringOutputParser();
+
+    this.chain = RunnableSequence.from([prompt, this.llm, outputParser]);
+  }
+
+  /**
+   * Busca vetorial por similaridade na tabela DocumentosConhecimento.
+   * Utiliza o operador <=> do pgvector (cosine distance).
+   *
+   * @param queryEmbedding Vetor de embedding da pergunta
+   * @returns Top-K documentos acima do threshold de similaridade
+   */
+  private async retrieveDocuments(
+    queryEmbedding: number[]
+  ): Promise<RetrievedDocument[]> {
+    const vectorString = `[${queryEmbedding.join(',')}]`;
+
+    // <=> calcula cosine distance; similaridade = 1 - distance
+    const results: RetrievedDocument[] = await prisma.$queryRaw`
+      SELECT
+        id,
+        conteudo,
+        1 - (vetor <=> ${vectorString}::vector) as similaridade
+      FROM "DocumentosConhecimento"
+      WHERE vetor IS NOT NULL
+      ORDER BY vetor <=> ${vectorString}::vector
+      LIMIT ${TOP_K}
+    `;
+
+    // Filtrar por threshold de similaridade mínima
+    const filteredResults = results.filter(
+      (doc) => Number(doc.similaridade) >= MIN_SIMILARITY_SCORE
+    );
+
+    return filteredResults;
+  }
+
+  /**
+   * Executa o pipeline RAG completo.
+   *
+   * Pipeline:
+   * 1. Gera embedding da pergunta
+   * 2. Busca vetorial (top-K com threshold)
+   * 3. Monta contexto a partir dos documentos recuperados
+   * 4. Envia para o LLM com prompt anti-alucinação
+   * 5. Retorna resposta + IDs dos documentos (auditoria)
+   *
+   * @param question Pergunta do cliente (tratada como variável isolada)
+   * @returns Resposta gerada + documentos fonte
+   */
+  async query(question: string): Promise<RagQueryResult> {
+    console.log('\n========== RAG QUERY ==========');
+    console.log(`📝 Pergunta: "${question}"`);
+
+    // 1. Gerar embedding da pergunta
+    const queryEmbedding = await this.embeddings.embedQuery(question);
+    console.log(`🔢 Embedding gerado (dimensões: ${queryEmbedding.length})`);
+
+    // 2. Busca vetorial com threshold
+    const documents = await this.retrieveDocuments(queryEmbedding);
+    console.log(
+      `📚 Documentos recuperados: ${documents.length} (threshold >= ${MIN_SIMILARITY_SCORE})`
+    );
+
+    // Log dos documentos recuperados
+    documents.forEach((doc, i) => {
+      console.log(
+        `   📄 [${i + 1}] ID: ${doc.id} | Score: ${Number(doc.similaridade).toFixed(4)}`
+      );
+      console.log(
+        `       Conteúdo: ${doc.conteudo.substring(0, 120).replace(/\n/g, ' ')}...`
+      );
+    });
+
+    // 3. Se nenhum documento atingiu o threshold, retornar fallback
+    if (documents.length === 0) {
+      console.log('⚠️ Nenhum documento relevante encontrado. Usando fallback.');
+      console.log(`💬 Resposta: "${FALLBACK_RESPONSE}"`);
+      console.log('================================\n');
+      return {
+        answer: FALLBACK_RESPONSE,
+        sourceDocuments: [],
+      };
+    }
+
+    // 4. Montar contexto a partir dos documentos
+    const context = documents
+      .map(
+        (doc, i) =>
+          `--- Documento ${i + 1} (ID: ${doc.id}) ---\n${doc.conteudo}`
+      )
+      .join('\n\n');
+
+    // 5. Executar a chain (Prompt → LLM → Parser)
+    console.log('\n📤 Prompt final montado. Enviando para o LLM...');
+    const answer = await this.chain.invoke({
+      context,
+      question,
+    });
+
+    console.log(`💬 Resposta: "${answer}"`);
+    console.log('================================\n');
+
+    // 6. Retornar resposta + source documents para auditoria
+    return {
+      answer,
+      sourceDocuments: documents.map((doc) => ({
+        id: doc.id,
+        similaridade: Number(doc.similaridade),
+      })),
+    };
+  }
+}
+
+export const ragService = new RagService();
