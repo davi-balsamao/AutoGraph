@@ -1,6 +1,6 @@
 import { prisma } from '../config/prisma';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
-import { OpenAIEmbeddings } from '@langchain/openai';
+import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 import * as fs from 'fs';
 import * as path from 'path';
 import dotenv from 'dotenv';
@@ -10,14 +10,15 @@ dotenv.config();
 async function main() {
   console.log('Iniciando o seeding da Base de Conhecimento (Vector DB)...');
 
-  const useMockEmbeddings = !process.env.OPENAI_API_KEY;
+  const useMockEmbeddings = !process.env.GOOGLE_API_KEY;
   if (useMockEmbeddings) {
-    console.warn('AVISO: OPENAI_API_KEY não definida. Usando embeddings MOCK para testes (1536 dimensões).');
+    console.warn('AVISO: GOOGLE_API_KEY não definida. Usando embeddings MOCK para testes (768 dimensões).');
   }
 
   // Instanciar o gerador de embeddings se tiver chave
-  const embeddings = useMockEmbeddings ? null : new OpenAIEmbeddings({
-    modelName: 'text-embedding-3-small',
+  const embeddings = useMockEmbeddings ? null : new GoogleGenerativeAIEmbeddings({
+    modelName: 'gemini-embedding-001',
+    apiKey: process.env.GOOGLE_API_KEY,
   });
 
   // Ler o mock do catálogo
@@ -65,7 +66,7 @@ async function main() {
     if (embeddings) {
       vector = await embeddings.embedQuery(conteudoChunk);
     } else {
-      vector = Array(1536).fill(0).map(() => Math.random() * 2 - 1);
+      vector = Array(768).fill(0).map(() => Math.random() * 2 - 1);
     }
 
     // Transformar o array de floats em uma string formatada para o PostgreSQL: '[0.1, 0.2, ...]'

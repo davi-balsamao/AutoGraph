@@ -11,13 +11,15 @@
     "test:guardrails": "ts-node-dev src/scripts/test-guardrails.ts",
     "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",
     "test:rag": "ts-node-dev src/scripts/test-rag.ts",
-    "test:entities": "ts-node-dev src/scripts/test-entity-extraction.ts"
+    "test:entities": "ts-node-dev src/scripts/test-entity-extraction.ts",
+    "test:e2e": "ts-node-dev src/scripts/test-e2e-webhook.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@langchain/google-genai": "^2.1.30",
     "@langchain/openai": "^1.4.5",
     "@langchain/textsplitters": "^1.0.1",
     "@prisma/adapter-pg": "^7.8.0",

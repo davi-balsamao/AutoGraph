@@ -11,10 +11,11 @@ export class MensagemRepository {
     return prisma.mensagens.create({ data });
   }
 
-  async findByUsuarioId(usuarioId: string) {
+  async findByUsuarioId(usuarioId: string, limit?: number) {
     return prisma.mensagens.findMany({
       where: { usuarioId },
       orderBy: { criadoEm: 'desc' },
+      ...(limit ? { take: limit } : {}),
     });
   }
 }

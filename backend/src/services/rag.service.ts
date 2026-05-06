@@ -14,8 +14,8 @@
  */
 
 import { prisma } from '../config/prisma';
-import { OpenAIEmbeddings } from '@langchain/openai';
-import { ChatOpenAI } from '@langchain/openai';
+import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { RunnableSequence } from '@langchain/core/runnables';
 import {
   ChatPromptTemplate,
@@ -60,20 +60,22 @@ const FALLBACK_RESPONSE = 'Não tenho essa informação no momento.';
 // --- Classe RagService ---
 
 export class RagService {
-  private embeddings: OpenAIEmbeddings;
-  private llm: ChatOpenAI;
+  private embeddings: GoogleGenerativeAIEmbeddings;
+  private llm: ChatGoogleGenerativeAI;
   private chain: RunnableSequence;
 
   constructor() {
-    // Embeddings — mesmo modelo usado no seed-knowledge.ts (Card 12)
-    this.embeddings = new OpenAIEmbeddings({
-      modelName: 'text-embedding-3-small',
+    // Embeddings — Google Gemini (text-embedding-004)
+    this.embeddings = new GoogleGenerativeAIEmbeddings({
+      modelName: 'gemini-embedding-001',
+      apiKey: process.env.GOOGLE_API_KEY,
     });
 
-    // LLM — Temperature 0.0 (determinístico, conforme AGENTE.md)
-    this.llm = new ChatOpenAI({
+    // LLM — Temperature 0.0 (determinístico, conforme regras de triagem)
+    this.llm = new ChatGoogleGenerativeAI({
       temperature: 0.0,
-      modelName: process.env.OPENAI_MODEL || 'gpt-4o',
+      model: process.env.LLM_MODEL || 'gemini-2.0-flash',
+      apiKey: process.env.GOOGLE_API_KEY,
     });
 
     // Monta a RunnableSequence: Retriever → Prompt → LLM → Parser
@@ -132,7 +134,7 @@ export class RagService {
    * @param question Pergunta do cliente (tratada como variável isolada)
    * @returns Resposta gerada + documentos fonte
    */
-  async query(question: string): Promise<RagQueryResult> {
+  async query(question: string, conversationHistory?: string): Promise<RagQueryResult> {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
 
@@ -177,8 +179,15 @@ export class RagService {
 
     // 5. Executar a chain (Prompt → LLM → Parser)
     console.log('\n📤 Prompt final montado. Enviando para o LLM...');
+
+    // Montar contexto com histórico de conversa (Card 17)
+    let fullContext = context;
+    if (conversationHistory) {
+      fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
+    }
+
     const rawAnswer = await this.chain.invoke({
-      context,
+      context: fullContext,
       question,
     });
 

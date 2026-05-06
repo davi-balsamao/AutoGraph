@@ -4,22 +4,22 @@
 Para que o sistema de Triagem (RAG) funcione com precisão, a base de conhecimento vetorial precisa ser alimentada com as regras de negócio da gráfica: quais produtos existem e **quais perguntas fazer para o cliente** (ex: tem arte?, quantidade?, acabamento?). Esta tarefa consiste em criar um script de ingestão que lê essas regras, divide em chunks, gera embeddings via API e popula a tabela `DocumentosConhecimento` (já criada na Milestone 1 com suporte a `pgvector`). A IA não lidará com preços.
 
 ## ✅ Critérios de Aceite (Definition of Done)
-- [ ] Script de ingestão criado em `backend/src/scripts/` ou como comando npm (ex: `npm run seed:knowledge`).
-- [ ] Documento de regras criado em `backend/data/catalogo.json` focado em perguntas obrigatórias por produto, **sem preços**.
-- [ ] Documentos divididos em chunks com tamanho adequado (ex: 500-1000 tokens por chunk).
-- [ ] Embeddings gerados via API (OpenAI ou Google) e armazenados na coluna `vetor` da tabela `DocumentosConhecimento`.
-- [ ] Consulta de similaridade vetorial funcional: buscar "quero fazer cartão de visita" retorna as perguntas a serem feitas.
-- [ ] Script é idempotente (pode rodar novamente sem duplicar dados).
+- [x] Script de ingestão criado em `backend/src/scripts/` ou como comando npm (ex: `npm run seed:knowledge`).
+- [x] Documento de regras criado em `backend/data/catalogo.json` focado em perguntas obrigatórias por produto, **sem preços**.
+- [x] Documentos divididos em chunks com tamanho adequado (ex: 500-1000 tokens por chunk).
+- [x] Embeddings gerados via API (OpenAI ou Google) e armazenados na coluna `vetor` da tabela `DocumentosConhecimento`.
+- [x] Consulta de similaridade vetorial funcional: buscar "quero fazer cartão de visita" retorna as perguntas a serem feitas.
+- [x] Script é idempotente (pode rodar novamente sem duplicar dados).
 
 ## 🛠️ Checklist de Tarefas Técnicas
-- [ ] Criar pasta `backend/data/` com arquivo `catalogo.json` contendo as regras de triagem e perguntas para os produtos (sem preços).
-- [ ] Instalar dependências de embeddings se necessário (ex: `@langchain/openai` para `OpenAIEmbeddings`).
-- [ ] Criar script `backend/src/scripts/seed-knowledge.ts`.
-- [ ] Implementar lógica de chunking (divisão dos documentos em partes menores).
-- [ ] Implementar geração de embeddings para cada chunk.
-- [ ] Persistir os chunks com seus embeddings na tabela `DocumentosConhecimento` via Prisma.
-- [ ] Implementar limpeza prévia dos dados antigos (idempotência).
-- [ ] Testar a busca por similaridade vetorial com uma query de exemplo usando SQL raw ou Prisma.
+- [x] Criar pasta `backend/data/` com arquivo `catalogo.json` contendo as regras de triagem e perguntas para os produtos (sem preços).
+- [x] Instalar dependências de embeddings se necessário (ex: `@langchain/openai` para `OpenAIEmbeddings`).
+- [x] Criar script `backend/src/scripts/seed-knowledge.ts`.
+- [x] Implementar lógica de chunking (divisão dos documentos em partes menores).
+- [x] Implementar geração de embeddings para cada chunk.
+- [x] Persistir os chunks com seus embeddings na tabela `DocumentosConhecimento` via Prisma.
+- [x] Implementar limpeza prévia dos dados antigos (idempotência).
+- [x] Testar a busca por similaridade vetorial com uma query de exemplo usando SQL raw ou Prisma.
 
 ## 👤 Atribuição
 **Responsável:** [A Definir - Dev Backend/IA]
