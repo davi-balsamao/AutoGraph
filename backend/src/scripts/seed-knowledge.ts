@@ -33,19 +33,14 @@ async function main() {
   // Transformar JSON em texto para chunking
   let textoParaChunking = '';
   
-  for (const categoria of catalogo) {
-    textoParaChunking += `## Categoria: ${categoria.categoria}\n\n`;
-    for (const item of categoria.itens) {
-      textoParaChunking += `Produto: ${item.produto}\n`;
-      if (item.tamanho) textoParaChunking += `Tamanho: ${item.tamanho}\n`;
-      if (item.cores) textoParaChunking += `Cores: ${item.cores}\n`;
-      if (item.corte) textoParaChunking += `Corte: ${item.corte}\n`;
-      if (item.acabamento) textoParaChunking += `Acabamento: ${item.acabamento}\n`;
-      textoParaChunking += `Quantidade: ${item.quantidade}\n`;
-      textoParaChunking += `Preço: R$ ${item.preco.toFixed(2)}\n`;
-      textoParaChunking += `Prazo de Entrega: ${item.prazo_entrega}\n`;
-      textoParaChunking += `Descrição: ${item.descricao}\n\n`;
+  for (const item of catalogo) {
+    textoParaChunking += `## Produto: ${item.produto}\n`;
+    textoParaChunking += `Descrição: ${item.descricao}\n`;
+    textoParaChunking += `Para fazer o orçamento de ${item.produto}, o assistente DEVE perguntar ao cliente as seguintes informações:\n`;
+    for (const req of item.requisitos_orcamento) {
+      textoParaChunking += `- ${req}\n`;
     }
+    textoParaChunking += `\n`;
   }
 
   // Dividir o texto em chunks (pedaços menores)
@@ -87,8 +82,8 @@ async function main() {
 
   console.log('Base de Conhecimento alimentada com sucesso!');
 
-  // Teste opcional: busca de similaridade (Query: 'preço de 1000 cartões de visita')
-  const testQuery = 'preço de 1000 cartões de visita';
+  // Teste opcional: busca de similaridade (Query: 'quero fazer um cartao de visita')
+  const testQuery = 'quero fazer um cartao de visita';
   console.log(`\nTestando busca vetorial para a query: "${testQuery}"...`);
   
   let queryVector: number[];

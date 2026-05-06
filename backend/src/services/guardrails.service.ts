@@ -32,25 +32,20 @@ export class GuardrailsService {
       };
     }
 
-    // 2. Extração e Validação de Preços (Anti-alucinação)
+    // 2. Proibição de Preços (Anti-alucinação / Regra de Negócio)
+    // A IA NUNCA deve dar preços, sob nenhuma hipótese.
     const generatedPrices = this.extractPrices(response);
     
     if (generatedPrices.length > 0) {
-      const docPrices = this.extractPricesFromDocs(retrievedDocs);
-      
-      for (const price of generatedPrices) {
-        if (!docPrices.includes(price)) {
-          console.warn(`🚨 [Guardrails] Alucinação detectada! Preço gerado R$ ${price} não encontrado nos documentos.`);
-          return {
-            isValid: false,
-            reason: `Preço R$ ${price} não encontrado na base de conhecimento.`,
-            correctedResponse: 'Desculpe, identifiquei uma inconsistência nos valores gerados. Por favor, consulte nossa tabela de preços oficial ou converse com um de nossos atendentes para confirmar o valor.'
-          };
-        }
-      }
-      
-      console.info('✅ [Guardrails] Preços gerados validados com sucesso contra a base de conhecimento.');
+      console.warn(`🚨 [Guardrails] Alucinação/Violação detectada! A IA tentou fornecer um preço (ex: R$ ${generatedPrices[0]}).`);
+      return {
+        isValid: false,
+        reason: `IA tentou fornecer valores financeiros.`,
+        correctedResponse: 'Anotei todas as informações! Como nossos preços variam de acordo com as especificações da arte e do pedido, vou repassar seus dados para a nossa recepcionista. Ela vai gerar o seu orçamento exato e falará com você em breve.'
+      };
     }
+
+    console.info('✅ [Guardrails] Resposta validada com sucesso.');
 
     return { isValid: true };
   }
@@ -111,13 +106,7 @@ export class GuardrailsService {
     return prices;
   }
 
-  /**
-   * Extrai todos os valores monetários dos documentos do LangChain fornecidos.
-   */
-  private extractPricesFromDocs(docs: Document[]): number[] {
-    const allText = docs.map(d => d.pageContent).join(' \n ');
-    return this.extractPrices(allText);
-  }
+
 }
 
 export const guardrailsService = new GuardrailsService();

@@ -1,18 +1,18 @@
 # [Backend/IA] Alimentar Base de Conhecimento (Vector DB)
 
 ## 📖 Descrição
-Para que o sistema RAG funcione com precisão, a base de conhecimento vetorial precisa ser alimentada com os dados reais do negócio da gráfica: tabela de preços, tipos de papel/gramatura, tamanhos disponíveis e prazos de entrega. Esta tarefa consiste em criar um script de ingestão que lê os catálogos da gráfica (em formato PDF, JSON ou texto), divide em chunks, gera embeddings via API e popula a tabela `DocumentosConhecimento` (já criada na Milestone 1 com suporte a `pgvector`).
+Para que o sistema de Triagem (RAG) funcione com precisão, a base de conhecimento vetorial precisa ser alimentada com as regras de negócio da gráfica: quais produtos existem e **quais perguntas fazer para o cliente** (ex: tem arte?, quantidade?, acabamento?). Esta tarefa consiste em criar um script de ingestão que lê essas regras, divide em chunks, gera embeddings via API e popula a tabela `DocumentosConhecimento` (já criada na Milestone 1 com suporte a `pgvector`). A IA não lidará com preços.
 
 ## ✅ Critérios de Aceite (Definition of Done)
 - [ ] Script de ingestão criado em `backend/src/scripts/` ou como comando npm (ex: `npm run seed:knowledge`).
-- [ ] Catálogo da gráfica com tabela de preços, gramaturas e prazos criado em `backend/data/` (pode ser JSON ou texto estruturado).
+- [ ] Documento de regras criado em `backend/data/catalogo.json` focado em perguntas obrigatórias por produto, **sem preços**.
 - [ ] Documentos divididos em chunks com tamanho adequado (ex: 500-1000 tokens por chunk).
 - [ ] Embeddings gerados via API (OpenAI ou Google) e armazenados na coluna `vetor` da tabela `DocumentosConhecimento`.
-- [ ] Consulta de similaridade vetorial funcional: buscar "preço de 1000 cartões de visita" retorna chunks relevantes.
+- [ ] Consulta de similaridade vetorial funcional: buscar "quero fazer cartão de visita" retorna as perguntas a serem feitas.
 - [ ] Script é idempotente (pode rodar novamente sem duplicar dados).
 
 ## 🛠️ Checklist de Tarefas Técnicas
-- [ ] Criar pasta `backend/data/` com arquivo(s) de catálogo da gráfica (preços, materiais, prazos).
+- [ ] Criar pasta `backend/data/` com arquivo `catalogo.json` contendo as regras de triagem e perguntas para os produtos (sem preços).
 - [ ] Instalar dependências de embeddings se necessário (ex: `@langchain/openai` para `OpenAIEmbeddings`).
 - [ ] Criar script `backend/src/scripts/seed-knowledge.ts`.
 - [ ] Implementar lógica de chunking (divisão dos documentos em partes menores).
