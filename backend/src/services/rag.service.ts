@@ -2,7 +2,7 @@
  * RagService — Card 13: Implementação da RAG Chain
  *
  * Serviço que implementa o pipeline RAG completo:
- *   Query → Embeddings → Busca Vetorial → Montagem de Contexto → LLM → Resposta
+ *   Query → Embeddings → Busca Vetorial → Montagem de Contexto → LLM → Guardrails → Resposta
  *
  * Diretrizes de segurança aplicadas:
  * - Temperature 0.0 (determinístico, sem criatividade em preços/prazos)
@@ -10,6 +10,7 @@
  * - No Math Policy (codificada no prompt)
  * - Prompt Injection Guard (pergunta isolada como variável)
  * - Context Transparency (retorna IDs dos documentos usados)
+ * - Guardrails (Card 18): Validação anti-alucinação de preços e escopo
  */
 
 import { prisma } from '../config/prisma';
@@ -22,7 +23,9 @@ import {
   HumanMessagePromptTemplate,
 } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+import { Document } from '@langchain/core/documents';
 import { RAG_SYSTEM_PROMPT, RAG_HUMAN_PROMPT } from './rag-template';
+import { guardrailsService } from './guardrails.service';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -40,6 +43,7 @@ interface RetrievedDocument {
 export interface RagQueryResult {
   answer: string;
   sourceDocuments: Array<{ id: string; similaridade: number }>;
+  guardrailApplied?: boolean;
 }
 
 // --- Configurações ---
@@ -173,21 +177,41 @@ export class RagService {
 
     // 5. Executar a chain (Prompt → LLM → Parser)
     console.log('\n📤 Prompt final montado. Enviando para o LLM...');
-    const answer = await this.chain.invoke({
+    const rawAnswer = await this.chain.invoke({
       context,
       question,
     });
 
-    console.log(`💬 Resposta: "${answer}"`);
+    console.log(`💬 Resposta bruta do LLM: "${rawAnswer}"`);
+
+    // 6. Guardrails (Card 18): Validar resposta contra documentos recuperados
+    const langchainDocs = documents.map(
+      (doc) => new Document({ pageContent: doc.conteudo, metadata: { id: doc.id } })
+    );
+    const validation = guardrailsService.validateResponse(rawAnswer, langchainDocs);
+
+    let finalAnswer = rawAnswer;
+    let guardrailApplied = false;
+
+    if (!validation.isValid) {
+      console.warn(`🛡️ [Guardrails] Resposta bloqueada: ${validation.reason}`);
+      finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
+      guardrailApplied = true;
+    } else {
+      console.log('✅ [Guardrails] Resposta validada com sucesso.');
+    }
+
+    console.log(`💬 Resposta final: "${finalAnswer}"`);
     console.log('================================\n');
 
-    // 6. Retornar resposta + source documents para auditoria
+    // 7. Retornar resposta + source documents para auditoria
     return {
-      answer,
+      answer: finalAnswer,
       sourceDocuments: documents.map((doc) => ({
         id: doc.id,
         similaridade: Number(doc.similaridade),
       })),
+      guardrailApplied,
     };
   }
 }
