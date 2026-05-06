@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts"
+    "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",
+    "test:rag": "ts-node-dev src/scripts/test-rag.ts"
   },
   "keywords": [],
   "author": "",
