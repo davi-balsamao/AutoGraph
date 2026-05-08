@@ -19,22 +19,14 @@ Implementar a inteligência do negócio. O LangChain atuará como o motor princi
 - [ ] Bot RAG respondendo dúvidas complexas com precisão (zero alucinações de preço).
 - [ ] Pipeline de Extração: IA capta as entidades (Tamanho, Cor, Quantidade, Arquivo) e cadastra a OS no PostgreSQL.
 
-# Milestone 3: Semana 3 - UX e Tempo Real (Flutter + FCM)
+# Milestone 3: Semana 3 - MVP (Flutter Admin & Handover Inteligente)
 ## 🎯 Objetivo da Semana
-Dar vida às interfaces e garantir a reatividade. O App consumirá a API e o gestor da gráfica não precisará atualizar a tela para ver um novo pedido: o sistema avisará via Push Notification.
+Adaptar a estratégia para a entrega do dia 13/05. O app Flutter será focado exclusivamente no uso interno (Recepcionista) como um Dashboard de gestão das Ordens de Serviço pré-criadas pela IA. O fluxo de fechamento será via "Cópia de Mensagem" para o WhatsApp secundário da gráfica (Workaround de 2 números), eliminando a complexidade de WebSockets.
 
 ### 📌 Entregáveis (Definition of Done)
-- [ ] Tela do **Cliente** funcional (Login via OTP/Senha Fixa e visualização do status da sua OS).
-- [ ] Tela do **Fornecedor/Gerente** funcional (Dashboard com fila de OS e mudança de status).
-- [ ] Configuração do Firebase Cloud Messaging (FCM) no Backend (Emissor) e Frontend (Receptor).
-- [ ] Gatilho de Notificação: Banco salva nova OS -> Node.js dispara FCM -> Celular do Fornecedor recebe o alerta em < 2 segundos.
-
-# Milestone 4: Semana 4 - Refinamento, Borda e Pitch
-## 🎯 Objetivo da Semana
-Blindar a aplicação contra erros do usuário, tratar arquivos pesados (comum em gráficas) e empacotar o projeto para a apresentação final (Demo).
-
-### 📌 Entregáveis (Definition of Done)
-- [ ] Tratamento de Casos de Borda: Bot lida corretamente com envio de imagens e PDFs (extrai a URL do Zap e salva em Storage).
-- [ ] Documentação da API finalizada (Swagger ou coleção Postman com todos os endpoints).
-- [ ] Revisão de Código e unificação final no branch `main` do GitHub.
-- [ ] Preparação da Demo (10 minutos): Ensaio do fluxo ponta a ponta (Cliente chama no Zap -> Orça -> App Notifica -> Gerente finaliza).
+- [ ] IA finaliza a triagem sozinha, gera o resumo da OS e encerra sua participação enviando a mensagem de transbordo ("nossa equipe entrará em contato").
+- [ ] Endpoint `GET /api/os/{id}/mensagens` criado para fornecer o histórico auditável da triagem.
+- [ ] App Flutter operando como Dashboard Admin (Login da Recepcionista, Lista de Novas OS).
+- [ ] Tela de Detalhes da OS no Flutter contendo: Dados extraídos, Histórico Somente Leitura e Botão "Copiar Mensagem".
+- [ ] Deploy do Backend (ex: Render/VPS) e Banco de Dados rodando em nuvem para a apresentação final.
+- [ ] Teste Ponta-a-Ponta validando o "Caminho Feliz" completo para a banca avaliadora.
