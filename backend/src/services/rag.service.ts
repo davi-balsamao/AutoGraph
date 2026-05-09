@@ -52,7 +52,7 @@ export interface RagQueryResult {
 const TOP_K = 4;
 
 /** Score mínimo de similaridade. Documentos abaixo disso são descartados. */
-const MIN_SIMILARITY_SCORE = 0.75;
+const MIN_SIMILARITY_SCORE = 0.60;
 
 /** Resposta padrão quando não há contexto suficiente. */
 const FALLBACK_RESPONSE = 'Não tenho essa informação no momento.';
@@ -76,6 +76,7 @@ export class RagService {
       temperature: 0.0,
       model: process.env.LLM_MODEL || 'gemini-2.0-flash',
       apiKey: process.env.GOOGLE_API_KEY,
+      maxRetries: 0, // Falha rapidamente se houver erro de limite (429) em vez de travar o RAG
     });
 
     // Monta a RunnableSequence: Retriever → Prompt → LLM → Parser
@@ -117,6 +118,9 @@ export class RagService {
     const filteredResults = results.filter(
       (doc) => Number(doc.similaridade) >= MIN_SIMILARITY_SCORE
     );
+
+    console.log(`[DEBUG RAG] Top ${TOP_K} documentos do DB antes do filtro:`);
+    results.forEach((d, i) => console.log(`   -> Doc ${i + 1} score: ${Number(d.similaridade).toFixed(4)}`));
 
     return filteredResults;
   }
@@ -185,6 +189,14 @@ export class RagService {
     if (conversationHistory) {
       fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
     }
+
+    // Injetar horário para saudação correta
+    const hour = new Date().getHours();
+    let greeting = 'Bom dia';
+    if (hour >= 12 && hour < 18) greeting = 'Boa tarde';
+    else if (hour >= 18 || hour < 5) greeting = 'Boa noite';
+
+    fullContext += `\n\n[DIRETRIZ DE SAUDAÇÃO]: Nunca use um "Olá!" genérico ou robótico. Use "${greeting}," de forma natural e amigável, seguido de um "tudo bem?".`;
 
     const rawAnswer = await this.chain.invoke({
       context: fullContext,

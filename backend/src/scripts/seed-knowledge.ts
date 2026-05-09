@@ -22,7 +22,8 @@ async function main() {
   });
 
   // Ler o mock do catálogo
-  const catalogoPath = path.join(__dirname, '../../data/catalogo.json');
+  const dataDir = path.join(__dirname, '../../data');
+  const catalogoPath = path.join(dataDir, 'catalogo.json');
   if (!fs.existsSync(catalogoPath)) {
     console.error(`ERRO: Arquivo de catálogo não encontrado em ${catalogoPath}`);
     process.exit(1);
@@ -42,6 +43,19 @@ async function main() {
       textoParaChunking += `- ${req}\n`;
     }
     textoParaChunking += `\n`;
+  }
+
+  // Ler dinamicamente todos os arquivos .md (Guias técnicos, regras, etc.)
+  const files = fs.readdirSync(dataDir);
+  const mdFiles = files.filter(f => f.endsWith('.md'));
+  
+  for (const mdFile of mdFiles) {
+    console.log(`Lendo arquivo de contexto adicional: ${mdFile}`);
+    const mdPath = path.join(dataDir, mdFile);
+    const mdContent = fs.readFileSync(mdPath, 'utf8');
+    textoParaChunking += `\n\n--- INÍCIO DO ARQUIVO: ${mdFile} ---\n`;
+    textoParaChunking += mdContent;
+    textoParaChunking += `\n--- FIM DO ARQUIVO: ${mdFile} ---\n`;
   }
 
   // Dividir o texto em chunks (pedaços menores)

@@ -1,0 +1,84 @@
+{
+    "cartao_visita": {
+        "papeis_permitidos": [
+            "couche_300g"
+        ],
+        "acabamentos_permitidos": [
+            "laminacao_fosca",
+            "verniz_localizado",
+            "verniz_uv_total",
+            "refile"
+        ],
+        "entidades_obrigatorias": [
+            "arte_pronta",
+            "quantidade",
+            "lados_impressao",
+            "acabamentos_desejados"
+        ]
+    },
+    "panfleto": {
+        "papeis_permitidos": [
+            "couche_90g",
+            "couche_115g"
+        ],
+        "acabamentos_permitidos": [
+            "refile",
+            "dobra"
+        ],
+        "entidades_obrigatorias": [
+            "arte_pronta",
+            "quantidade",
+            "tamanho",
+            "lados_impressao"
+        ]
+    },
+    "bloco": {
+        "papeis_permitidos": [
+            "papel_autocopiativo",
+            "offset_75g",
+            "offset_90g"
+        ],
+        "acabamentos_permitidos": [
+            "refile"
+        ],
+        "entidades_obrigatorias": [
+            "arte_pronta",
+            "quantidade",
+            "tamanho_bloco",
+            "quantidade_vias",
+            "tipo_papel",
+            "cor_impressao",
+            "numerado"
+        ]
+    },
+    "banner_lona": {
+        "papeis_permitidos": [
+            "lona"
+        ],
+        "acabamentos_permitidos": [
+            "ilhos_bainha",
+            "madeira_corda"
+        ],
+        "entidades_obrigatorias": [
+            "arte_pronta",
+            "tamanho"
+        ]
+    },
+    "apostila": {
+        "papeis_permitidos": [
+            "offset_75g",
+            "offset_90g"
+        ],
+        "acabamentos_permitidos": [
+            "wire_o_espiral",
+            "refile"
+        ],
+        "entidades_obrigatorias": [
+            "tamanho",
+            "quantidade_paginas",
+            "lados_impressao",
+            "cor_impressao",
+            "tipo_encadernacao"
+        ]
+    }
+}
