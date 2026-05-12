@@ -49,6 +49,7 @@ export interface PedidoEntities {
 
 export class EntityExtractionService {
   private catalogo: CatalogItem[];
+  private regrasTecnicas: Record<string, any> = {};
 
   constructor() {
     const catalogoPath = path.join(__dirname, '../../data/catalogo.json');
@@ -58,6 +59,14 @@ export class EntityExtractionService {
     } else {
       console.warn('⚠️ [EntityExtraction] catalogo.json não encontrado. Extração desabilitada.');
       this.catalogo = [];
+    }
+
+    const regrasPath = path.join(__dirname, '../../data/catalogo_produtos.json');
+    if (fs.existsSync(regrasPath)) {
+      const rawRegras = fs.readFileSync(regrasPath, 'utf8');
+      this.regrasTecnicas = JSON.parse(rawRegras);
+    } else {
+      console.warn('⚠️ [EntityExtraction] catalogo_produtos.json não encontrado.');
     }
   }
 
@@ -262,6 +271,13 @@ export class EntityExtractionService {
       (i) => i.produto.toLowerCase() === productName.toLowerCase()
     );
     return item ? item.requisitos_orcamento : null;
+  }
+
+  /**
+   * Retorna as regras técnicas estritas para validação avançada, baseada no catalogo_produtos.json
+   */
+  getRegrasTecnicas(productNameKey: string): any | null {
+    return this.regrasTecnicas[productNameKey] || null;
   }
 }
 

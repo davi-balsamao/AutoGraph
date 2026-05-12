@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 export class WhatsAppService {
   /**
    * Envia uma mensagem via WhatsApp Cloud API.
@@ -5,49 +7,40 @@ export class WhatsAppService {
    * @param message Conteúdo da mensagem
    */
   async sendMessage(to: string, message: string): Promise<void> {
-    if (process.env.USE_MOCK_WHATSAPP === 'true') {
+    const isMock = process.env.USE_MOCK_WHATSAPP === 'true';
+
+    if (isMock) {
       console.log(`[MOCK WPP] Mensagem enviada para ${to}: ${message}`);
       return;
     }
 
-    const token = process.env.WA_ACCESS_TOKEN;
-    const phoneId = process.env.WA_PHONE_NUMBER_ID;
-    const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
-
-    // Limpeza radical: mantém APENAS os números.
-    // Isso garante que não vá nenhum "+" ou espaço que a Meta possa rejeitar.
-    const numeroLimpo = to.replace(/\D/g, '');
-
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: numeroLimpo, // Enviando o número com 13 dígitos (com o 9)
-          type: 'text',
-          text: {
-            preview_url: false,
-            body: message
-          }
-        })
-      });
+      const token = process.env.WA_ACCESS_TOKEN;
+      const phoneId = process.env.WA_PHONE_NUMBER_ID;
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ [ERRO META API]:', JSON.stringify(data, null, 2));
-        throw new Error(`A Meta recusou a mensagem: ${response.statusText}`);
+      if (!token || !phoneId) {
+        throw new Error('As variáveis WA_ACCESS_TOKEN e WA_PHONE_NUMBER_ID não foram encontradas no ambiente.');
       }
 
-      console.log(`✅ [WPP REAL] Mensagem entregue para a Meta: ${numeroLimpo}`);
-      
-    } catch (error) {
-      console.error(`❌ Falha no envio para ${to}:`, error);
+      await axios.post(
+        `https://graph.facebook.com/v17.0/${phoneId}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          to: to,
+          type: 'text',
+          text: { body: message },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log(`✅ [WPP REAL] Mensagem entregue para a Meta: ${to}`);
+    } catch (error: any) {
+      console.error('❌ Erro ao enviar mensagem para a Meta:', error.response?.data || error.message);
       throw error;
     }
   }

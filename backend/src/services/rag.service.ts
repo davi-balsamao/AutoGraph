@@ -1,6 +1,5 @@
 import { prisma } from '../config/prisma';
-import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
-import { ChatGroq } from '@langchain/groq';
+import { GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { RunnableSequence } from '@langchain/core/runnables';
 import {
   ChatPromptTemplate,
@@ -28,12 +27,16 @@ export interface RagQueryResult {
 }
 
 const TOP_K = 4;
+
+/** Score mínimo de similaridade. Documentos abaixo disso são descartados. */
 const MIN_SIMILARITY_SCORE = 0.75;
+
+/** Resposta padrão quando não há contexto suficiente. */
 const FALLBACK_RESPONSE = 'Não tenho essa informação no momento.';
 
 export class RagService {
   private embeddings: GoogleGenerativeAIEmbeddings;
-  private llm: ChatGroq;
+  private llm: ChatGoogleGenerativeAI;
   private chain: RunnableSequence;
 
   constructor() {
@@ -42,10 +45,11 @@ export class RagService {
       apiKey: process.env.GOOGLE_API_KEY,
     });
 
-    this.llm = new ChatGroq({
-      temperature: 0,
-      model: "llama-3.1-8b-instant",
-      apiKey: process.env.GROQ_API_KEY as string, 
+    // LLM — Temperature 0.0 (determinístico, conforme regras de triagem)
+    this.llm = new ChatGoogleGenerativeAI({
+      temperature: 0.0,
+      model: process.env.LLM_MODEL || 'gemini-2.0-flash',
+      apiKey: process.env.GOOGLE_API_KEY,
     });
 
     const prompt = ChatPromptTemplate.fromMessages([
@@ -71,9 +75,17 @@ export class RagService {
       LIMIT ${TOP_K}
     `;
 
-    return results.filter((doc) => Number(doc.similaridade) >= MIN_SIMILARITY_SCORE);
+    // Filtrar por threshold de similaridade mínima
+    const filteredResults = results.filter(
+      (doc) => Number(doc.similaridade) >= MIN_SIMILARITY_SCORE
+    );
+
+    return filteredResults;
   }
 
+  /**
+   * Executa o pipeline RAG completo.
+   */
   async query(question: string, conversationHistory?: string): Promise<RagQueryResult> {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
@@ -90,6 +102,9 @@ export class RagService {
         .map((doc, i) => `--- Documento ${i + 1} (ID: ${doc.id}) ---\n${doc.conteudo}`)
         .join('\n\n');
 
+      console.log('\n📤 Prompt final montado. Enviando para o LLM...');
+
+      // Montar contexto com histórico de conversa
       let fullContext = context;
       if (conversationHistory) {
         fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
@@ -152,12 +167,10 @@ NÃO adicione introduções como "Aqui está a mensagem". Retorne APENAS o texto
 Histórico da conversa:
 ${historico}`;
 
-      // Invoca o LLM direto sem o RAG, se for penas um resumo de texto
       const response = await this.llm.invoke([{ role: 'user', content: prompt }]);
       return response.content.toString().trim();
     } catch (error) {
       console.error('❌ Erro ao gerar mensagem sugerida:', error);
-      // Fallback de segurança se a IA falhar
       return `Olá ${nomeCliente}, recebemos as especificações do seu pedido de ${especificacoes.produto}. O valor fica R$ ____.`;
     }
   }

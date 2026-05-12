@@ -51,6 +51,8 @@ function buildPayload(from: string, name: string, text: string) {
   };
 }
 
+import { prisma } from '../config/prisma';
+
 async function sendMessage(from: string, name: string, text: string) {
   console.log(`\n📤 [${name}] → "${text}"`);
 
@@ -60,7 +62,6 @@ async function sendMessage(from: string, name: string, text: string) {
   const signature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(bodyString).digest('hex');
 
   try {
-    // Realiza requisição HTTP para o webhook em vez de bypassar
     const res = await fetch(`${BASE_URL}/webhook`, {
       method: 'POST',
       headers: {
@@ -69,13 +70,34 @@ async function sendMessage(from: string, name: string, text: string) {
       },
       body: bodyString,
     });
-    
+
     if (res.ok) {
-       console.log('   ✅ Requisição aceita (200 OK) pelo Webhook. Assinatura validada.');
-       // Aguarda um momento para permitir o processamento assíncrono antes do próximo teste
-       await new Promise(resolve => setTimeout(resolve, 3000));
+      console.log('   ✅ Requisição enviada. Webhook (200 OK).');
+
+      // Aguarda processamento da IA
+      process.stdout.write('   ⏳ Aguardando IA pensar e responder...');
+      await new Promise(resolve => setTimeout(resolve, 12000));
+      console.log(' Concluído.');
+
+      // Busca a resposta do BOT no banco de dados para mostrar no terminal
+      const cliente = await prisma.usuario.findFirst({ where: { telefone: from } });
+      if (cliente) {
+        const lastMsg = await prisma.mensagens.findFirst({
+          where: { usuarioId: cliente.id, origem: 'BOT' },
+          orderBy: { criadoEm: 'desc' }
+        });
+
+        if (lastMsg) {
+          const msgPayload = lastMsg.payload as any;
+          const botText = msgPayload.text?.body || msgPayload.text || JSON.stringify(msgPayload);
+          console.log(`\n   🤖 [Assistente]: "${botText}"\n`);
+        } else {
+          console.log(`\n   ⚠️ [Assistente]: (Nenhuma resposta foi salva no banco ainda)\n`);
+        }
+      }
+
     } else {
-       console.log(`   ❌ Erro HTTP ${res.status}: Requisição rejeitada pelo Webhook.`);
+      console.log(`   ❌ Erro HTTP ${res.status}: Requisição rejeitada pelo Webhook.`);
     }
   } catch (err: any) {
     console.log(`   ⚠️ Erro de conexão com o servidor:`, err.message);
@@ -92,10 +114,28 @@ async function main() {
   await sendMessage('5531999990001', 'Davi Teste', 'Oi, quero fazer cartão de visita');
 
   // Teste 2: Pergunta fora do escopo
-  await sendMessage('5531999990002', 'Maria Teste', 'Qual a previsão do tempo?');
+  await sendMessage('5531999990002', 'Maria Teste', 'Consegue me explicar o que é sangria?');
 
   // Teste 3: Produto que existe (Banner)
-  await sendMessage('5531999990003', 'João Teste', 'Preciso de um banner grande para minha loja');
+  await sendMessage('5531999990003', 'João Teste', 'Qual a diferença entre o Verniz localizado e o total?');
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  console.log('\n============================================');
+  console.log('  TESTE 4: Conversa Multi-Turno (Card 17)');
+  console.log('============================================');
+  const numeroMultiTurno = '5531999990004';
+  const nomeMultiTurno = 'Ana Multi-turno';
+
+  // Turno 1: Cliente inicia
+  await sendMessage(numeroMultiTurno, nomeMultiTurno, 'Quero fazer 1000 panfletos');
+  await new Promise(resolve => setTimeout(resolve, 8000)); // Aguarda processamento
+
+  // Turno 2: Cliente responde uma pergunta da IA (ex: tamanho)
+  await sendMessage(numeroMultiTurno, nomeMultiTurno, 'O tamanho vai ser 10x15cm, só frente.');
+  await new Promise(resolve => setTimeout(resolve, 8000));
+
+  // Turno 3: Cliente finaliza com a arte
+  await sendMessage(numeroMultiTurno, nomeMultiTurno, 'Sim, eu já tenho a arte pronta no Canva.');
 
   console.log('\n============================================');
   console.log('  Testes concluídos! Verifique os logs do servidor.');

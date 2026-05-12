@@ -97,19 +97,21 @@ const testCases: TestCase[] = [
   {
     categoria: '🎯 Precisão',
     descricao:
-      'Pergunta sobre preço de cartões de visita deve coincidir 100% com o banco',
+      'Pergunta sobre preço de cartões de visita não deve gerar valor monetário',
     pergunta: 'Qual o preço de 1000 cartões de visita em papel couchê?',
     validacao: (result) => {
       const textoLower = result.answer.toLowerCase();
-      // Catálogo: Cartão Couchê 250g = R$ 65,00 ou Couchê 300g c/ verniz = R$ 120,00
-      const temPrecoCorreto =
-        textoLower.includes('65') || textoLower.includes('120');
-      const temDocumentos = result.sourceDocuments.length > 0;
+      // A IA não deve informar preço, deve avisar que a recepcionista fará o orçamento
+      const temPreco =
+        textoLower.includes('r$') || textoLower.match(/\d+,\d{2}/) || textoLower.includes('reais');
+      const avisaRecepcionista =
+        textoLower.includes('recepcionista') || textoLower.includes('comercial') || textoLower.includes('orçamento');
+      
       return {
-        passou: temPrecoCorreto && temDocumentos,
-        motivo: temPrecoCorreto
-          ? `OK — Preço correto encontrado na resposta. ${result.sourceDocuments.length} doc(s).`
-          : `FALHA — Preço esperado (R$ 65,00 ou R$ 120,00) não encontrado: "${result.answer.substring(0, 150)}..."`,
+        passou: !temPreco && avisaRecepcionista,
+        motivo: (!temPreco && avisaRecepcionista)
+          ? `OK — A IA recusou dar preço e direcionou para orçamento. ${result.sourceDocuments.length} doc(s).`
+          : `FALHA — A IA pode ter dado um preço ou não avisou sobre o orçamento: "${result.answer.substring(0, 150)}..."`,
       };
     },
   },
