@@ -5,6 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import webhookRoutes from './routes/webhook.routes';
 import osRoutes from './routes/os.routes';
+import authRoutes from './routes/auth.routes';
 
 try {
   const envPath = path.resolve(process.cwd(), '.env');
@@ -43,6 +44,9 @@ app.use(webhookRoutes);
 
 // Rotas da OS
 app.use('/api/os', osRoutes); 
+
+// Rotas de autenticação
+app.use('/api/auth', authRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

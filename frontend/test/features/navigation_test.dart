@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:autograph/core/routes/app_routes.dart';
 import 'package:autograph/features/auth/presentation/login_screen.dart';
 import 'package:autograph/features/os_cliente/presentation/client_history_screen.dart';
@@ -13,27 +14,33 @@ Widget _buildTestApp() {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('Navegação — LoginScreen', () {
     testWidgets('renderiza LoginScreen na rota inicial', (tester) async {
       await tester.pumpWidget(_buildTestApp());
       expect(find.byType(LoginScreen), findsOneWidget);
     });
 
-    testWidgets('botão "Entrar como Cliente" navega para ClientHistoryScreen',
-        (tester) async {
+    testWidgets('login como Cliente navega para ClientHistoryScreen', (tester) async {
       await tester.pumpWidget(_buildTestApp());
 
-      await tester.tap(find.byKey(const Key('btn_login_as_client')));
+      await tester.enterText(find.byKey(const Key('field_email')), 'cliente@test.com');
+      await tester.enterText(find.byKey(const Key('field_senha')), '1234');
+      await tester.tap(find.byKey(const Key('btn_login')));
       await tester.pumpAndSettle();
 
       expect(find.byType(ClientHistoryScreen), findsOneWidget);
     });
 
-    testWidgets('botão "Entrar como Admin" navega para AdminDashboardScreen',
-        (tester) async {
+    testWidgets('login como Admin navega para AdminDashboardScreen', (tester) async {
       await tester.pumpWidget(_buildTestApp());
 
-      await tester.tap(find.byKey(const Key('btn_login_as_admin')));
+      await tester.enterText(find.byKey(const Key('field_email')), 'admin@autograph.com');
+      await tester.enterText(find.byKey(const Key('field_senha')), 'admin123');
+      await tester.tap(find.byKey(const Key('btn_login')));
       await tester.pumpAndSettle();
 
       expect(find.byType(AdminDashboardScreen), findsOneWidget);
@@ -41,8 +48,7 @@ void main() {
   });
 
   group('Navegação — Fallback 404', () {
-    testWidgets('rota não mapeada exibe tela 404 com botão de retorno',
-        (tester) async {
+    testWidgets('rota não mapeada exibe tela 404 com botão de retorno', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,

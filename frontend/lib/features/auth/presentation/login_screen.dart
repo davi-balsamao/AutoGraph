@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
 
@@ -10,99 +11,106 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _isLoadingClient = false;
-  bool _isLoadingAdmin = false;
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  final _senhaCtrl = TextEditingController();
+  bool _isLoading = false;
+  bool _obscureSenha = true;
 
-  Future<void> _simulateLogin(bool isAdmin) async {
-    setState(() {
-      if (isAdmin) _isLoadingAdmin = true;
-      else _isLoadingClient = true;
-    });
-
-    try {
-      // Simulate HTTP call
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // Simulate an arbitrary random error (e.g. 20% chance) just for testing if needed
-      // but let's just make it succeed to proceed, we will use a separate button to force error or just show success
-      
-      if (!mounted) return;
-      
-      Navigator.pushNamed(
-        context,
-        isAdmin ? AppRoutes.adminDashboard : AppRoutes.clientHistory,
-      );
-    } catch (e) {
-      if (mounted) {
-        SnackbarUtil.showError(context, 'Erro ao fazer login: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          if (isAdmin) _isLoadingAdmin = false;
-          else _isLoadingClient = false;
-        });
-      }
-    }
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _senhaCtrl.dispose();
+    super.dispose();
   }
 
-  Future<void> _simulateError() async {
-    setState(() {
-      _isLoadingClient = true;
-    });
+  Future<void> _doLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
     try {
-      await Future.delayed(const Duration(seconds: 1));
-      throw Exception('Falha na API');
+      final user = await AuthService().login(_emailCtrl.text.trim(), _senhaCtrl.text);
+      if (!mounted) return;
+      if (user.isAdmin) {
+        Navigator.pushReplacementNamed(context, AppRoutes.adminDashboard);
+      } else {
+        Navigator.pushReplacementNamed(context, AppRoutes.clientHistory);
+      }
+    } on AuthException catch (e) {
+      if (mounted) SnackbarUtil.showError(context, e.message);
     } catch (e) {
-      if (mounted) {
-        SnackbarUtil.showError(context, 'Erro ao conectar com servidor (Simulado)');
-      }
+      if (mounted) SnackbarUtil.showError(context, 'Erro inesperado: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingClient = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Login — AutoGraph')),
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Login', style: TextStyle(fontSize: 24)),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              key: const Key('btn_login_as_client'),
-              onPressed: (_isLoadingClient || _isLoadingAdmin) 
-                  ? null 
-                  : () => _simulateLogin(false),
-              child: _isLoadingClient && !_isLoadingAdmin
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Entrar como Cliente'),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.print_rounded, size: 72, color: theme.colorScheme.primary),
+                const SizedBox(height: 12),
+                Text('AutoGraph', style: theme.textTheme.displayLarge?.copyWith(color: theme.colorScheme.primary)),
+                const SizedBox(height: 4),
+                Text('Gestão Inteligente para Gráficas', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 40),
+                TextFormField(
+                  key: const Key('field_email'),
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'E-mail', prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder()),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Informe o e-mail';
+                    if (!v.contains('@')) return 'E-mail inválido';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const Key('field_senha'),
+                  controller: _senhaCtrl,
+                  obscureText: _obscureSenha,
+                  decoration: InputDecoration(
+                    labelText: 'Senha', prefixIcon: const Icon(Icons.lock_outline), border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(key: const Key('btn_toggle_senha'), icon: Icon(_obscureSenha ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _obscureSenha = !_obscureSenha)),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Informe a senha';
+                    if (v.length < 4) return 'Mínimo 4 caracteres';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity, height: 48,
+                  child: ElevatedButton(
+                    key: const Key('btn_login'),
+                    onPressed: _isLoading ? null : _doLogin,
+                    child: _isLoading ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Entrar'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: theme.colorScheme.primary.withAlpha(25), borderRadius: BorderRadius.circular(8)),
+                  child: const Column(children: [
+                    Text('Credenciais de teste:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 4),
+                    Text('Admin: admin@autograph.com / admin123'),
+                    Text('Cliente: qualquer e-mail / senha >= 4 chars'),
+                  ]),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              key: const Key('btn_login_as_admin'),
-              onPressed: (_isLoadingClient || _isLoadingAdmin) 
-                  ? null 
-                  : () => _simulateLogin(true),
-              child: _isLoadingAdmin
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Entrar como Admin'),
-            ),
-            const SizedBox(height: 32),
-            TextButton(
-              onPressed: (_isLoadingClient || _isLoadingAdmin) 
-                  ? null 
-                  : _simulateError,
-              child: const Text('Testar Erro de API', style: TextStyle(color: Colors.red)),
-            )
-          ],
+          ),
         ),
       ),
     );

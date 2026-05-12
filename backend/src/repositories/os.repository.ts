@@ -33,4 +33,31 @@ export class OsRepository {
       data: { status }
     });
   }
+
+  // Inicia o timer de produção
+  async startTimer(id: string) {
+    return prisma.ordensDeServico.update({
+      where: { id },
+      data: { timerStartedAt: new Date(), timerEndedAt: null }
+    });
+  }
+
+  // Para o timer e calcula duração total
+  async stopTimer(id: string) {
+    const os = await prisma.ordensDeServico.findUnique({ where: { id } });
+    if (!os || !os.timerStartedAt) throw new Error('Timer não iniciado.');
+
+    const now = new Date();
+    const elapsed = Math.floor((now.getTime() - os.timerStartedAt.getTime()) / 1000);
+    const totalDuration = os.durationSeconds + elapsed;
+
+    return prisma.ordensDeServico.update({
+      where: { id },
+      data: {
+        timerEndedAt: now,
+        durationSeconds: totalDuration,
+        timerStartedAt: null,
+      }
+    });
+  }
 }
