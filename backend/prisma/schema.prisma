@@ -44,15 +44,16 @@ model Usuario {
 }
 
 model OrdensDeServico {
-  id             String   @id @default(uuid())
-  clienteId      String
-  status         StatusOS @default(CRIADA)
-  especificacoes Json
-  criadoEm       DateTime @default(now())
-  atualizadoEm   DateTime @updatedAt
+  id                String   @id @default(uuid())
+  clienteId         String
+  status            StatusOS @default(CRIADA)
+  especificacoes    Json
+  mensagem_sugerida String?  // <-- NOVO CAMPO ADICIONADO (Opcional)
+  criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
 
-  cliente        Usuario  @relation(fields: [clienteId], references: [id])
-  mensagens      Mensagens[]
+  cliente           Usuario  @relation(fields: [clienteId], references: [id])
+  mensagens         Mensagens[]
 }
 
 model Mensagens {

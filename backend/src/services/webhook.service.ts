@@ -57,7 +57,7 @@ export class WebhookService {
       });
       console.log(`💾 Mensagem salva no banco para o cliente ${cliente.nome}`);
 
-      // 3. Recuperar histórico de conversa (Card 17)
+      // 3. Recuperar histórico de conversa
       const conversationHistory = await conversationService.getFormattedHistory(cliente.id);
       if (conversationHistory) {
         console.log(`📜 Histórico recuperado (${conversationHistory.split('\n').length} turnos)`);
@@ -79,7 +79,7 @@ export class WebhookService {
         aiResponse = FALLBACK_MESSAGE;
       }
 
-      // 5. Extração de Entidades (Card 15) — verifica se o pedido está completo
+      // 5. Extração de Entidades, verifica se o pedido está completo
       const fullHistory = conversationHistory
         ? `${conversationHistory}\nCliente: ${messageData.text}\nAssistente: ${aiResponse}`
         : `Cliente: ${messageData.text}\nAssistente: ${aiResponse}`;
@@ -91,7 +91,7 @@ export class WebhookService {
         console.log(`   Completo: ${entities.completo ? '✅ SIM' : `❌ NÃO (faltam ${entities.perguntasFaltantes.length})`}`);
       }
 
-      // 6. Se pedido completo → Criar OS (Card 16)
+      // 6. Se pedido completo → Criar OS
       if (entities.completo && entities.produtoIdentificado) {
         console.log('🎯 Pedido completo! Criando Ordem de Serviço...');
 
@@ -103,10 +103,19 @@ export class WebhookService {
           })),
         };
 
+        console.log('🤖 Gerando mensagem sugerida para a recepcionista...');
+        const mensagemSugerida = await ragService.generateSuggestedMessage(
+          cliente.nome,
+          especificacoes,
+          fullHistory
+        );
+        console.log(`📝 Mensagem gerada: "${mensagemSugerida}"`);
+
         const os = await osRepo.create({
           clienteId: cliente.id,
           especificacoes,
-        });
+          mensagem_sugerida: mensagemSugerida,
+        } as any);
 
         console.log(`📋 OS #${os.id} criada com status AGUARDANDO_ORCAMENTO`);
 
