@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/models/ordem_servico.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/os_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
 
@@ -65,11 +66,32 @@ class _KanbanTabState extends State<_KanbanTab> {
   final Map<StatusOS, List<OrdemServico>> _columns = {};
   final Map<String, Timer?> _timers = {};
   final Map<String, int> _elapsed = {};
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadMockData();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final ordens = await OsService().fetchOrdensServico();
+      if (!mounted) return;
+      _columns.clear();
+      for (final s in StatusOS.values) {
+        _columns[s] = ordens.where((o) => o.status == s).toList();
+      }
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -78,20 +100,6 @@ class _KanbanTabState extends State<_KanbanTab> {
       t?.cancel();
     }
     super.dispose();
-  }
-
-  void _loadMockData() {
-    final now = DateTime.now();
-    final mockOrdens = [
-      OrdemServico(id: 'os-001', clienteId: 'c1', status: StatusOS.aguardandoOrcamento, especificacoes: {'produto': 'Panfletos', 'requisitos': [{'pergunta': 'Quantidade', 'resposta': '500 unidades'}]}, criadoEm: now.subtract(const Duration(days: 2)), atualizadoEm: now, clienteNome: 'João Silva', clienteTelefone: '11999001122'),
-      OrdemServico(id: 'os-002', clienteId: 'c2', status: StatusOS.emProducao, especificacoes: {'produto': 'Cartão de Visita', 'requisitos': [{'pergunta': 'Quantidade', 'resposta': '1000 unidades'}]}, criadoEm: now.subtract(const Duration(days: 1)), atualizadoEm: now, clienteNome: 'Maria Souza', clienteTelefone: '11999003344'),
-      OrdemServico(id: 'os-003', clienteId: 'c3', status: StatusOS.criada, especificacoes: {'produto': 'Banner', 'requisitos': [{'pergunta': 'Tamanho', 'resposta': '2x1m'}]}, criadoEm: now, atualizadoEm: now, clienteNome: 'Carlos Lima', clienteTelefone: '11999005566'),
-      OrdemServico(id: 'os-004', clienteId: 'c1', status: StatusOS.prontaParaRetirada, especificacoes: {'produto': 'Apostila', 'requisitos': [{'pergunta': 'Páginas', 'resposta': '50 páginas'}]}, criadoEm: now.subtract(const Duration(days: 5)), atualizadoEm: now, clienteNome: 'João Silva', clienteTelefone: '11999001122'),
-    ];
-    for (final s in StatusOS.values) {
-      _columns[s] = mockOrdens.where((o) => o.status == s).toList();
-    }
-    setState(() {});
   }
 
   void _moveOS(OrdemServico os, StatusOS newStatus) {
@@ -126,22 +134,51 @@ class _KanbanTabState extends State<_KanbanTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading && _columns.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null && _columns.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Erro ao carregar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(_error!),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _fetchData, child: const Text('Tentar novamente')),
+          ],
+        ),
+      );
+    }
+
     final visibleStatuses = [StatusOS.aguardandoOrcamento, StatusOS.emProducao, StatusOS.prontaParaRetirada, StatusOS.entregue];
-    return ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.all(12),
-      children: visibleStatuses.map((status) {
-        final items = _columns[status] ?? [];
-        return _KanbanColumn(
-          status: status,
-          items: items,
-          onAccept: (os) => _moveOS(os, status),
-          onToggleTimer: _toggleTimer,
-          timers: _timers,
-          elapsed: _elapsed,
-          formatDuration: _formatDuration,
-        );
-      }).toList(),
+    return RefreshIndicator(
+      onRefresh: _fetchData,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: true,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(12),
+              children: visibleStatuses.map((status) {
+                final items = _columns[status] ?? [];
+                return _KanbanColumn(
+                  status: status,
+                  items: items,
+                  onAccept: (os) => _moveOS(os, status),
+                  onToggleTimer: _toggleTimer,
+                  timers: _timers,
+                  elapsed: _elapsed,
+                  formatDuration: _formatDuration,
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -253,17 +290,19 @@ class _OSCard extends StatelessWidget {
           child: Text(os.produtoResumo, style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.3, child: _buildCard(theme)),
-      child: _buildCard(theme),
+      childWhenDragging: Opacity(opacity: 0.3, child: _buildCard(context, theme)),
+      child: _buildCard(context, theme),
     );
   }
 
-  Widget _buildCard(ThemeData theme) {
+  Widget _buildCard(BuildContext context, ThemeData theme) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
+      child: InkWell(
+        onTap: () => Navigator.pushNamed(context, AppRoutes.osDetails, arguments: os),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(os.produtoResumo, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -287,6 +326,7 @@ class _OSCard extends StatelessWidget {
             ]),
           ],
         ),
+      ),
       ),
     );
   }
