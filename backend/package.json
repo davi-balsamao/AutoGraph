@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "npx prisma migrate deploy && npm run seed:prod && node dist/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:guardrails": "ts-node-dev src/scripts/test-guardrails.ts",
     "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",
     "test:rag": "ts-node-dev src/scripts/test-rag.ts",
     "test:entities": "ts-node-dev src/scripts/test-entity-extraction.ts",
-    "test:e2e": "ts-node-dev src/scripts/test-e2e-webhook.ts"
+    "test:e2e": "ts-node-dev src/scripts/test-e2e-webhook.ts",
+    "seed:prod": "node dist/scripts/seed-knowledge.js"
   },
   "keywords": [],
   "author": "",
