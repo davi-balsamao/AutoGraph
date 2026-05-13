@@ -29,10 +29,19 @@ export interface RagQueryResult {
 const TOP_K = 4;
 
 /** Score mínimo de similaridade. Documentos abaixo disso são descartados. */
-const MIN_SIMILARITY_SCORE = 0.75;
+const MIN_SIMILARITY_SCORE = 0.55;
 
 /** Resposta padrão quando não há contexto suficiente. */
 const FALLBACK_RESPONSE = 'Não tenho essa informação no momento.';
+
+/**
+ * Remove linhas em branco duplas do output do LLM.
+ * LLMs usam \n\n por padrão (markdown); no WhatsApp isso parece artificial.
+ */
+function stripDoubleNewlines(text: string): string {
+  return text.replace(/\n{2,}/g, '\n').trim();
+}
+
 
 export class RagService {
   private embeddings: GoogleGenerativeAIEmbeddings;
@@ -45,12 +54,13 @@ export class RagService {
       apiKey: process.env.GOOGLE_API_KEY,
     });
 
-    // LLM — Temperature 0.0 (determinístico, conforme regras de triagem)
+    // LLM — Temperature 0.3: naturalidade suficiente sem perder consistência
     this.llm = new ChatGoogleGenerativeAI({
-      temperature: 0.0,
+      temperature: 0.3,
       model: process.env.LLM_MODEL || 'gemini-2.0-flash',
       apiKey: process.env.GOOGLE_API_KEY,
     });
+
 
     const prompt = ChatPromptTemplate.fromMessages([
       SystemMessagePromptTemplate.fromTemplate(RAG_SYSTEM_PROMPT),
@@ -95,6 +105,21 @@ export class RagService {
       const documents = await this.retrieveDocuments(queryEmbedding);
 
       if (documents.length === 0) {
+        // Se existe histórico, o LLM consegue responder usando o contexto da conversa
+        // (ex: cliente diz "Sim" ou "500 unidades" sem precisar de docs da KB)
+        if (conversationHistory) {
+          console.log('⚠️  0 docs relevantes, usando histórico de conversa como contexto.');
+          const contextualAnswer = await this.chain.invoke({
+            context: `## HISTÓRICO DA CONVERSA ATÉ AGORA:\n${conversationHistory}`,
+            question,
+          });
+          const validation = guardrailsService.validateResponse(contextualAnswer, []);
+          const finalAnswer = validation.isValid
+            ? stripDoubleNewlines(contextualAnswer)
+            : (validation.correctedResponse || FALLBACK_RESPONSE);
+          return { answer: finalAnswer, sourceDocuments: [], guardrailApplied: !validation.isValid };
+
+        }
         return { answer: FALLBACK_RESPONSE, sourceDocuments: [] };
       }
 
@@ -121,13 +146,14 @@ export class RagService {
       
       const validation = guardrailsService.validateResponse(rawAnswer, langchainDocs);
 
-      let finalAnswer = rawAnswer;
+      let finalAnswer = stripDoubleNewlines(rawAnswer);
       let guardrailApplied = false;
 
       if (!validation.isValid) {
         finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
         guardrailApplied = true;
       }
+
 
       console.log(`💬 Resposta final: "${finalAnswer}"`);
       return {

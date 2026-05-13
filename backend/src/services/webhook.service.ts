@@ -74,17 +74,22 @@ export class WebhookService {
           console.warn('🛡️ Guardrail foi aplicado na resposta.');
         }
         console.log(`✅ Resposta da IA gerada (${result.sourceDocuments.length} docs usados)`);
+        console.log(`💬 Resposta: "${aiResponse}"`);
+
       } catch (aiError) {
         console.error('❌ Erro no processamento da IA:', aiError);
         aiResponse = FALLBACK_MESSAGE;
       }
 
-      // 5. Extração de Entidades, verifica se o pedido está completo
-      const fullHistory = conversationHistory
-        ? `${conversationHistory}\nCliente: ${messageData.text}\nAssistente: ${aiResponse}`
-        : `Cliente: ${messageData.text}\nAssistente: ${aiResponse}`;
+      // 5. Extração de Entidades — apenas nas falas do CLIENTE, nunca nas da IA
+      // (a IA pode mencionar "10x14cm" como sugestão → não pode ser confundido com resposta do cliente)
+      const linhasCliente = (conversationHistory || '')
+        .split('\n')
+        .filter((linha) => linha.startsWith('Cliente:'))
+        .join('\n');
+      const textoParaExtracao = `${linhasCliente}\nCliente: ${messageData.text}`;
 
-      const entities = entityExtractionService.extract(fullHistory);
+      const entities = entityExtractionService.extract(textoParaExtracao);
 
       if (entities.produtoIdentificado) {
         console.log(`🔍 Produto identificado: ${entities.produtoIdentificado}`);
@@ -107,7 +112,7 @@ export class WebhookService {
         const mensagemSugerida = await ragService.generateSuggestedMessage(
           cliente.nome,
           especificacoes,
-          fullHistory
+          textoParaExtracao
         );
         console.log(`📝 Mensagem gerada: "${mensagemSugerida}"`);
 
@@ -135,7 +140,9 @@ export class WebhookService {
       console.log(`💾 Resposta da IA salva no banco.`);
 
       // 8. Enviar a resposta ao cliente via WhatsApp
+      console.log(`📤 Enviando resposta para ${messageData.from}...`);
       await whatsappService.sendMessage(messageData.from, aiResponse);
+
     } catch (error) {
       console.error('❌ Erro ao processar mensagem do webhook:', error);
 
