@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/os_cliente/presentation/client_history_screen.dart';
 import '../../features/admin_grafica/presentation/admin_dashboard_screen.dart';
+import '../services/auth_service.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
@@ -16,9 +17,17 @@ abstract final class AppRouter {
         return MaterialPageRoute(builder: (_) => const LoginScreen());
 
       case AppRoutes.clientHistory:
+        // AuthGuard: requer login
+        if (!AuthService().isLoggedIn) {
+          return MaterialPageRoute(builder: (_) => const LoginScreen());
+        }
         return MaterialPageRoute(builder: (_) => const ClientHistoryScreen());
 
       case AppRoutes.adminDashboard:
+        // AuthGuard: requer login + role GERENTE
+        if (!AuthService().isLoggedIn || !AuthService().isAdmin) {
+          return MaterialPageRoute(builder: (_) => const LoginScreen());
+        }
         return MaterialPageRoute(builder: (_) => const AdminDashboardScreen());
 
       default:

@@ -66,6 +66,32 @@ export class OsController {
       return res.status(500).json({ error: 'Erro interno.' });
     }
   }
+
+  // PATCH /api/os/:id/timer/start
+  async startTimer(req: Request, res: Response) {
+    try {
+      const id = req.params.id as string;
+      const os = await osRepo.startTimer(id);
+      console.log(`⏱️ Timer iniciado para OS #${id}`);
+      return res.json(os);
+    } catch (error) {
+      console.error('❌ Erro ao iniciar timer:', error);
+      return res.status(500).json({ error: 'Erro ao iniciar timer.' });
+    }
+  }
+
+  // PATCH /api/os/:id/timer/stop
+  async stopTimer(req: Request, res: Response) {
+    try {
+      const id = req.params.id as string;
+      const os = await osRepo.stopTimer(id);
+      console.log(`⏱️ Timer parado para OS #${id} — Duração: ${os.durationSeconds}s`);
+      return res.json(os);
+    } catch (error) {
+      console.error('❌ Erro ao parar timer:', error);
+      return res.status(500).json({ error: 'Erro ao parar timer.' });
+    }
+  }
 }
 
 export const osController = new OsController();

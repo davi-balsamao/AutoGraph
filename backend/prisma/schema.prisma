@@ -49,7 +49,10 @@ model OrdensDeServico {
   clienteId         String
   status            StatusOS @default(CRIADA)
   especificacoes    Json
-  mensagem_sugerida String?  // <-- NOVO CAMPO ADICIONADO (Opcional)
+  mensagem_sugerida String?  // <- NOVO CAMPO ADICIONADO (Opcional)
+  timerStartedAt    DateTime?
+  timerEndedAt      DateTime?
+  durationSeconds   Int      @default(0)
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
 
