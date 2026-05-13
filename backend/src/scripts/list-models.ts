@@ -19,3 +19,6 @@ async function testApi() {
 
   const data = await response.json();
   console.log('Status:', response.status);
+}
+
+testApi().catch(console.error);
