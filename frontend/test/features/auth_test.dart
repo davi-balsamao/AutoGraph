@@ -21,7 +21,7 @@ void main() {
     testWidgets('renderiza logo e título AutoGraph', (tester) async {
       await tester.pumpWidget(_buildTestApp());
       expect(find.text('AutoGraph'), findsOneWidget);
-      expect(find.byIcon(Icons.print_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
     });
   });
 

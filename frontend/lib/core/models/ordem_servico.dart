@@ -21,6 +21,7 @@ class OrdemServico {
   final String clienteId;
   final StatusOS status;
   final Map<String, dynamic> especificacoes;
+  final String? observacoes;
   final String? mensagemSugerida;
   final DateTime criadoEm;
   final DateTime atualizadoEm;
@@ -39,6 +40,7 @@ class OrdemServico {
     required this.clienteId,
     required this.status,
     required this.especificacoes,
+    this.observacoes,
     this.mensagemSugerida,
     required this.criadoEm,
     required this.atualizadoEm,
@@ -57,6 +59,7 @@ class OrdemServico {
       especificacoes: json['especificacoes'] is Map
           ? Map<String, dynamic>.from(json['especificacoes'])
           : {},
+      observacoes: json['observacoes'] as String?,
       mensagemSugerida: json['mensagem_sugerida'] as String?,
       criadoEm: DateTime.parse(json['criadoEm'] as String),
       atualizadoEm: DateTime.parse(json['atualizadoEm'] as String),
@@ -74,6 +77,8 @@ class OrdemServico {
 
   OrdemServico copyWith({
     StatusOS? status,
+    Map<String, dynamic>? especificacoes,
+    String? observacoes,
     DateTime? timerStartedAt,
     DateTime? timerEndedAt,
     int? durationSeconds,
@@ -82,7 +87,8 @@ class OrdemServico {
       id: id,
       clienteId: clienteId,
       status: status ?? this.status,
-      especificacoes: especificacoes,
+      especificacoes: especificacoes ?? this.especificacoes,
+      observacoes: observacoes ?? this.observacoes,
       mensagemSugerida: mensagemSugerida,
       criadoEm: criadoEm,
       atualizadoEm: DateTime.now(),

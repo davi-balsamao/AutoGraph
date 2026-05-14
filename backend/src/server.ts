@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import webhookRoutes from './routes/webhook.routes';
 import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
+import produtoRoutes from './routes/produto.routes';
 
 // Carregamento Físico do .env
 try {
@@ -65,7 +66,10 @@ app.use(webhookRoutes);
 app.use('/api/os', osRoutes); 
 app.use('/api/auth', authRoutes);
 
-// IMPORTANTE: Usamos 'server.listen' em vez de 'app.listen'
+// Rotas de Produtos
+app.use('/api/produtos', produtoRoutes);
+
+// IMPORTANTE: Usamos 'server.listen' em vez de 'app.listen' para o Socket.io funcionar
 server.listen(port, () => {
   console.log(`🚀 Servidor e Socket.io rodando na porta ${port}`);
 });

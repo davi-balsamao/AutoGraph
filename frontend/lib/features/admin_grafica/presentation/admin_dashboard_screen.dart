@@ -1,10 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/ordem_servico.dart';
+import '../../../core/models/produto.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/os_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
+import 'package:fl_chart/fl_chart.dart';
+import '../../../core/services/produto_service.dart';
+import '../../../core/theme/app_theme.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -18,9 +23,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final brandTealDeep = const Color(0xFF001E2B);
+    final brandGreen = const Color(0xFF00ED64);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard do Administrador'),
+        title: Row(
+          children: [
+            const Icon(Icons.auto_awesome, color: Color(0xFF00ED64), size: 24),
+            const SizedBox(width: 12),
+            Text('AutoGraph', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: brandTealDeep, borderRadius: BorderRadius.circular(4)),
+              child: const Text('ADMIN', style: TextStyle(color: Color(0xFF00ED64), fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             key: const Key('btn_logout'),
@@ -40,16 +61,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: const [
           _KanbanTab(),
           _FinancialTab(),
+          _CatalogTab(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
+        height: 64,
+        elevation: 0,
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.view_kanban), label: 'Kanban'),
-          NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Financeiro'),
+          NavigationDestination(
+            icon: Icon(Icons.view_kanban_outlined),
+            selectedIcon: Icon(Icons.view_kanban, color: AppColors.brandGreen),
+            label: 'Kanban',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart, color: AppColors.brandGreen),
+            label: 'Financeiro',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.inventory_2_outlined),
+            selectedIcon: Icon(Icons.inventory_2, color: AppColors.brandGreen),
+            label: 'Catálogo',
+          ),
         ],
       ),
+      floatingActionButton: _currentIndex == 0 ? FloatingActionButton(
+        heroTag: 'fab_admin_kanban',
+        onPressed: () {
+          // TODO: Open manual OS creation
+        },
+        backgroundColor: brandGreen,
+        foregroundColor: brandTealDeep,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add),
+      ) : null,
     );
   }
 }
@@ -162,7 +209,7 @@ class _KanbanTabState extends State<_KanbanTab> {
             hasScrollBody: true,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               children: visibleStatuses.map((status) {
                 final items = _columns[status] ?? [];
                 return _KanbanColumn(
@@ -204,51 +251,59 @@ class _KanbanColumn extends StatelessWidget {
 
   Color get _columnColor {
     switch (status) {
-      case StatusOS.aguardandoOrcamento: return Colors.orange;
-      case StatusOS.emProducao: return Colors.blue;
-      case StatusOS.prontaParaRetirada: return Colors.green;
-      case StatusOS.entregue: return Colors.grey;
-      default: return Colors.blueGrey;
+      case StatusOS.aguardandoOrcamento: return const Color(0xFFFA6E39); // MongoDB Orange
+      case StatusOS.emProducao: return const Color(0xFF7B3FF2); // MongoDB Purple
+      case StatusOS.prontaParaRetirada: return const Color(0xFF00ED64); // MongoDB Green
+      case StatusOS.entregue: return const Color(0xFF5C6C7A); // MongoDB Steel
+      default: return const Color(0xFF003D4F); // MongoDB Teal
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return DragTarget<OrdemServico>(
       onWillAcceptWithDetails: (details) => details.data.status != status,
       onAcceptWithDetails: (details) => onAccept(details.data),
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
         return Container(
-          width: 280,
-          margin: const EdgeInsets.only(right: 12),
+          width: 320,
+          margin: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
-            color: isHovering ? _columnColor.withAlpha(30) : Theme.of(context).colorScheme.surface,
+            color: isHovering ? const Color(0xFFF4F7F6) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _columnColor.withAlpha(100)),
           ),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: _columnColor.withAlpha(40), borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16, top: 8),
                 child: Row(children: [
-                  CircleAvatar(backgroundColor: _columnColor, radius: 6),
+                  Container(
+                    width: 4, height: 20,
+                    decoration: BoxDecoration(color: _columnColor, borderRadius: BorderRadius.circular(2)),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(status.label.toUpperCase(), style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(status.label, style: const TextStyle(fontWeight: FontWeight.bold))),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: _columnColor.withAlpha(60), borderRadius: BorderRadius.circular(12)),
-                    child: Text('${items.length}', style: TextStyle(fontSize: 12, color: _columnColor)),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(999)),
+                    child: Text('${items.length}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                   ),
                 ]),
               ),
               Expanded(
-                child: items.isEmpty
-                    ? const Center(child: Text('Arraste aqui', style: TextStyle(color: Colors.grey)))
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Theme.of(context).dividerColor),
+                  ),
+                  child: items.isEmpty
+                    ? Center(child: Text('Arraste aqui', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)))
                     : ListView.builder(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(12),
                         itemCount: items.length,
                         itemBuilder: (_, i) => _OSCard(
                           os: items[i],
@@ -258,6 +313,7 @@ class _KanbanColumn extends StatelessWidget {
                           formatDuration: formatDuration,
                         ),
                       ),
+                ),
               ),
             ],
           ),
@@ -282,51 +338,75 @@ class _OSCard extends StatelessWidget {
     return Draggable<OrdemServico>(
       data: os,
       feedback: Material(
-        elevation: 6,
-        borderRadius: BorderRadius.circular(8),
+        elevation: 8,
+        borderRadius: BorderRadius.circular(12),
         child: Container(
-          width: 260, padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(8)),
-          child: Text(os.produtoResumo, style: const TextStyle(fontWeight: FontWeight.bold)),
+          width: 290, padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF00ED64), width: 2),
+          ),
+          child: Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.3, child: _buildCard(context, theme)),
-      child: _buildCard(context, theme),
+      childWhenDragging: Opacity(opacity: 0.3, child: _buildCard(context)),
+      child: _buildCard(context),
     );
   }
 
-  Widget _buildCard(BuildContext context, ThemeData theme) {
+  Widget _buildCard(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
       child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: () => Navigator.pushNamed(context, AppRoutes.osDetails, arguments: os),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(os.produtoResumo, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(os.clienteNome ?? 'Cliente', style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withAlpha(150))),
-            const SizedBox(height: 8),
-            Row(children: [
-              Icon(isTimerRunning ? Icons.timer : Icons.timer_outlined, size: 16, color: isTimerRunning ? Colors.red : Colors.grey),
-              const SizedBox(width: 4),
-              Text(formatDuration(elapsedSecs), style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: isTimerRunning ? Colors.red : Colors.grey)),
-              const Spacer(),
-              InkWell(
-                key: Key('btn_timer_${os.id}'),
-                onTap: onToggleTimer,
-                child: Container(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).colorScheme.onSurface)),
+              const SizedBox(height: 4),
+              Text(os.clienteNome ?? 'Cliente não informado', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55))),
+              const SizedBox(height: 16),
+              Row(children: [
+                Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: isTimerRunning ? Colors.red.withAlpha(30) : Colors.green.withAlpha(30), borderRadius: BorderRadius.circular(4)),
-                  child: Text(isTimerRunning ? 'Parar' : 'Iniciar', style: TextStyle(fontSize: 11, color: isTimerRunning ? Colors.red : Colors.green)),
+                  decoration: BoxDecoration(
+                    color: isTimerRunning
+                      ? Colors.red.withValues(alpha: 0.12)
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(isTimerRunning ? Icons.timer : Icons.timer_outlined, size: 12, color: isTimerRunning ? Colors.red : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                      const SizedBox(width: 4),
+                      Text(formatDuration(elapsedSecs), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isTimerRunning ? Colors.red : Theme.of(context).colorScheme.onSurface)),
+                    ],
+                  ),
                 ),
-              ),
-            ]),
-          ],
+                const Spacer(),
+                SizedBox(
+                  height: 28,
+                  child: ElevatedButton(
+                    onPressed: onToggleTimer,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isTimerRunning ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.15) : AppColors.brandGreen,
+                      foregroundColor: isTimerRunning ? Theme.of(context).colorScheme.onSurface : AppColors.brandTealDeep,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    child: Text(isTimerRunning ? 'PAUSAR' : 'INICIAR'),
+                  ),
+                ),
+              ]),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -348,8 +428,8 @@ class _FinancialDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // Mock data for financial dashboard
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final revenueByProduct = {'Panfletos': 4500.0, 'Cartões': 8200.0, 'Banners': 3100.0, 'Apostilas': 2800.0, 'Blocos': 1900.0};
     final totalRevenue = revenueByProduct.values.fold(0.0, (a, b) => a + b);
     final osCompletedCount = 47;
@@ -357,52 +437,109 @@ class _FinancialDashboard extends StatelessWidget {
     final stockItems = {'Papel A4 (resmas)': 120, 'Tinta Cyan (L)': 8, 'Tinta Magenta (L)': 5, 'Vinil Adesivo (m²)': 35, 'Espiral (un)': 200};
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       children: [
-        // KPI Cards
+        Text('Visão Geral', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: cs.onSurface)),
+        const SizedBox(height: 24),
         Row(
           children: [
-            Expanded(child: _KpiCard(title: 'Faturamento', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: Colors.green)),
-            const SizedBox(width: 12),
-            Expanded(child: _KpiCard(title: 'OS Finalizadas', value: '$osCompletedCount', icon: Icons.check_circle, color: Colors.blue)),
-            const SizedBox(width: 12),
-            Expanded(child: _KpiCard(title: 'Ticket Médio', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: Colors.orange)),
+            Expanded(child: _KpiCard(title: 'FATURAMENTO', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: const Color(0xFF00ED64))),
+            const SizedBox(width: 16),
+            Expanded(child: _KpiCard(title: 'OS FINALIZADAS', value: '$osCompletedCount', icon: Icons.check_circle_outline, color: const Color(0xFF7B3FF2))),
+            const SizedBox(width: 16),
+            Expanded(child: _KpiCard(title: 'TICKET MÉDIO', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: const Color(0xFFFA6E39))),
           ],
         ),
-        const SizedBox(height: 24),
-
-        // Revenue bar chart (simplified with containers)
-        Text('Receita por Produto', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        ...revenueByProduct.entries.map((e) {
-          final pct = e.value / revenueByProduct.values.reduce((a, b) => a > b ? a : b);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(children: [
-              SizedBox(width: 80, child: Text(e.key, style: const TextStyle(fontSize: 12))),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(value: pct, minHeight: 20, backgroundColor: theme.colorScheme.primary.withAlpha(30), color: theme.colorScheme.primary),
+        const SizedBox(height: 40),
+        
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outline ?? Theme.of(context).dividerColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Receita por Categoria', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 32),
+              SizedBox(
+                height: 200,
+                child: BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    maxY: 10000,
+                    barTouchData: BarTouchData(enabled: true),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            final titles = revenueByProduct.keys.toList();
+                            if (value.toInt() >= 0 && value.toInt() < titles.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(titles[value.toInt()], style: GoogleFonts.outfit(fontSize: 10, color: cs.onSurface.withValues(alpha: 0.5))),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                          reservedSize: 30,
+                        ),
+                      ),
+                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    gridData: const FlGridData(show: false),
+                    borderData: FlBorderData(show: false),
+                    barGroups: revenueByProduct.entries.toList().asMap().entries.map((entry) {
+                      return BarChartGroupData(
+                        x: entry.key,
+                        barRods: [
+                          BarChartRodData(
+                            toY: entry.value.value,
+                            color: const Color(0xFF00ED64),
+                            width: 32,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Text('R\$ ${e.value.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ]),
-          );
-        }),
-
-        const SizedBox(height: 24),
-        Text('Estoque Atual', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 12),
-        ...stockItems.entries.map((e) {
-          final isLow = e.value < 10;
-          return ListTile(
-            leading: Icon(isLow ? Icons.warning_amber : Icons.inventory_2, color: isLow ? Colors.red : Colors.green),
-            title: Text(e.key),
-            trailing: Text('${e.value}', style: TextStyle(fontWeight: FontWeight.bold, color: isLow ? Colors.red : null)),
-          );
-        }),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: 40),
+        Text('Gestão de Insumos', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        Card(
+          child: Column(
+            children: stockItems.entries.map((e) {
+              final isLow = e.value < 10;
+              return Container(
+                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: cs.outline ?? Theme.of(context).dividerColor))),
+                child: ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isLow ? Colors.red.withValues(alpha: 0.1) : AppColors.brandGreen.withValues(alpha: isDark ? 0.15 : 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(isLow ? Icons.warning_amber : Icons.inventory_2_outlined, size: 18, color: isLow ? Colors.red : AppColors.brandGreenDark),
+                  ),
+                  title: Text(e.key, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  trailing: Text('${e.value}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: isLow ? Colors.red : cs.onSurface)),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
       ],
     );
   }
@@ -420,15 +557,236 @@ class _KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 16),
+            Text(value, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
             const SizedBox(height: 4),
-            Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            Text(title, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────── CATALOG TAB ────────────────────────────
+
+class _CatalogTab extends StatefulWidget {
+  const _CatalogTab();
+
+  @override
+  State<_CatalogTab> createState() => _CatalogTabState();
+}
+
+class _CatalogTabState extends State<_CatalogTab> {
+  bool _isLoading = false;
+  List<dynamic> _produtos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProdutos();
+  }
+
+  Future<void> _fetchProdutos() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await ProdutoService().fetchProdutos();
+      if (mounted) setState(() => _produtos = result);
+    } catch (e) {
+      if (mounted) SnackbarUtil.showError(context, 'Erro ao carregar catálogo: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _addProduto() async {
+    final nomeController = TextEditingController();
+    final precoController = TextEditingController();
+    final descController = TextEditingController();
+    final imagemController = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.brandGreen),
+            const SizedBox(width: 10),
+            Text('Novo Produto', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nomeController,
+                decoration: const InputDecoration(labelText: 'Nome do Produto', prefixIcon: Icon(Icons.label_outline, size: 18)),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: precoController,
+                decoration: const InputDecoration(labelText: 'Preço Base (R\$)', prefixIcon: Icon(Icons.attach_money, size: 18)),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Descrição (Opcional)', prefixIcon: Icon(Icons.notes_outlined, size: 18)),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: imagemController,
+                decoration: const InputDecoration(
+                  labelText: 'URL da Foto (Opcional)',
+                  hintText: 'https://...',
+                  prefixIcon: Icon(Icons.image_outlined, size: 18),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Cole o link de uma imagem pública (ex: Imgur, Google Drive compartilhado)',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await ProdutoService().createProduto(
+                  nomeController.text,
+                  descController.text.isEmpty ? null : descController.text,
+                  double.parse(precoController.text.replaceAll(',', '.')),
+                  imagemUrl: imagemController.text.isEmpty ? null : imagemController.text,
+                );
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                SnackbarUtil.showError(ctx, 'Erro ao salvar produto.');
+              }
+            },
+            child: const Text('SALVAR'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      _fetchProdutos();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+
+    return Scaffold(
+      body: _produtos.isEmpty
+          ? Center(child: Text('Nenhum produto cadastrado no catálogo.', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))))
+          : GridView.builder(
+              padding: const EdgeInsets.all(24),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: _produtos.length,
+              itemBuilder: (context, i) {
+                final p = _produtos[i] as Produto;
+                final hasImage = p.imagemUrl != null && p.imagemUrl!.isNotEmpty;
+
+                return Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image area
+                      SizedBox(
+                        height: 110,
+                        width: double.infinity,
+                        child: hasImage
+                          ? Image.network(
+                              p.imagemUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _buildImagePlaceholder(isDark),
+                              loadingBuilder: (_, child, progress) => progress == null
+                                ? child
+                                : Container(
+                                    color: isDark ? AppColors.darkSurfaceLift : const Color(0xFFF4F7F6),
+                                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                  ),
+                            )
+                          : _buildImagePlaceholder(isDark),
+                      ),
+                      // Info area
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                p.nome,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: cs.onSurface),
+                              ),
+                              const Spacer(),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('R\$ ${p.precoBase.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: AppColors.brandGreen, fontSize: 13)),
+                                  const Icon(Icons.arrow_forward, size: 14, color: AppColors.brandGreen),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_admin_catalog',
+        onPressed: _addProduto,
+        backgroundColor: AppColors.brandGreen,
+        foregroundColor: AppColors.brandTealDeep,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder(bool isDark) {
+    return Container(
+      color: isDark ? AppColors.darkSurfaceLift : const Color(0xFFF4F7F6),
+      child: Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 36,
+          color: isDark ? AppColors.darkTextSecondary : AppColors.steel,
         ),
       ),
     );
