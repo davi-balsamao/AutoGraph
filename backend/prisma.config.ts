@@ -1,9 +1,9 @@
 import "dotenv/config";
-import { defineConfig } from "@prisma/config";
+import { defineConfig } from "@prisma/config"; 
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  // @ts-ignore - Silencia o erro visual, o Prisma CLI já validou que isso funciona
+  // @ts-ignore
   migrate: {
     url: process.env.DATABASE_URL,
   },
