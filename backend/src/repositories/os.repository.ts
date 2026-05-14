@@ -34,6 +34,14 @@ export class OsRepository {
     });
   }
 
+  // Atualiza dados variados (observacoes, especificacoes)
+  async updateData(id: string, data: any) {
+    return prisma.ordensDeServico.update({
+      where: { id },
+      data
+    });
+  }
+
   // Inicia o timer de produção
   async startTimer(id: string) {
     return prisma.ordensDeServico.update({
