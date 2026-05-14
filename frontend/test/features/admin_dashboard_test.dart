@@ -18,6 +18,18 @@ class MockOsService implements OsService {
       OrdemServico(id: 'os-002', clienteId: 'c1', status: StatusOS.emProducao, especificacoes: {'produto': 'Mock'}, criadoEm: now, atualizadoEm: now),
     ];
   }
+
+  @override
+  Future<void> updateOS(String id, {Map<String, dynamic>? especificacoes, String? observacoes}) async {}
+
+  @override
+  Future<void> updateStatus(String id, StatusOS status) async {}
+
+  @override
+  Future<void> startTimer(String id) async {}
+
+  @override
+  Future<void> stopTimer(String id) async {}
 }
 
 void main() {
@@ -46,8 +58,8 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Aguardando Orçamento'), findsOneWidget);
-      expect(find.text('Em Produção'), findsOneWidget);
+      expect(find.text('AGUARDANDO ORÇAMENTO'), findsOneWidget);
+      expect(find.text('EM PRODUÇÃO'), findsOneWidget);
     });
 
     testWidgets('aba Financeiro mostra KPIs', (tester) async {
@@ -60,9 +72,9 @@ void main() {
       await tester.tap(find.text('Financeiro'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Faturamento'), findsOneWidget);
-      expect(find.text('OS Finalizadas'), findsOneWidget);
-      expect(find.text('Ticket Médio'), findsOneWidget);
+      expect(find.text('FATURAMENTO'), findsOneWidget);
+      expect(find.text('OS FINALIZADAS'), findsOneWidget);
+      expect(find.text('TICKET MÉDIO'), findsOneWidget);
     });
 
     testWidgets('botão logout existe na AppBar', (tester) async {

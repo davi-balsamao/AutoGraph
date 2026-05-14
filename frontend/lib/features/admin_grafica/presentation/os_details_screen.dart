@@ -1,106 +1,229 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/ordem_servico.dart';
+import '../../../core/services/os_service.dart';
+import '../../../core/utils/snackbar_util.dart';
+import '../../../core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
-class OsDetailsScreen extends StatelessWidget {
+class OsDetailsScreen extends StatefulWidget {
   final OrdemServico os;
 
   const OsDetailsScreen({super.key, required this.os});
 
   @override
+  State<OsDetailsScreen> createState() => _OsDetailsScreenState();
+}
+
+class _OsDetailsScreenState extends State<OsDetailsScreen> {
+  late TextEditingController _specsController;
+  late TextEditingController _obsController;
+  late TextEditingController _artUrlController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Preparar JSON das especificações
+    final specsCopy = Map<String, dynamic>.from(widget.os.especificacoes);
+    final artUrl = specsCopy.remove('arte_url') as String? ?? '';
+
+    _specsController = TextEditingController(text: const JsonEncoder.withIndent('  ').convert(specsCopy));
+    _obsController = TextEditingController(text: widget.os.observacoes ?? '');
+    _artUrlController = TextEditingController(text: artUrl);
+  }
+
+  @override
+  void dispose() {
+    _specsController.dispose();
+    _obsController.dispose();
+    _artUrlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveData() async {
+    setState(() => _isSaving = true);
+    try {
+      final specsMap = jsonDecode(_specsController.text) as Map<String, dynamic>;
+      
+      // Adiciona a arte de volta nas especificações, se houver
+      if (_artUrlController.text.trim().isNotEmpty) {
+        specsMap['arte_url'] = _artUrlController.text.trim();
+      }
+
+      await OsService().updateOS(
+        widget.os.id,
+        especificacoes: specsMap,
+        observacoes: _obsController.text.trim(),
+      );
+      
+      if (mounted) SnackbarUtil.showSuccess(context, 'Dados salvos com sucesso!');
+    } catch (e) {
+      if (mounted) SnackbarUtil.showError(context, 'Erro ao salvar: O JSON pode estar inválido.');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final jsonSpecs = const JsonEncoder.withIndent('  ').convert(os.especificacoes);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    final brandGreen = const Color(0xFF00ED64);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Detalhes: OS #${os.id.split('-').last}'),
+        title: Text('ORDER DETAILS', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: cs.onSurface.withValues(alpha: 0.5))),
+        actions: [
+          _isSaving 
+            ? const Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+            : TextButton.icon(
+                onPressed: _saveData,
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('SAVE CHANGES'),
+                style: TextButton.styleFrom(foregroundColor: brandGreen, textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho
+            // Status Badge and ID
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CircleAvatar(
-                  backgroundColor: _getStatusColor(os.status),
-                  radius: 8,
-                ),
-                const SizedBox(width: 8),
                 Text(
-                  os.status.label,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: _getStatusColor(os.status),
+                  'OS #${widget.os.id.split('-').last.toUpperCase()}',
+                  style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: cs.onSurface),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(widget.os.status).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: _getStatusColor(widget.os.status).withOpacity(0.5)),
+                  ),
+                  child: Text(
+                    widget.os.status.label.toUpperCase(),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _getStatusColor(widget.os.status)),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
             
-            // Informações principais
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _InfoRow(label: 'Produto', value: os.produtoResumo),
-                    const Divider(),
-                    _InfoRow(label: 'Cliente', value: os.clienteNome ?? 'Não informado'),
-                    _InfoRow(label: 'Telefone', value: os.clienteTelefone ?? 'Não informado'),
-                    const Divider(),
-                    _InfoRow(label: 'Criado em', value: dateFormat.format(os.criadoEm)),
-                    _InfoRow(label: 'Atualizado em', value: dateFormat.format(os.atualizadoEm)),
-                    if (os.durationSeconds > 0) ...[
-                      const Divider(),
-                      _InfoRow(label: 'Tempo de Produção', value: os.durationFormatted),
-                    ],
+            // Core Information Grid
+            _SectionHeader(title: 'General Information'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: cs.outline ?? Theme.of(context).dividerColor),
+              ),
+              child: Column(
+                children: [
+                   _InfoRow(label: 'Product', value: widget.os.produtoResumo),
+                  const Divider(height: 24),
+                  _InfoRow(label: 'Customer', value: widget.os.clienteNome ?? 'Not provided'),
+                  _InfoRow(label: 'Phone', value: widget.os.clienteTelefone ?? 'Not provided'),
+                  const Divider(height: 24),
+                  _InfoRow(label: 'Created', value: dateFormat.format(widget.os.criadoEm)),
+                  _InfoRow(label: 'Last Update', value: dateFormat.format(widget.os.atualizadoEm)),
+                  if (widget.os.durationSeconds > 0) ...[
+                    const Divider(height: 24),
+                    _InfoRow(label: 'Production Time', value: widget.os.durationFormatted),
                   ],
-                ),
+                ],
               ),
             ),
             
-            const SizedBox(height: 24),
-            Text('Especificações Técnicas', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 8),
-            
-            // Especificações em JSON formatado
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: theme.colorScheme.outlineVariant),
-              ),
-              child: SelectableText(
-                jsonSpecs,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            const SizedBox(height: 40),
+            _SectionHeader(title: 'Customer Assets'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _artUrlController,
+              decoration: InputDecoration(
+                labelText: 'Artwork URL (Google Drive / Dropbox)',
+                labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF5C6C7A)),
+                prefixIcon: const Icon(Icons.link, size: 20),
+                fillColor: cs.surfaceContainerHighest,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
 
-            if (os.mensagemSugerida != null && os.mensagemSugerida!.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              Text('Mensagem Sugerida (IA)', style: theme.textTheme.titleLarge),
-              const SizedBox(height: 8),
+            const SizedBox(height: 40),
+            _SectionHeader(title: 'Technical Specifications (JSON)'),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF001E2B),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: TextField(
+                controller: _specsController,
+                maxLines: 8,
+                style: const TextStyle(fontFamily: 'Courier', fontSize: 13, color: Color(0xFF00ED64)),
+                decoration: const InputDecoration(
+                  contentPadding: EdgeInsets.all(16),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 40),
+            _SectionHeader(title: 'Internal Observations'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _obsController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Add private notes for the production team...',
+                fillColor: cs.surfaceContainerHighest,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+
+            if (widget.os.mensagemSugerida != null && widget.os.mensagemSugerida!.isNotEmpty) ...[
+              const SizedBox(height: 40),
+              _SectionHeader(title: 'AI Suggested Response'),
+              const SizedBox(height: 16),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.25) : const Color(0xFFE3FCEF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.brandGreen.withValues(alpha: 0.3)),
                 ),
-                child: SelectableText(
-                  os.mensagemSugerida!,
-                  style: TextStyle(color: theme.colorScheme.onPrimaryContainer),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Color(0xFF00684A), size: 20),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: SelectableText(
+                        widget.os.mensagemSugerida!,
+                        style: GoogleFonts.outfit(color: cs.onSurface, fontSize: 15, height: 1.5),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
+            
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -109,19 +232,26 @@ class OsDetailsScreen extends StatelessWidget {
 
   Color _getStatusColor(StatusOS status) {
     switch (status) {
-      case StatusOS.aguardandoOrcamento:
-        return Colors.orange;
-      case StatusOS.emProducao:
-        return Colors.blue;
-      case StatusOS.prontaParaRetirada:
-        return Colors.green;
-      case StatusOS.entregue:
-        return Colors.grey;
-      case StatusOS.cancelada:
-        return Colors.red;
-      default:
-        return Colors.blueGrey;
+      case StatusOS.aguardandoOrcamento: return const Color(0xFFFA6E39);
+      case StatusOS.emProducao: return const Color(0xFF7B3FF2);
+      case StatusOS.prontaParaRetirada: return const Color(0xFF00ED64);
+      case StatusOS.entregue: return const Color(0xFF5C6C7A);
+      case StatusOS.cancelada: return const Color(0xFFEF4444);
+      default: return const Color(0xFF003D4F);
     }
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title.toUpperCase(),
+      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5),
+    );
   }
 }
 
@@ -134,7 +264,7 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -142,11 +272,14 @@ class _InfoRow extends StatelessWidget {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+              style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 13),
             ),
           ),
           Expanded(
-            child: Text(value),
+            child: Text(
+              value,
+              style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
+            ),
           ),
         ],
       ),

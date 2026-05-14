@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import webhookRoutes from './routes/webhook.routes';
 import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
+import produtoRoutes from './routes/produto.routes';
 
 try {
   const envPath = path.resolve(process.cwd(), '.env');
@@ -47,6 +48,9 @@ app.use('/api/os', osRoutes);
 
 // Rotas de autenticação
 app.use('/api/auth', authRoutes);
+
+// Rotas de Produtos
+app.use('/api/produtos', produtoRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

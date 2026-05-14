@@ -48,6 +48,7 @@ model OrdensDeServico {
   clienteId         String
   status            StatusOS @default(CRIADA)
   especificacoes    Json
+  observacoes       String?  // <-- NOVO CAMPO
   mensagem_sugerida String?  // <- NOVO CAMPO ADICIONADO (Opcional)
   timerStartedAt    DateTime?
   timerEndedAt      DateTime?
@@ -76,4 +77,14 @@ model DocumentosConhecimento {
   conteudo  String
   vetor     Unsupported("vector")?
   criadoEm  DateTime               @default(now())
+}
+
+model Produto {
+  id          String   @id @default(uuid())
+  nome        String   @unique
+  descricao   String?
+  imagemUrl   String?
+  precoBase   Float    @default(0.0)
+  criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 }

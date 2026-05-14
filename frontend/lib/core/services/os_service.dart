@@ -41,4 +41,49 @@ class OsService {
       throw OsServiceException('Falha na conexão com o servidor: $e');
     }
   }
+
+  Future<void> updateOS(String id, {Map<String, dynamic>? especificacoes, String? observacoes}) async {
+    try {
+      final body = <String, dynamic>{};
+      if (especificacoes != null) body['especificacoes'] = especificacoes;
+      if (observacoes != null) body['observacoes'] = observacoes;
+
+      final response = await http.patch(
+        Uri.parse('$baseUrl/os/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode != 200) {
+        throw OsServiceException('Erro ao atualizar OS: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw OsServiceException('Falha na conexão com o servidor: $e');
+    }
+  }
+
+  Future<void> updateStatus(String id, StatusOS status) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/os/$id/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'status': status.value}),
+      );
+      if (response.statusCode != 200) {
+        throw OsServiceException('Erro ao atualizar status: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw OsServiceException('Falha na conexão com o servidor: $e');
+    }
+  }
+
+  Future<void> startTimer(String id) async {
+    final response = await http.patch(Uri.parse('$baseUrl/os/$id/timer/start'));
+    if (response.statusCode != 200) throw OsServiceException('Erro ao iniciar timer');
+  }
+
+  Future<void> stopTimer(String id) async {
+    final response = await http.patch(Uri.parse('$baseUrl/os/$id/timer/stop'));
+    if (response.statusCode != 200) throw OsServiceException('Erro ao parar timer');
+  }
 }

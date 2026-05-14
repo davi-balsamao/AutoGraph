@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/forgot_password_screen.dart';
 import '../../features/os_cliente/presentation/client_history_screen.dart';
 import '../../features/admin_grafica/presentation/admin_dashboard_screen.dart';
 import '../../features/admin_grafica/presentation/os_details_screen.dart';
@@ -8,6 +9,7 @@ import '../services/auth_service.dart';
 
 abstract final class AppRoutes {
   static const String login = '/login';
+  static const String forgotPassword = '/forgot-password';
   static const String clientHistory = '/cliente/historico';
   static const String adminDashboard = '/admin/dashboard';
   static const String osDetails = '/admin/os/details';
@@ -19,6 +21,8 @@ abstract final class AppRouter {
       case AppRoutes.login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
 
+      case AppRoutes.forgotPassword:
+        return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
       case AppRoutes.clientHistory:
         // AuthGuard: requer login
         if (!AuthService().isLoggedIn) {

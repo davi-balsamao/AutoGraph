@@ -40,6 +40,24 @@ export class OsController {
     }
   }
 
+  // PATCH /api/os/:id
+  async updateData(req: Request, res: Response) {
+    try {
+      const id = req.params.id as string;
+      const { observacoes, especificacoes } = req.body;
+      
+      const updatePayload: any = {};
+      if (observacoes !== undefined) updatePayload.observacoes = observacoes;
+      if (especificacoes !== undefined) updatePayload.especificacoes = especificacoes;
+
+      const osAtualizada = await osRepo.updateData(id, updatePayload);
+      return res.json(osAtualizada);
+    } catch (error) {
+      console.error('❌ Erro ao atualizar dados da OS:', error);
+      return res.status(500).json({ error: 'Erro ao atualizar OS.' });
+    }
+  }
+
   // GET /api/os/:id/mensagens
   async getMensagensDaOs(req: Request, res: Response) {
     try {
