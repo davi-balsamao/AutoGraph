@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { osController } from '../controllers/os.controller';
+import { uploadMiddleware } from '../middleware/upload.middleware';
 
 const osRoutes = Router();
+
+// Criar nova OS com upload de arte opcional
+osRoutes.post('/', uploadMiddleware.single('arte'), osController.create);
 
 // Listar todas as OS
 osRoutes.get('/', osController.list);

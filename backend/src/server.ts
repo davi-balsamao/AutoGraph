@@ -62,6 +62,9 @@ app.get('/', (req, res) => {
   res.json({ message: 'Hello World from AutoGraph API!' });
 });
 
+// Servindo os arquivos de upload de forma estática para visualização do Admin
+app.use('/uploads', express.static(path.resolve(__dirname, '../data/uploads')));
+
 app.use(webhookRoutes);
 app.use('/api/os', osRoutes); 
 app.use('/api/auth', authRoutes);

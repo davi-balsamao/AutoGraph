@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import { ProdutoRepository } from '../repositories/produto.repository';
 
@@ -59,6 +61,21 @@ export class ProdutoController {
     } catch (error) {
       console.error('❌ Erro ao deletar Produto:', error);
       return res.status(500).json({ error: 'Erro ao deletar produto.' });
+    }
+  }
+
+  async getRegras(req: Request, res: Response) {
+    try {
+      const regrasPath = path.join(__dirname, '../../data/catalogo_produtos.json');
+      if (fs.existsSync(regrasPath)) {
+        const rawRegras = fs.readFileSync(regrasPath, 'utf8');
+        return res.json(JSON.parse(rawRegras));
+      } else {
+        return res.status(404).json({ error: 'Arquivo de regras não encontrado.' });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar regras dos produtos:', error);
+      return res.status(500).json({ error: 'Erro ao buscar regras dos produtos.' });
     }
   }
 }

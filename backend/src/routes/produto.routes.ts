@@ -4,6 +4,7 @@ import { produtoController } from '../controllers/produto.controller';
 const router = Router();
 
 router.get('/', produtoController.list);
+router.get('/regras', produtoController.getRegras);
 router.get('/:id', produtoController.getById);
 router.post('/', produtoController.create);
 router.put('/:id', produtoController.update);

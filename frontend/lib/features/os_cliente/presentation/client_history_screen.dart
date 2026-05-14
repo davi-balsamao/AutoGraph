@@ -6,6 +6,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/services/produto_service.dart';
 import '../../../core/theme/app_theme.dart';
+import 'order_wizard_screen.dart';
 
 class ClientHistoryScreen extends StatefulWidget {
   const ClientHistoryScreen({super.key});
@@ -17,11 +18,10 @@ class ClientHistoryScreen extends StatefulWidget {
 class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
   int _currentIndex = 0;
 
+  void switchTab(int index) => setState(() => _currentIndex = index);
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -103,8 +103,16 @@ class _ClientCatalogTabState extends State<_ClientCatalogTab> {
     }
   }
 
-  void _requestService(dynamic produto) {
-    SnackbarUtil.showSuccess(context, 'Em breve: Tela de Wizard para solicitar ${produto.nome}');
+  void _requestService(dynamic produto) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderWizardScreen(produto: produto),
+      ),
+    );
+    if (result == true && mounted) {
+      context.findAncestorStateOfType<_ClientHistoryScreenState>()?.switchTab(1);
+    }
   }
 
   @override
@@ -124,46 +132,65 @@ class _ClientCatalogTabState extends State<_ClientCatalogTab> {
       itemBuilder: (context, i) {
         final p = _produtos[i];
         return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          margin: const EdgeInsets.only(bottom: 24),
+          clipBehavior: Clip.antiAlias,
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (p.imagemUrl != null && p.imagemUrl!.isNotEmpty)
+                Image.network(
+                  p.imagemUrl!,
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(height: 0),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.3) : const Color(0xFFE3FCEF),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text('DISPONÍVEL', style: TextStyle(color: isDark ? AppColors.brandGreen : AppColors.brandGreenDark, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.3) : const Color(0xFFE3FCEF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text('DISPONÍVEL', style: TextStyle(color: isDark ? AppColors.brandGreen : AppColors.brandGreenDark, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        ),
+                        Text(
+                          'A partir de R\$ ${p.precoBase.toStringAsFixed(2)}',
+                          style: GoogleFonts.outfit(color: cs.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'A partir de R\$ ${p.precoBase.toStringAsFixed(2)}',
-                      style: GoogleFonts.outfit(color: cs.onSurface, fontWeight: FontWeight.bold),
+                    const SizedBox(height: 16),
+                    Text(p.nome, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 22, color: cs.onSurface)),
+                    if (p.descricao != null && p.descricao!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(p.descricao!, style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7), fontSize: 14, height: 1.4)),
+                    ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => _requestService(p),
+                        child: const Text('SOLICITAR AGORA', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(p.nome, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20, color: cs.onSurface)),
-                if (p.descricao != null && p.descricao!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(p.descricao!, style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6), fontSize: 14)),
-                ],
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () => _requestService(p),
-                    child: const Text('SOLICITAR AGORA', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

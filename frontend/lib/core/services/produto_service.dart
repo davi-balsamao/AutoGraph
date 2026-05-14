@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/produto.dart';
+import '../models/produto_regras.dart';
 
 class ProdutoServiceException implements Exception {
   final String message;
@@ -51,6 +52,21 @@ class ProdutoService {
         return Produto.fromJson(jsonDecode(response.body));
       } else {
         throw ProdutoServiceException('Erro ao criar produto: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is ProdutoServiceException) rethrow;
+      throw ProdutoServiceException('Falha na conexão: $e');
+    }
+  }
+
+  Future<ProdutoRegrasCatalogo> fetchRegrasProdutos() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/regras'));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return ProdutoRegrasCatalogo.fromJson(data);
+      } else {
+        throw ProdutoServiceException('Erro ao carregar regras de produtos: ${response.statusCode}');
       }
     } catch (e) {
       if (e is ProdutoServiceException) rethrow;

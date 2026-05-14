@@ -11,6 +11,48 @@ const mensagemRepo = new MensagemRepository();
 const clienteRepo = new ClienteRepository();
 
 export class OsController {
+  // POST /api/os — Cria uma Ordem de Serviço a partir do painel do cliente
+  async create(req: Request, res: Response) {
+    try {
+      const { clienteId, especificacoes, observacoes } = req.body;
+      if (!clienteId) {
+        return res.status(400).json({ error: 'clienteId é obrigatório.' });
+      }
+
+      // Se um arquivo foi enviado, anexamos o caminho/URL à especificação
+      let specsObj: any = {};
+      if (typeof especificacoes === 'string') {
+        try {
+          specsObj = JSON.parse(especificacoes);
+        } catch (e) {
+          specsObj = { raw: especificacoes };
+        }
+      } else if (especificacoes && typeof especificacoes === 'object') {
+        specsObj = especificacoes;
+      }
+
+      if (req.file) {
+        // Salvamos o caminho virtual/relativo do arquivo salvo
+        specsObj.arteUrl = `/uploads/${req.file.filename}`;
+      }
+
+      const novaOs = await osRepo.create({
+        clienteId,
+        status: StatusOS.CRIADA,
+        especificacoes: specsObj,
+        observacoes: observacoes || null,
+      });
+
+      // Emite evento Socket.io para notificar administradores em tempo real
+      io.emit('new-os', novaOs);
+
+      return res.status(201).json(novaOs);
+    } catch (error) {
+      console.error('❌ Erro ao criar OS:', error);
+      return res.status(500).json({ error: 'Erro ao criar Ordem de Serviço.' });
+    }
+  }
+
   // Lista ordens de serviço por status
   async list(req: Request, res: Response) {
     try {

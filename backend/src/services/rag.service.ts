@@ -40,16 +40,18 @@ export class RagService {
   private chain: RunnableSequence;
 
   constructor() {
+    const safeApiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
+    
     this.embeddings = new GoogleGenerativeAIEmbeddings({
       modelName: 'gemini-embedding-001',
-      apiKey: process.env.GOOGLE_API_KEY,
+      apiKey: safeApiKey,
     });
 
     // LLM — Temperature 0.0 (determinístico, conforme regras de triagem)
     this.llm = new ChatGoogleGenerativeAI({
       temperature: 0.0,
       model: process.env.LLM_MODEL || 'gemini-2.0-flash',
-      apiKey: process.env.GOOGLE_API_KEY,
+      apiKey: safeApiKey,
     });
 
     const prompt = ChatPromptTemplate.fromMessages([

@@ -15,8 +15,9 @@ COPY prisma.config.ts ./
 # Instala todas as dependências
 RUN npm install
 
-# Copia o código fonte
+# Copia o código fonte e os dados de catálogo
 COPY src ./src/
+COPY data ./data/
 
 # Gera o Prisma Client e compila o TypeScript
 RUN npx prisma generate
@@ -34,6 +35,9 @@ WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app/package*.json ./
 COPY --from=builder /usr/src/app/dist ./dist
 COPY --from=builder /usr/src/app/prisma ./prisma
+COPY --from=builder /usr/src/app/prisma.config.ts ./
+COPY --from=builder /usr/src/app/data ./data
+COPY --from=builder /usr/src/app/data ./dist/data
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 
 EXPOSE 3000

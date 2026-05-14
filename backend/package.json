@@ -6,14 +6,15 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "npx prisma migrate deploy && npm run seed:prod && node dist/server.js",
+    "start": "npx prisma migrate deploy && npm run seed:prod && node dist/src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:guardrails": "ts-node-dev src/scripts/test-guardrails.ts",
     "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",
     "test:rag": "ts-node-dev src/scripts/test-rag.ts",
     "test:entities": "ts-node-dev src/scripts/test-entity-extraction.ts",
     "test:e2e": "ts-node-dev src/scripts/test-e2e-webhook.ts",
-    "seed:prod": "node dist/scripts/seed-knowledge.js"
+    "test:os-creation": "node dist/src/scripts/test-os-creation.js",
+    "seed:prod": "node dist/src/scripts/seed-knowledge.js"
   },
   "keywords": [],
   "author": "",
@@ -31,12 +32,14 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "langchain": "^1.3.5",
+    "multer": "^1.4.5-lts.1",
     "pg": "^8.20.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/multer": "^1.4.13",
     "@types/node": "^25.7.0",
     "@types/pg": "^8.20.0",
     "prisma": "^7.8.0",
