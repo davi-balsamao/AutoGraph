@@ -5,6 +5,7 @@ import 'package:autograph/core/routes/app_routes.dart';
 import 'package:autograph/core/services/auth_service.dart';
 import 'package:autograph/core/services/os_service.dart';
 import 'package:autograph/core/models/ordem_servico.dart';
+import 'package:file_picker/file_picker.dart';
 
 class MockOsService implements OsService {
   @override
@@ -30,6 +31,25 @@ class MockOsService implements OsService {
 
   @override
   Future<void> stopTimer(String id) async {}
+
+  @override
+  Future<OrdemServico> createOrdemServico({
+    required String clienteId,
+    required Map<String, dynamic> especificacoes,
+    String? observacoes,
+    PlatformFile? file,
+  }) async {
+    final now = DateTime.now();
+    return OrdemServico(
+      id: 'os-mock-new',
+      clienteId: clienteId,
+      status: StatusOS.criada,
+      especificacoes: especificacoes,
+      observacoes: observacoes,
+      criadoEm: now,
+      atualizadoEm: now,
+    );
+  }
 }
 
 void main() {

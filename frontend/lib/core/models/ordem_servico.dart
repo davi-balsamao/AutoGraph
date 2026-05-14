@@ -111,7 +111,7 @@ class OrdemServico {
 
   /// Resumo do produto na especificação
   String get produtoResumo {
-    final produto = especificacoes['produto'] as String?;
-    return produto ?? 'Produto não especificado';
+    final produto = (especificacoes['produtoNome'] ?? especificacoes['produto']) as String?;
+    return produto ?? 'Produto personalizado';
   }
 }

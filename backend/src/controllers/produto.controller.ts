@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import { ProdutoRepository } from '../repositories/produto.repository';
 
@@ -8,8 +10,11 @@ export class ProdutoController {
     try {
       const produtos = await produtoRepo.findAll();
       return res.json(produtos);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro detalhado ao listar Produtos:', error);
+      if (error.name === 'PrismaClientInitializationError' || error.message?.includes('database server')) {
+        return res.status(503).json({ error: 'Serviço de banco de dados indisponível no momento.' });
+      }
       return res.status(500).json({ error: 'Erro ao buscar produtos.', details: error instanceof Error ? error.message : String(error) });
     }
   }
@@ -20,7 +25,10 @@ export class ProdutoController {
       const produto = await produtoRepo.findById(id);
       if (!produto) return res.status(404).json({ error: 'Produto não encontrado.' });
       return res.json(produto);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PrismaClientInitializationError' || error.message?.includes('database server')) {
+        return res.status(503).json({ error: 'Serviço de banco de dados indisponível no momento.' });
+      }
       return res.status(500).json({ error: 'Erro ao buscar produto.' });
     }
   }
@@ -59,6 +67,21 @@ export class ProdutoController {
     } catch (error) {
       console.error('❌ Erro ao deletar Produto:', error);
       return res.status(500).json({ error: 'Erro ao deletar produto.' });
+    }
+  }
+
+  async getRegras(req: Request, res: Response) {
+    try {
+      const regrasPath = path.join(__dirname, '../../data/catalogo_produtos.json');
+      if (fs.existsSync(regrasPath)) {
+        const rawRegras = fs.readFileSync(regrasPath, 'utf8');
+        return res.json(JSON.parse(rawRegras));
+      } else {
+        return res.status(404).json({ error: 'Arquivo de regras não encontrado.' });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar regras dos produtos:', error);
+      return res.status(500).json({ error: 'Erro ao buscar regras dos produtos.' });
     }
   }
 }

@@ -124,7 +124,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.outline ?? Theme.of(context).dividerColor),
+                border: Border.all(color: cs.outline),
               ),
               child: Column(
                 children: [
