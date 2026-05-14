@@ -6,4 +6,5 @@ void main() {
       color: Colors.white,
     ),
   );
+  debugPrint(theme.toString());
 }

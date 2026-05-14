@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
+import '../../../core/theme/theme_notifier.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -47,25 +48,31 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final brandTealDeep = const Color(0xFF001E2B);
+    final isDark = theme.brightness == Brightness.dark;
     final brandGreen = const Color(0xFF00ED64);
+    final brandTealDeep = const Color(0xFF001E2B);
+
+    final textColor = theme.colorScheme.onSurface;
+    final subtitleColor = theme.colorScheme.onSurface.withValues(alpha: 0.7);
+    final containerBgColor = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3);
+    final containerBorderColor = theme.dividerColor;
+    final fieldBgColor = theme.colorScheme.surface;
 
     return Scaffold(
-      backgroundColor: brandTealDeep,
       body: Stack(
         children: [
-          // Atmospheric background element (subtle gradient)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.topRight,
-                  radius: 1.5,
-                  colors: [
-                    const Color(0xFF00684A).withOpacity(0.2),
-                    brandTealDeep,
-                  ],
+          // Botão de alternância de tema no topo direito
+          Positioned(
+            top: 16,
+            right: 16,
+            child: SafeArea(
+              child: IconButton(
+                key: const Key('btn_toggle_theme_login'),
+                icon: Icon(
+                  isDark ? Icons.light_mode : Icons.dark_mode,
+                  color: subtitleColor,
                 ),
+                onPressed: () => themeNotifier.toggleTheme(),
               ),
             ),
           ),
@@ -81,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: brandGreen.withOpacity(0.1),
+                        color: brandGreen.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(Icons.auto_awesome, size: 48, color: brandGreen),
@@ -99,30 +106,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'The modern data platform for print shops.',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                      style: theme.textTheme.bodyLarge?.copyWith(color: subtitleColor),
                     ),
                     const SizedBox(height: 48),
                     
-                    // Glassmorphic-ish container for fields
+                    // Container for fields
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: containerBgColor,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        border: Border.all(color: containerBorderColor),
                       ),
                       child: Column(
                         children: [
                           TextFormField(
                             key: const Key('field_email'),
                             controller: _emailCtrl,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: textColor),
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
                               labelText: 'E-mail',
-                              labelStyle: const TextStyle(color: Colors.white60),
-                              prefixIcon: const Icon(Icons.email_outlined, color: Colors.white60),
-                              fillColor: Colors.white.withOpacity(0.05),
+                              labelStyle: TextStyle(color: subtitleColor),
+                              prefixIcon: Icon(Icons.email_outlined, color: subtitleColor),
+                              fillColor: fieldBgColor,
                               filled: true,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                             ),
@@ -136,18 +143,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             key: const Key('field_senha'),
                             controller: _senhaCtrl,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: textColor),
                             obscureText: _obscureSenha,
                             decoration: InputDecoration(
                               labelText: 'Senha',
-                              labelStyle: const TextStyle(color: Colors.white60),
-                              prefixIcon: const Icon(Icons.lock_outline, color: Colors.white60),
-                              fillColor: Colors.white.withOpacity(0.05),
+                              labelStyle: TextStyle(color: subtitleColor),
+                              prefixIcon: Icon(Icons.lock_outline, color: subtitleColor),
+                              fillColor: fieldBgColor,
                               filled: true,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                               suffixIcon: IconButton(
                                 key: const Key('btn_toggle_senha'),
-                                icon: Icon(_obscureSenha ? Icons.visibility_off : Icons.visibility, color: Colors.white60),
+                                icon: Icon(_obscureSenha ? Icons.visibility_off : Icons.visibility, color: subtitleColor),
                                 onPressed: () => setState(() => _obscureSenha = !_obscureSenha),
                               ),
                             ),

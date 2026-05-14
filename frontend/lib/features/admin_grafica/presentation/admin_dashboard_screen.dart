@@ -10,6 +10,7 @@ import '../../../core/utils/snackbar_util.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/services/produto_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_notifier.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -23,7 +24,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final brandTealDeep = const Color(0xFF001E2B);
     final brandGreen = const Color(0xFF00ED64);
 
@@ -43,6 +43,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            key: const Key('btn_toggle_theme_admin'),
+            icon: Icon(
+              themeNotifier.themeMode == ThemeMode.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: () => themeNotifier.toggleTheme(),
+          ),
           IconButton(
             key: const Key('btn_logout'),
             icon: const Icon(Icons.logout),

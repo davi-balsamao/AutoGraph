@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/models/ordem_servico.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/services/produto_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_notifier.dart';
 import 'order_wizard_screen.dart';
 
 class ClientHistoryScreen extends StatefulWidget {
@@ -20,6 +23,21 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
 
   void switchTab(int index) => setState(() => _currentIndex = index);
 
+  Future<void> _openWhatsApp() async {
+    final url = Uri.parse('https://wa.me/5512991789183');
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          SnackbarUtil.showError(context, 'Não foi possível abrir o WhatsApp.');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarUtil.showError(context, 'Erro ao redirecionar para o WhatsApp: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,6 +50,15 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            key: const Key('btn_toggle_theme_client'),
+            icon: Icon(
+              themeNotifier.themeMode == ThemeMode.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: () => themeNotifier.toggleTheme(),
+          ),
           IconButton(
             key: const Key('btn_logout_client'),
             icon: const Icon(Icons.logout),
@@ -49,6 +76,18 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
           _ClientCatalogTab(),
           _HistoryTab(),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('fab_whatsapp_client'),
+        onPressed: _openWhatsApp,
+        backgroundColor: const Color(0xFF25D366),
+        foregroundColor: Colors.white,
+        elevation: 3,
+        icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 24),
+        label: Text(
+          'Atendimento',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         height: 64,

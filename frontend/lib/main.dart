@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_notifier.dart';
 import 'core/routes/app_routes.dart';
 
 void main() {
@@ -11,14 +12,19 @@ class AutoGraphApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AutoGraph',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      initialRoute: AppRoutes.login,
-      onGenerateRoute: AppRouter.onGenerateRoute,
+    return ListenableBuilder(
+      listenable: themeNotifier,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'AutoGraph',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeNotifier.themeMode,
+          initialRoute: AppRoutes.login,
+          onGenerateRoute: AppRouter.onGenerateRoute,
+        );
+      },
     );
   }
 }
