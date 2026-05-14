@@ -41,7 +41,8 @@ export class GuardrailsService {
       return {
         isValid: false,
         reason: `IA tentou fornecer valores financeiros.`,
-        correctedResponse: 'Anotei todas as informações! Como nossos preços variam de acordo com as especificações da arte e do pedido, vou repassar seus dados para a nossa recepcionista. Ela vai gerar o seu orçamento exato e falará com você em breve.'
+        correctedResponse: 'Desculpe, eu não tenho acesso aos valores. Para que a equipe possa calcular o orçamento correto, você poderia me informar os detalhes que faltam?'
+
       };
     }
 

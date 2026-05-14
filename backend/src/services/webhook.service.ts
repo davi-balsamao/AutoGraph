@@ -52,15 +52,26 @@ export class WebhookService {
       try {
         const result = await ragService.query(messageData.text, conversationHistory || undefined);
         aiResponse = result.answer;
+
+        if (result.guardrailApplied) {
+          console.warn('🛡️ Guardrail foi aplicado na resposta.');
+        }
+        console.log(`✅ Resposta da IA gerada (${result.sourceDocuments.length} docs usados)`);
+        console.log(`💬 Resposta: "${aiResponse}"`);
+
       } catch (aiError) {
         aiResponse = FALLBACK_MESSAGE;
       }
 
-      const fullHistory = conversationHistory
-        ? `${conversationHistory}\nCliente: ${messageData.text}\nAssistente: ${aiResponse}`
-        : `Cliente: ${messageData.text}\nAssistente: ${aiResponse}`;
+      // 5. Extração de Entidades — apenas nas falas do CLIENTE, nunca nas da IA
+      // (a IA pode mencionar "10x14cm" como sugestão → não pode ser confundido com resposta do cliente)
+      const linhasCliente = (conversationHistory || '')
+        .split('\n')
+        .filter((linha) => linha.startsWith('Cliente:'))
+        .join('\n');
+      const textoParaExtracao = `${linhasCliente}\nCliente: ${messageData.text}`;
 
-      const entities = entityExtractionService.extract(fullHistory);
+      const entities = entityExtractionService.extract(textoParaExtracao);
 
       if (entities.completo && entities.produtoIdentificado) {
         const especificacoes = {
@@ -68,7 +79,13 @@ export class WebhookService {
           requisitos: entities.requisitos.map((r) => ({ pergunta: r.pergunta, resposta: r.resposta })),
         };
 
-        const mensagemSugerida = await ragService.generateSuggestedMessage(cliente.nome, especificacoes, fullHistory);
+        console.log('🤖 Gerando mensagem sugerida para a recepcionista...');
+        const mensagemSugerida = await ragService.generateSuggestedMessage(
+          cliente.nome,
+          especificacoes,
+          textoParaExtracao
+        );
+        console.log(`📝 Mensagem gerada: "${mensagemSugerida}"`);
 
         const os = await osRepo.create({
           clienteId: cliente.id,
@@ -86,14 +103,10 @@ export class WebhookService {
         origem: 'BOT',
       });
 
-      io.emit(`chat-${cliente.id}`, {
-        id: msgBot.id,
-        origem: 'BOT',
-        texto: aiResponse,
-        criadoEm: msgBot.criadoEm
-      });
-
+      // 8. Enviar a resposta ao cliente via WhatsApp
+      console.log(`📤 Enviando resposta para ${messageData.from}...`);
       await whatsappService.sendMessage(messageData.from, aiResponse);
+
     } catch (error) {
       console.error('❌ Erro no webhook:', error);
     }
