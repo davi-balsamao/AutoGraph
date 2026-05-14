@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  url        = env("DATABASE_URL")
   extensions = [vector]
 }
 
@@ -30,18 +29,19 @@ enum OrigemMensagem {
 }
 
 model Usuario {
-  id           String   @id @default(uuid())
-  nome         String
-  email        String?  @unique
-  telefone     String   @unique
-  senha        String?
-  role         Role     @default(CLIENTE)
-  fcmToken     String?
-  criadoEm     DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  id               String     @id @default(uuid())
+  nome             String
+  email            String?    @unique
+  telefone         String     @unique
+  senha            String?
+  role             Role       @default(CLIENTE)
+  atendimentoHumano Boolean    @default(false) // <- CEREJA DO BOLO: Controla se a IA responde
+  fcmToken         String?
+  criadoEm         DateTime   @default(now())
+  atualizadoEm     DateTime   @updatedAt
 
   ordensDeServico OrdensDeServico[]
-  mensagens       Mensagens[]
+  mensagens        Mensagens[]
 }
 
 model OrdensDeServico {
@@ -49,7 +49,7 @@ model OrdensDeServico {
   clienteId         String
   status            StatusOS @default(CRIADA)
   especificacoes    Json
-  mensagem_sugerida String?  // <- NOVO CAMPO ADICIONADO (Opcional)
+  mensagem_sugerida String?
   timerStartedAt    DateTime?
   timerEndedAt      DateTime?
   durationSeconds   Int      @default(0)
@@ -68,7 +68,7 @@ model Mensagens {
   payload        Json
   criadoEm       DateTime       @default(now())
 
-  usuario        Usuario          @relation(fields: [usuarioId], references: [id])
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id])
   ordemDeServico OrdensDeServico? @relation(fields: [ordemId], references: [id])
 }
 

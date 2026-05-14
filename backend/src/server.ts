@@ -3,10 +3,13 @@ import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import http from 'http';
+import { Server } from 'socket.io';
 import webhookRoutes from './routes/webhook.routes';
 import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
 
+// Carregamento Físico do .env
 try {
   const envPath = path.resolve(process.cwd(), '.env');
   const envFile = fs.readFileSync(envPath);
@@ -16,14 +19,24 @@ try {
     process.env[k] = envConfig[k];
   }
   console.log(`✅ SUCESSO: Lemos fisicamente ${Object.keys(envConfig).length} variáveis do arquivo .env!`);
-  console.log(`🔍 DATABASE_URL carregada?`, !!process.env.DATABASE_URL);
-  console.log(`🔍 WA_ACCESS_TOKEN carregada?`, !!process.env.WA_ACCESS_TOKEN);
 } catch (error) {
-  console.error("❌ ERRO FATAL: O Node não encontrou o arquivo .env no caminho:", path.resolve(process.cwd(), '.env'));
+  console.error("❌ ERRO FATAL: O Node não encontrou o arquivo .env");
 }
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Configuração do Servidor HTTP e Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Em produção, restringir para o domínio do seu app
+    methods: ["GET", "POST"]
+  }
+});
+
+// Exportamos o 'io' para ser usado nos Services e Controllers
+export { io };
 
 app.use(cors());
 app.use(
@@ -34,20 +47,25 @@ app.use(
   })
 );
 
+// Monitoramento de conexão socket
+io.on('connection', (socket) => {
+  console.log(`🔌 Novo dispositivo conectado ao Socket: ${socket.id}`);
+  
+  socket.on('disconnect', () => {
+    console.log('🔌 Dispositivo desconectado');
+  });
+});
+
 // Rota principal
 app.get('/', (req, res) => {
   res.json({ message: 'Hello World from AutoGraph API!' });
 });
 
-// Rotas do webhook
 app.use(webhookRoutes);
-
-// Rotas da OS
 app.use('/api/os', osRoutes); 
-
-// Rotas de autenticação
 app.use('/api/auth', authRoutes);
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+// IMPORTANTE: Usamos 'server.listen' em vez de 'app.listen'
+server.listen(port, () => {
+  console.log(`🚀 Servidor e Socket.io rodando na porta ${port}`);
 });
