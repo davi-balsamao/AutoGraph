@@ -18,6 +18,8 @@ interface RetrievedDocument {
   id: string;
   conteudo: string;
   similaridade: number;
+  source?: string;
+  doc_type?: string;
 }
 
 export interface RagQueryResult {
@@ -28,8 +30,11 @@ export interface RagQueryResult {
 
 const TOP_K = 4;
 
-/** Score mínimo de similaridade. Documentos abaixo disso são descartados. */
+/** Score mínimo de similaridade — filtrado diretamente no SQL. */
 const MIN_SIMILARITY_SCORE = 0.55;
+
+/** Máximo de caracteres de histórico a incluir no contexto (evita overflow). */
+const MAX_HISTORY_CHARS = 2000;
 
 /** Resposta padrão quando não há contexto suficiente. */
 const FALLBACK_RESPONSE = 'Não tenho essa informação no momento.';
@@ -74,23 +79,28 @@ export class RagService {
   private async retrieveDocuments(queryEmbedding: number[]): Promise<RetrievedDocument[]> {
     const vectorString = `[${queryEmbedding.join(',')}]`;
 
+    // Phase 2 fix (C3): threshold is enforced in SQL — no JS post-filter needed.
     const results: RetrievedDocument[] = await prisma.$queryRaw`
-      SELECT 
-        id, 
-        conteudo, 
-        1 - (vetor <=> ${vectorString}::vector) as similaridade
+      SELECT
+        id,
+        conteudo,
+        source,
+        doc_type,
+        1 - (vetor <=> ${vectorString}::vector) AS similaridade
       FROM "DocumentosConhecimento"
       WHERE vetor IS NOT NULL
+        AND 1 - (vetor <=> ${vectorString}::vector) >= ${MIN_SIMILARITY_SCORE}
       ORDER BY vetor <=> ${vectorString}::vector
       LIMIT ${TOP_K}
     `;
 
-    // Filtrar por threshold de similaridade mínima
-    const filteredResults = results.filter(
-      (doc) => Number(doc.similaridade) >= MIN_SIMILARITY_SCORE
+    results.forEach((doc) =>
+      console.log(
+        `  📎 [${doc.doc_type ?? '?'}] ${doc.source ?? '?'} — score: ${Number(doc.similaridade).toFixed(3)}`,
+      ),
     );
 
-    return filteredResults;
+    return results;
   }
 
   /**
@@ -132,7 +142,9 @@ export class RagService {
       // Montar contexto com histórico de conversa
       let fullContext = context;
       if (conversationHistory) {
-        fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
+        // Phase 3 fix (W3): cap history to avoid context window overflow.
+        const safeHistory = conversationHistory.slice(-MAX_HISTORY_CHARS);
+        fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${safeHistory}`;
       }
 
       const rawAnswer = await this.chain.invoke({

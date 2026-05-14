@@ -72,8 +72,11 @@ model Mensagens {
 }
 
 model DocumentosConhecimento {
-  id        String                 @id @default(uuid())
-  conteudo  String
-  vetor     Unsupported("vector")?
-  criadoEm  DateTime               @default(now())
+  id         String                 @id @default(uuid())
+  conteudo   String
+  vetor      Unsupported("vector")?
+  source     String?                // Arquivo de origem (ex: "catalogo.json", "perguntas.md")
+  doc_type   String?                // Tipo do documento: "produto" | "faq" | "tecnico" | "regra"
+  chunk_index Int?                  // Posição do chunk dentro do documento de origem
+  criadoEm   DateTime               @default(now())
 }

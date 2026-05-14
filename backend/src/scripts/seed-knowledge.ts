@@ -1,3 +1,15 @@
+/**
+ * seed-knowledge.ts
+ *
+ * Alimenta a Base de Conhecimento (Vector DB) com chunking específico por tipo
+ * de documento, garantindo que cada chunk seja coeso e semanticamente completo.
+ *
+ * Estratégias usadas:
+ *  - catalogo.json + catalogo_produtos.json → 1 chunk atômico por produto (merged)
+ *  - perguntas.md → 1 chunk por item numerado (par Q&A completo)
+ *  - demais .md    → RecursiveCharacterTextSplitter (chunkSize 700, overlap 100)
+ */
+
 import { prisma } from '../config/prisma';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
@@ -7,126 +19,296 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface ChunkPayload {
+  conteudo: string;
+  source: string;
+  doc_type: 'produto' | 'faq' | 'tecnico' | 'regra';
+  chunk_index: number;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Normalise a product key so we can match between the two JSON catalogs.
+ * "Banner ou Lona" → "banner_lona", "Cartão de Visita" → "cartao_visita"
+ */
+function toSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip accents
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+/**
+ * Render the merged product chunk as readable plain text for the LLM.
+ */
+function renderProductChunk(
+  produto: string,
+  descricao: string,
+  requisitosOrcamento: string[],
+  papeisPermitidos: string[],
+  acabamentosPermitidos: string[],
+  entidadesObrigatorias: string[],
+): string {
+  const lines: string[] = [
+    `## Produto: ${produto}`,
+    `Descrição: ${descricao}`,
+    '',
+    'Para orçar este produto, o assistente DEVE perguntar ao cliente:',
+    ...requisitosOrcamento.map((r) => `- ${r}`),
+  ];
+
+  if (papeisPermitidos.length > 0) {
+    lines.push('', `Papéis permitidos: ${papeisPermitidos.join(', ')}`);
+  }
+  if (acabamentosPermitidos.length > 0) {
+    lines.push(`Acabamentos disponíveis: ${acabamentosPermitidos.join(', ')}`);
+  }
+  if (entidadesObrigatorias.length > 0) {
+    lines.push(
+      `Informações obrigatórias para abertura da OS: ${entidadesObrigatorias.join(', ')}`,
+    );
+  }
+
+  return lines.join('\n');
+}
+
+// ─── Chunking strategies ──────────────────────────────────────────────────────
+
+/**
+ * Strategy A: Merge catalogo.json + catalogo_produtos.json → 1 atomic chunk per product.
+ */
+function buildProductChunks(dataDir: string): ChunkPayload[] {
+  const catalogoPath = path.join(dataDir, 'catalogo.json');
+  const produtosPath = path.join(dataDir, 'catalogo_produtos.json');
+
+  if (!fs.existsSync(catalogoPath)) {
+    throw new Error(`ERRO: catalogo.json não encontrado em ${catalogoPath}`);
+  }
+
+  const catalogo: Array<{ produto: string; descricao: string; requisitos_orcamento: string[] }> =
+    JSON.parse(fs.readFileSync(catalogoPath, 'utf8'));
+
+  // catalogo_produtos.json is optional (graceful if missing)
+  const produtos: Record<
+    string,
+    {
+      papeis_permitidos: string[];
+      acabamentos_permitidos: string[];
+      entidades_obrigatorias: string[];
+    }
+  > = fs.existsSync(produtosPath) ? JSON.parse(fs.readFileSync(produtosPath, 'utf8')) : {};
+
+  return catalogo.map((item, i) => {
+    const slug = toSlug(item.produto);
+    const constraints = produtos[slug] ?? {
+      papeis_permitidos: [],
+      acabamentos_permitidos: [],
+      entidades_obrigatorias: [],
+    };
+
+    return {
+      conteudo: renderProductChunk(
+        item.produto,
+        item.descricao,
+        item.requisitos_orcamento,
+        constraints.papeis_permitidos,
+        constraints.acabamentos_permitidos,
+        constraints.entidades_obrigatorias,
+      ),
+      source: 'catalogo.json+catalogo_produtos.json',
+      doc_type: 'produto',
+      chunk_index: i,
+    };
+  });
+}
+
+/**
+ * Strategy B: perguntas.md → split on numbered item boundaries (1. 2. 3. …).
+ */
+function buildFaqChunks(content: string, filename: string): ChunkPayload[] {
+  // Split on lines that start with a digit followed by a period (e.g. "1. ", "2. ")
+  const rawItems = content.split(/(?=^\d+\.\s)/m).filter((s) => s.trim().length > 0);
+
+  return rawItems.map((item, i) => ({
+    conteudo: item.trim(),
+    source: filename,
+    doc_type: 'faq',
+    chunk_index: i,
+  }));
+}
+
+/**
+ * Strategy C: Generic markdown → RecursiveCharacterTextSplitter.
+ * chunkSize 700 / overlap 100 (~14%) respects section/paragraph boundaries.
+ */
+async function buildMarkdownChunks(
+  content: string,
+  filename: string,
+  docType: ChunkPayload['doc_type'],
+): Promise<ChunkPayload[]> {
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 700,
+    chunkOverlap: 100,
+    separators: ['\n## ', '\n### ', '\n\n', '\n', '. ', ' ', ''],
+  });
+
+  const docs = await splitter.createDocuments([content]);
+
+  return docs.map((doc, i) => ({
+    conteudo: doc.pageContent,
+    source: filename,
+    doc_type: docType,
+    chunk_index: i,
+  }));
+}
+
+/** Classify a .md filename into a doc_type for Strategy C. */
+function classifyMd(filename: string): ChunkPayload['doc_type'] {
+  const name = filename.toLowerCase();
+  if (name.includes('regra') || name.includes('chatbot') || name.includes('atendimento')) {
+    return 'regra';
+  }
+  if (name.includes('catalogo') || name.includes('guia') || name.includes('apresentacao')) {
+    return 'tecnico';
+  }
+  return 'tecnico'; // safe default
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
 async function main() {
-  console.log('Iniciando o seeding da Base de Conhecimento (Vector DB)...');
+  console.log('\n========== SEEDING BASE DE CONHECIMENTO ==========');
 
   const useMockEmbeddings = !process.env.GOOGLE_API_KEY;
   if (useMockEmbeddings) {
-    console.warn('AVISO: GOOGLE_API_KEY não definida. Usando embeddings MOCK para testes (768 dimensões).');
+    console.warn(
+      'AVISO: GOOGLE_API_KEY não definida. Usando embeddings MOCK para testes (768 dimensões).',
+    );
   }
 
-  // Instanciar o gerador de embeddings se tiver chave
-  const embeddings = useMockEmbeddings ? null : new GoogleGenerativeAIEmbeddings({
-    modelName: 'gemini-embedding-001',
-    apiKey: process.env.GOOGLE_API_KEY,
-  });
+  const embeddings = useMockEmbeddings
+    ? null
+    : new GoogleGenerativeAIEmbeddings({
+        modelName: 'gemini-embedding-001',
+        apiKey: process.env.GOOGLE_API_KEY,
+      });
 
-  // Ler o mock do catálogo
   const dataDir = path.join(__dirname, '../../data');
-  const catalogoPath = path.join(dataDir, 'catalogo.json');
-  if (!fs.existsSync(catalogoPath)) {
-    console.error(`ERRO: Arquivo de catálogo não encontrado em ${catalogoPath}`);
-    process.exit(1);
-  }
+  const chunks: ChunkPayload[] = [];
 
-  const catalogoRaw = fs.readFileSync(catalogoPath, 'utf8');
-  const catalogo: Array<any> = JSON.parse(catalogoRaw);
+  // ── A. Product catalog (merged) ──────────────────────────────────────────
+  console.log('\n📦 Processando catálogo de produtos (merged)...');
+  const productChunks = buildProductChunks(dataDir);
+  chunks.push(...productChunks);
+  console.log(`   → ${productChunks.length} chunks de produto gerados.`);
 
-  // Transformar JSON em texto para chunking
-  let textoParaChunking = '';
-  
-  for (const item of catalogo) {
-    textoParaChunking += `## Produto: ${item.produto}\n`;
-    textoParaChunking += `Descrição: ${item.descricao}\n`;
-    textoParaChunking += `Para fazer o orçamento de ${item.produto}, o assistente DEVE perguntar ao cliente as seguintes informações:\n`;
-    for (const req of item.requisitos_orcamento) {
-      textoParaChunking += `- ${req}\n`;
-    }
-    textoParaChunking += `\n`;
-  }
-
-  // Ler dinamicamente todos os arquivos .md (Guias técnicos, regras, etc.)
+  // ── B. Markdown files ────────────────────────────────────────────────────
   const files = fs.readdirSync(dataDir);
-  const mdFiles = files.filter(f => f.endsWith('.md'));
-  
+  const mdFiles = files.filter((f) => f.endsWith('.md'));
+
   for (const mdFile of mdFiles) {
-    console.log(`Lendo arquivo de contexto adicional: ${mdFile}`);
-    const mdPath = path.join(dataDir, mdFile);
-    const mdContent = fs.readFileSync(mdPath, 'utf8');
-    textoParaChunking += `\n\n--- INÍCIO DO ARQUIVO: ${mdFile} ---\n`;
-    textoParaChunking += mdContent;
-    textoParaChunking += `\n--- FIM DO ARQUIVO: ${mdFile} ---\n`;
+    console.log(`\n📄 Processando: ${mdFile}`);
+    const content = fs.readFileSync(path.join(dataDir, mdFile), 'utf8');
+
+    let fileChunks: ChunkPayload[];
+
+    if (mdFile === 'perguntas.md') {
+      // Strategy B — Q&A pairs
+      fileChunks = buildFaqChunks(content, mdFile);
+      console.log(`   → Estratégia FAQ: ${fileChunks.length} pares Q&A.`);
+    } else {
+      // Strategy C — Semantic markdown
+      const docType = classifyMd(mdFile);
+      fileChunks = await buildMarkdownChunks(content, mdFile, docType);
+      console.log(
+        `   → Estratégia Semântica [${docType}]: ${fileChunks.length} chunks.`,
+      );
+    }
+
+    chunks.push(...fileChunks);
   }
 
-  // Dividir o texto em chunks (pedaços menores)
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 500,
-    chunkOverlap: 50,
-  });
+  console.log(`\n📊 Total: ${chunks.length} chunks a indexar.`);
 
-  const docs = await splitter.createDocuments([textoParaChunking]);
-  console.log(`Documento dividido em ${docs.length} chunks.`);
-
-  // Limpar dados existentes para idempotência
-  console.log('Limpando tabela "DocumentosConhecimento" (Idempotência)...');
+  // ── Clear existing knowledge base (idempotent) ───────────────────────────
+  console.log('\n🗑️  Limpando tabela "DocumentosConhecimento"...');
   await prisma.$executeRaw`DELETE FROM "DocumentosConhecimento"`;
 
-  // Processar e salvar cada chunk com seu embedding
-  for (let i = 0; i < docs.length; i++) {
-    const conteudoChunk = docs[i].pageContent;
-    
-    // Gerar o vetor usando a API da OpenAI ou Mock
+  // ── Embed and insert ─────────────────────────────────────────────────────
+  console.log('\n🔄 Gerando embeddings e inserindo chunks...\n');
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+
     let vector: number[];
     if (embeddings) {
-      vector = await embeddings.embedQuery(conteudoChunk);
+      vector = await embeddings.embedQuery(chunk.conteudo);
     } else {
-      vector = Array(768).fill(0).map(() => Math.random() * 2 - 1);
+      vector = Array(768)
+        .fill(0)
+        .map(() => Math.random() * 2 - 1);
     }
 
-    // Transformar o array de floats em uma string formatada para o PostgreSQL: '[0.1, 0.2, ...]'
     const vectorString = `[${vector.join(',')}]`;
 
-    // Inserir usando SQL bruto porque Prisma usa tipo Unsupported para extensões nativas no pg
     await prisma.$executeRaw`
-      INSERT INTO "DocumentosConhecimento" (id, conteudo, vetor)
-      VALUES (gen_random_uuid(), ${conteudoChunk}, ${vectorString}::vector)
+      INSERT INTO "DocumentosConhecimento" (id, conteudo, vetor, source, doc_type, chunk_index)
+      VALUES (
+        gen_random_uuid(),
+        ${chunk.conteudo},
+        ${vectorString}::vector,
+        ${chunk.source},
+        ${chunk.doc_type},
+        ${chunk.chunk_index}
+      )
     `;
 
-    console.log(`Chunk ${i + 1}/${docs.length} inserido com sucesso.`);
+    const label = `[${chunk.doc_type.toUpperCase().padEnd(7)} | ${chunk.source}]`;
+    process.stdout.write(`\r   Chunk ${i + 1}/${chunks.length} ${label}  `);
   }
 
-  console.log('Base de Conhecimento alimentada com sucesso!');
+  console.log('\n\n✅ Base de Conhecimento alimentada com sucesso!');
 
-  // Teste opcional: busca de similaridade (Query: 'quero fazer um cartao de visita')
-  const testQuery = 'quero fazer um cartao de visita';
-  console.log(`\nTestando busca vetorial para a query: "${testQuery}"...`);
-  
+  // ── Smoke test ────────────────────────────────────────────────────────────
+  const testQuery = 'quero fazer um cartão de visita';
+  console.log(`\n🔍 Smoke test: "${testQuery}"`);
+
   let queryVector: number[];
   if (embeddings) {
     queryVector = await embeddings.embedQuery(testQuery);
   } else {
-    queryVector = Array(768).fill(0).map(() => Math.random() * 2 - 1);
+    queryVector = Array(768)
+      .fill(0)
+      .map(() => Math.random() * 2 - 1);
   }
 
   const queryVectorString = `[${queryVector.join(',')}]`;
 
-  // <=> calcula a cosine distance
   const resultados: any[] = await prisma.$queryRaw`
-    SELECT id, conteudo, 1 - (vetor <=> ${queryVectorString}::vector) as similaridade
+    SELECT id, conteudo, source, doc_type,
+           1 - (vetor <=> ${queryVectorString}::vector) as similaridade
     FROM "DocumentosConhecimento"
+    WHERE vetor IS NOT NULL
     ORDER BY vetor <=> ${queryVectorString}::vector
-    LIMIT 2
+    LIMIT 3
   `;
 
-  console.log('Resultados da busca:');
-  resultados.forEach(res => {
-    console.log(`- [Score: ${res.similaridade.toFixed(4)}] ${res.conteudo.substring(0, 100).replace(/\n/g, ' ')}...`);
+  console.log('Resultados:');
+  resultados.forEach((res) => {
+    console.log(
+      `  [Score: ${Number(res.similaridade).toFixed(4)}] [${res.doc_type}] ${res.source} — "${res.conteudo.substring(0, 80).replace(/\n/g, ' ')}..."`,
+    );
   });
 }
 
 main()
   .catch((e) => {
-    console.error('Erro na execução do seed:', e);
+    console.error('\n❌ Erro na execução do seed:', e);
     process.exit(1);
   })
   .finally(async () => {
