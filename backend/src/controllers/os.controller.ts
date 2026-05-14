@@ -5,6 +5,7 @@ import { ClienteRepository } from '../repositories/cliente.repository';
 import { whatsappService } from '../services/whatsapp.service';
 import { StatusOS } from '@prisma/client';
 import { io } from '../server';
+import { prisma } from '../config/prisma';
 
 const osRepo = new OsRepository();
 const mensagemRepo = new MensagemRepository();
@@ -17,6 +18,22 @@ export class OsController {
       const { clienteId, especificacoes, observacoes } = req.body;
       if (!clienteId) {
         return res.status(400).json({ error: 'clienteId é obrigatório.' });
+      }
+
+      // Verifica se o cliente existe para evitar erro de Foreign Key
+      const clienteExistente = await clienteRepo.findById(clienteId);
+      if (!clienteExistente) {
+        console.log(`⚠️ Cliente ${clienteId} não encontrado no banco. Criando registro de fallback automaticamente...`);
+        const numAleatorio = Math.floor(1000 + Math.random() * 9000);
+        await prisma.usuario.create({
+          data: {
+            id: clienteId,
+            nome: clienteId === 'c1' ? 'Cliente Fallback' : 'Cliente Mock',
+            email: `${clienteId}_${Date.now()}@exemplo.com`,
+            telefone: `1199999${numAleatorio}`,
+            role: 'CLIENTE',
+          }
+        });
       }
 
       // Se um arquivo foi enviado, anexamos o caminho/URL à especificação
@@ -47,8 +64,11 @@ export class OsController {
       io.emit('new-os', novaOs);
 
       return res.status(201).json(novaOs);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao criar OS:', error);
+      if (error?.name === 'PrismaClientInitializationError' || error?.message?.includes('database server')) {
+        return res.status(503).json({ error: 'Serviço de banco de dados indisponível no momento.' });
+      }
       return res.status(500).json({ error: 'Erro ao criar Ordem de Serviço.' });
     }
   }
@@ -59,7 +79,10 @@ export class OsController {
       const status = req.query.status as StatusOS;
       const ordens = await osRepo.findAll(status);
       return res.json(ordens);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'PrismaClientInitializationError' || error?.message?.includes('database server')) {
+        return res.status(503).json({ error: 'Serviço de banco de dados indisponível no momento.' });
+      }
       return res.status(500).json({ error: 'Erro ao buscar ordens.' });
     }
   }
@@ -117,7 +140,10 @@ export class OsController {
       });
 
       return res.json(historicoFormatado);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'PrismaClientInitializationError' || error?.message?.includes('database server')) {
+        return res.status(503).json({ error: 'Serviço de banco de dados indisponível no momento.' });
+      }
       return res.status(500).json({ error: 'Erro interno.' });
     }
   }

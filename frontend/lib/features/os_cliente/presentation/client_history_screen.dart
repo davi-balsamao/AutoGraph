@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/models/ordem_servico.dart';
+import '../../../core/models/produto.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/os_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/services/produto_service.dart';
@@ -259,15 +261,15 @@ class _HistoryTabState extends State<_HistoryTab> {
   Future<void> _fetchHistory() async {
     setState(() => _isLoading = true);
     try {
-      await Future.delayed(const Duration(milliseconds: 600));
-      final now = DateTime.now();
-      _ordens = [
-        OrdemServico(id: 'os-001', clienteId: 'c1', status: StatusOS.emProducao, especificacoes: {'produto': 'Panfletos', 'requisitos': [{'pergunta': 'Quantidade', 'resposta': '500 un'}]}, criadoEm: now.subtract(const Duration(days: 2)), atualizadoEm: now),
-        OrdemServico(id: 'os-004', clienteId: 'c1', status: StatusOS.entregue, especificacoes: {'produto': 'Apostila', 'requisitos': [{'pergunta': 'Páginas', 'resposta': '50'}]}, criadoEm: now.subtract(const Duration(days: 10)), atualizadoEm: now.subtract(const Duration(days: 3))),
-        OrdemServico(id: 'os-005', clienteId: 'c1', status: StatusOS.prontaParaRetirada, especificacoes: {'produto': 'Cartão de Visita', 'requisitos': [{'pergunta': 'Quantidade', 'resposta': '1000 un'}]}, criadoEm: now.subtract(const Duration(days: 5)), atualizadoEm: now.subtract(const Duration(days: 1))),
-      ];
+      final ordens = await OsService().fetchOrdensServico();
+      if (mounted) {
+        setState(() {
+          ordens.sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
+          _ordens = ordens;
+        });
+      }
     } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Erro ao buscar histórico');
+      if (mounted) SnackbarUtil.showError(context, 'Erro ao buscar histórico: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -281,6 +283,246 @@ class _HistoryTabState extends State<_HistoryTab> {
       case StatusOS.entregue: return const Color(0xFF5C6C7A);
       case StatusOS.cancelada: return const Color(0xFFEF4444);
       default: return const Color(0xFF003D4F);
+    }
+  }
+
+  String _getMaterial(OrdemServico os) {
+    final specs = os.especificacoes;
+    if (specs['material'] != null) return specs['material'].toString();
+    final reqs = specs['requisitos'] as List<dynamic>?;
+    if (reqs != null) {
+      for (final r in reqs) {
+        if (r['pergunta'].toString().toLowerCase().contains('material')) {
+          return r['resposta'].toString();
+        }
+      }
+    }
+    return 'Papel Premium Padrão';
+  }
+
+  String _getTamanho(OrdemServico os) {
+    final specs = os.especificacoes;
+    if (specs['tamanho'] != null) return specs['tamanho'].toString();
+    if (specs['dimensoes'] is Map) {
+      final dim = specs['dimensoes'] as Map;
+      final w = dim['largura'] ?? '';
+      final h = dim['altura'] ?? '';
+      if (w.toString().isNotEmpty && h.toString().isNotEmpty) {
+        return '$w x $h';
+      }
+    }
+    final reqs = specs['requisitos'] as List<dynamic>?;
+    if (reqs != null) {
+      for (final r in reqs) {
+        final p = r['pergunta'].toString().toLowerCase();
+        if (p.contains('tamanho') || p.contains('dimensão') || p.contains('páginas')) {
+          return '${r['pergunta']}: ${r['resposta']}';
+        }
+      }
+    }
+    return 'Tamanho Padrão';
+  }
+
+  String _getQuantidade(OrdemServico os) {
+    final specs = os.especificacoes;
+    if (specs['quantidade'] != null) return specs['quantidade'].toString();
+    final reqs = specs['requisitos'] as List<dynamic>?;
+    if (reqs != null) {
+      for (final r in reqs) {
+        if (r['pergunta'].toString().toLowerCase().contains('quantidade')) {
+          return r['resposta'].toString();
+        }
+      }
+    }
+    return '1 unidade';
+  }
+
+  String? _getArteUrl(OrdemServico os) {
+    final specs = os.especificacoes;
+    final keys = ['arte_url', 'arteUrl', 'arte', 'url'];
+    for (final k in keys) {
+      if (specs[k] != null && specs[k].toString().startsWith('http')) {
+        return specs[k].toString();
+      }
+    }
+    return null;
+  }
+
+  void _reorder(OrdemServico os) {
+    final precoReferencia = (os.especificacoes['precoBaseReferencia'] as num?)?.toDouble() ?? 10.0;
+    final produtoId = os.especificacoes['produtoId'] as String? ?? 'prod-custom';
+    final produtoNome = os.produtoResumo;
+    final dummyProduto = Produto(
+      id: produtoId,
+      nome: produtoNome,
+      precoBase: precoReferencia,
+      criadoEm: DateTime.now(),
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrderWizardScreen(produto: dummyProduto),
+      ),
+    ).then((result) {
+      if (result == true) {
+        _fetchHistory();
+      }
+    });
+  }
+
+  void _showOrderDetails(OrdemServico os, Color statusColor) {
+    final material = _getMaterial(os);
+    final tamanho = _getTamanho(os);
+    final quantidade = _getQuantidade(os);
+    final arteUrl = _getArteUrl(os);
+    final cs = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      os.produtoResumo,
+                      style: GoogleFonts.outfit(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                    ),
+                    child: Text(
+                      os.status.label.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _DetailRow(label: 'Descrição', value: os.observacoes?.isNotEmpty == true ? os.observacoes! : 'Pedido personalizado enviado via AutoGraph.'),
+              const Divider(height: 24),
+              _DetailRow(label: 'Material', value: material),
+              const Divider(height: 24),
+              _DetailRow(label: 'Tamanho', value: tamanho),
+              const Divider(height: 24),
+              _DetailRow(label: 'Quantidade', value: quantidade),
+              const Divider(height: 24),
+              _DetailRow(
+                label: 'Solicitado em',
+                value: '${os.criadoEm.day.toString().padLeft(2, '0')}/${os.criadoEm.month.toString().padLeft(2, '0')}/${os.criadoEm.year} às ${os.criadoEm.hour.toString().padLeft(2, '0')}:${os.criadoEm.minute.toString().padLeft(2, '0')}',
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: arteUrl != null
+                      ? () async {
+                          final uri = Uri.parse(arteUrl);
+                          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                            if (ctx.mounted) {
+                              SnackbarUtil.showError(ctx, 'Não foi possível abrir a arte.');
+                            }
+                          }
+                        }
+                      : null,
+                  icon: const Icon(Icons.palette_outlined),
+                  label: Text(
+                    arteUrl != null ? 'VISUALIZAR ARTE' : 'ARTE NÃO DISPONÍVEL',
+                    style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: arteUrl != null ? AppColors.brandGreen : cs.surfaceContainerHighest,
+                    foregroundColor: arteUrl != null ? AppColors.brandTealDeep : cs.onSurface.withValues(alpha: 0.4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _solicitarCancelamento(OrdemServico os) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            const SizedBox(width: 10),
+            Text('Solicitar Cancelamento', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text('Deseja enviar uma solicitação de cancelamento para este pedido? O administrador irá analisar e confirmar.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('NÃO')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('SIM, SOLICITAR'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      setState(() => _isLoading = true);
+      try {
+        final novasSpecs = Map<String, dynamic>.from(os.especificacoes);
+        novasSpecs['solicitouCancelamento'] = true;
+        await OsService().updateOS(os.id, especificacoes: novasSpecs);
+        if (mounted) {
+          SnackbarUtil.showSuccess(context, 'Solicitação de cancelamento enviada ao administrador.');
+          _fetchHistory();
+        }
+      } catch (e) {
+        if (mounted) SnackbarUtil.showError(context, 'Erro ao solicitar cancelamento: $e');
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -299,36 +541,123 @@ class _HistoryTabState extends State<_HistoryTab> {
         itemBuilder: (context, i) {
           final os = _ordens[i];
           final statusColor = _statusColor(os.status);
+          final canCancel = os.status != StatusOS.entregue && os.status != StatusOS.cancelada;
+          final solicitouCancelamento = os.especificacoes['solicitouCancelamento'] == true;
+
           return Card(
             margin: const EdgeInsets.only(bottom: 16),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.15), shape: BoxShape.circle),
-                child: Icon(Icons.description_outlined, color: statusColor, size: 24),
-              ),
-              title: Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: cs.onSurface)),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Data: ${os.criadoEm.day}/${os.criadoEm.month}/${os.criadoEm.year}',
-                  style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.6)),
-                ),
-              ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-                ),
-                child: Text(os.status.label.toUpperCase(), style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.bold)),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => _showOrderDetails(os, statusColor),
+              child: Column(
+                children: [
+                  ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.15), shape: BoxShape.circle),
+                      child: Icon(Icons.description_outlined, color: statusColor, size: 24),
+                    ),
+                    title: Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: cs.onSurface)),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Data: ${os.criadoEm.day}/${os.criadoEm.month}/${os.criadoEm.year}',
+                            style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.6)),
+                          ),
+                          if (solicitouCancelamento)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Cancelamento em análise pelo Admin',
+                                style: TextStyle(fontSize: 11, color: Colors.orange.shade800, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(os.status.label.toUpperCase(), style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const Divider(height: 1, thickness: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (canCancel && !solicitouCancelamento)
+                          TextButton.icon(
+                            onPressed: () => _solicitarCancelamento(os),
+                            icon: const Icon(Icons.cancel_outlined, size: 16),
+                            label: const Text('Cancelar Pedido', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                          ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => _reorder(os),
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Pedir Novamente', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.brandGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

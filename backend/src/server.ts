@@ -9,6 +9,7 @@ import webhookRoutes from './routes/webhook.routes';
 import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
 import produtoRoutes from './routes/produto.routes';
+import { prisma } from './config/prisma';
 
 // Carregamento Físico do .env
 try {
@@ -71,6 +72,17 @@ app.use('/api/auth', authRoutes);
 
 // Rotas de Produtos
 app.use('/api/produtos', produtoRoutes);
+
+// Endpoint de Health Check (Verifica DB)
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ok', database: 'connected' });
+  } catch (error) {
+    console.error('❌ ERRO NO HEALTH CHECK (Banco de Dados Inacessível):', error);
+    res.status(503).json({ status: 'error', database: 'disconnected', message: 'Serviço de banco de dados indisponível no momento.' });
+  }
+});
 
 // IMPORTANTE: Usamos 'server.listen' em vez de 'app.listen' para o Socket.io funcionar
 server.listen(port, () => {

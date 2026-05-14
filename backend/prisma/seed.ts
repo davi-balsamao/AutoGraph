@@ -11,28 +11,45 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Start seeding...');
 
-  // Upsert Cliente
+  // Upsert Cliente Mock Flutter (usr-client-001)
   const cliente = await prisma.usuario.upsert({
     where: { email: 'cliente@exemplo.com' },
     update: {},
     create: {
+      id: 'usr-client-001',
       nome: 'Cliente Exemplo',
       email: 'cliente@exemplo.com',
-      telefone: '5511999999999',
+      telefone: '11999990001',
       senha: 'senha_segura_cliente',
       role: 'CLIENTE',
     },
   });
   console.log(`Created/Updated cliente: ${cliente.nome}`);
 
-  // Upsert Gerente
-  const gerente = await prisma.usuario.upsert({
-    where: { email: 'gerente@grafica.com' },
+  // Upsert Cliente Fallback Flutter (c1)
+  const clienteC1 = await prisma.usuario.upsert({
+    where: { email: 'c1@exemplo.com' },
     update: {},
     create: {
-      nome: 'Gerente Gráfica',
-      email: 'gerente@grafica.com',
-      telefone: '5511988888888',
+      id: 'c1',
+      nome: 'Cliente Fallback',
+      email: 'c1@exemplo.com',
+      telefone: '11999990002',
+      senha: 'senha_segura_cliente',
+      role: 'CLIENTE',
+    },
+  });
+  console.log(`Created/Updated cliente fallback: ${clienteC1.nome}`);
+
+  // Upsert Gerente Mock Flutter (usr-admin-001)
+  const gerente = await prisma.usuario.upsert({
+    where: { email: 'admin@autograph.com' },
+    update: {},
+    create: {
+      id: 'usr-admin-001',
+      nome: 'Gerente AutoGraph',
+      email: 'admin@autograph.com',
+      telefone: '11999990000',
       senha: 'senha_segura_gerente',
       role: 'GERENTE',
     },

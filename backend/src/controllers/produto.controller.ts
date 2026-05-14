@@ -10,8 +10,11 @@ export class ProdutoController {
     try {
       const produtos = await produtoRepo.findAll();
       return res.json(produtos);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro detalhado ao listar Produtos:', error);
+      if (error.name === 'PrismaClientInitializationError' || error.message?.includes('database server')) {
+        return res.status(503).json({ error: 'Serviço de banco de dados indisponível no momento.' });
+      }
       return res.status(500).json({ error: 'Erro ao buscar produtos.', details: error instanceof Error ? error.message : String(error) });
     }
   }
@@ -22,7 +25,10 @@ export class ProdutoController {
       const produto = await produtoRepo.findById(id);
       if (!produto) return res.status(404).json({ error: 'Produto não encontrado.' });
       return res.json(produto);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'PrismaClientInitializationError' || error.message?.includes('database server')) {
+        return res.status(503).json({ error: 'Serviço de banco de dados indisponível no momento.' });
+      }
       return res.status(500).json({ error: 'Erro ao buscar produto.' });
     }
   }

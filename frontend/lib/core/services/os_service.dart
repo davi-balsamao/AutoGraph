@@ -34,6 +34,8 @@ class OsService {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => OrdemServico.fromJson(json)).toList();
+      } else if (response.statusCode == 503) {
+        throw OsServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
       } else {
         throw OsServiceException('Erro ao buscar ordens de serviço. Código: ${response.statusCode}');
       }
@@ -125,6 +127,8 @@ class OsService {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         return OrdemServico.fromJson(jsonDecode(response.body));
+      } else if (response.statusCode == 503) {
+        throw OsServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
       } else {
         throw OsServiceException(
             'Erro ao criar Ordem de Serviço. Código: ${response.statusCode}');
