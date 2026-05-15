@@ -201,7 +201,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         actions: [
           IconButton(
+            key: const Key('btn_admin_register_client'),
+            icon: const Icon(Icons.person_add_alt_1),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.register, arguments: true),
+            tooltip: 'Cadastrar Cliente',
+          ),
+          IconButton(
             key: const Key('btn_toggle_theme_admin'),
+
             icon: Icon(
               themeNotifier.themeMode == ThemeMode.dark
                   ? Icons.light_mode

@@ -22,6 +22,7 @@ void main() {
     testWidgets('renderiza LoginScreen na rota inicial', (tester) async {
       await tester.pumpWidget(_buildTestApp());
       expect(find.byType(LoginScreen), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
     });
 
     testWidgets('login como Cliente navega para ClientHistoryScreen', (tester) async {
@@ -33,6 +34,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ClientHistoryScreen), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
     });
 
     testWidgets('login como Admin navega para AdminDashboardScreen', (tester) async {
@@ -44,6 +46,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AdminDashboardScreen), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
     });
   });
 
@@ -59,6 +62,7 @@ void main() {
 
       expect(find.text('404 — Página não encontrada'), findsOneWidget);
       expect(find.byKey(const Key('btn_go_login_from_404')), findsOneWidget);
+      await tester.pumpAndSettle(const Duration(seconds: 5));
     });
   });
 }
