@@ -794,13 +794,13 @@ class _FinancialTabState extends State<_FinancialTab> {
         children: [
           Text('Visão Geral', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: cs.onSurface)),
           const SizedBox(height: 24),
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
             children: [
-              Expanded(child: _KpiCard(title: 'FATURAMENTO', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: AppColors.brandGreen)),
-              const SizedBox(width: 16),
-              Expanded(child: _KpiCard(title: 'OS FINALIZADAS', value: '$osCompletedCount', icon: Icons.check_circle_outline, color: AppColors.purple)),
-              const SizedBox(width: 16),
-              Expanded(child: _KpiCard(title: 'TICKET MÉDIO', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: AppColors.orange)),
+              _KpiCard(title: 'FATURAMENTO', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: AppColors.brandGreen),
+              _KpiCard(title: 'OS FINALIZADAS', value: '$osCompletedCount', icon: Icons.check_circle_outline, color: AppColors.purple),
+              _KpiCard(title: 'TICKET MÉDIO', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: AppColors.orange),
             ],
           ),
           const SizedBox(height: 40),
@@ -909,18 +909,25 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 16),
-            Text(value, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-            const SizedBox(height: 4),
-            Text(title, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5)),
-          ],
+    final width = MediaQuery.of(context).size.width;
+    // Em telas pequenas, ocupa largura total. Em telas maiores (desktop), divide o espaço.
+    final cardWidth = width < 600 ? (width - 48) : (width - 48 - 32) / 3;
+
+    return SizedBox(
+      width: cardWidth,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 16),
+              Text(value, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+              const SizedBox(height: 4),
+              Text(title, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5)),
+            ],
+          ),
         ),
       ),
     );
@@ -1154,7 +1161,7 @@ class _CatalogTabState extends State<_CatalogTab> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 1.0,
+                childAspectRatio: 0.85,
               ),
               itemCount: _produtos.length,
               itemBuilder: (context, i) {
@@ -1416,9 +1423,12 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
             ),
             child: Column(
               children: [
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 250,
                       child: TextField(
                         controller: _clienteFilterController,
                         decoration: const InputDecoration(
@@ -1428,8 +1438,8 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 200,
                       child: TextField(
                         controller: _produtoFilterController,
                         decoration: const InputDecoration(
@@ -1439,8 +1449,8 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 180,
                       child: DropdownButtonFormField<StatusOS?>(
                         initialValue: _selectedStatus,
                         decoration: const InputDecoration(
