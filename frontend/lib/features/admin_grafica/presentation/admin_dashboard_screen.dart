@@ -13,6 +13,8 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../core/services/produto_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../admin_chat/presentation/admin_chat_list_tab.dart';
+import '../../admin_chat/presentation/admin_chat_conversation_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -68,7 +70,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const Text('Nenhum produto cadastrado no catálogo.', style: TextStyle(color: Colors.red))
                       else
                         DropdownButtonFormField<Produto>(
-                          value: produtoSelecionado,
+                          initialValue: produtoSelecionado,
                           decoration: const InputDecoration(labelText: 'Produto do Catálogo', prefixIcon: Icon(Icons.inventory_2_outlined, size: 18)),
                           items: produtos.map((p) => DropdownMenuItem(value: p, child: Text('${p.nome} (R\$ ${p.precoBase.toStringAsFixed(2)})'))).toList(),
                           onChanged: (val) => setStateDialog(() => produtoSelecionado = val),
@@ -161,7 +163,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     );
                     if (ctx.mounted) Navigator.pop(ctx, true);
                   } catch (e) {
-                    SnackbarUtil.showError(ctx, 'Erro ao criar pedido: $e');
+                    if (ctx.mounted) SnackbarUtil.showError(ctx, 'Erro ao criar pedido: $e');
                   }
                 },
                 child: const Text('CRIAR PEDIDO'),
@@ -224,6 +226,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         index: _currentIndex,
         children: [
           _KanbanTab(key: _kanbanKey),
+          const AdminChatListTab(),
           const _AdminHistoryTab(),
           const _FinancialTab(),
           const _CatalogTab(),
@@ -239,6 +242,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: Icon(Icons.view_kanban_outlined),
             selectedIcon: Icon(Icons.view_kanban, color: AppColors.brandGreen),
             label: 'Kanban',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble, color: AppColors.brandGreen),
+            label: 'Chat',
           ),
           NavigationDestination(
             icon: Icon(Icons.history_outlined),
@@ -487,7 +495,6 @@ class _KanbanColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return DragTarget<OrdemServico>(
       onWillAcceptWithDetails: (details) => details.data.status != status,
       onAcceptWithDetails: (details) => onAccept(details.data),
@@ -569,7 +576,6 @@ class _OSCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Draggable<OrdemServico>(
       data: os,
       feedback: Material(
@@ -591,7 +597,6 @@ class _OSCard extends StatelessWidget {
   }
 
   Widget _buildCard(BuildContext context) {
-    final theme = Theme.of(context);
     final solicitouCancelamento = os.especificacoes['solicitouCancelamento'] == true;
 
     return Card(
@@ -634,6 +639,23 @@ class _OSCard extends StatelessWidget {
                         Text(os.clienteNome ?? 'Cliente não informado', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55))),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chat_outlined, color: AppColors.brandGreen, size: 20),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AdminChatConversationScreen(
+                            clientId: os.clienteId,
+                            clientName: os.clienteNome ?? 'Cliente',
+                          ),
+                        ),
+                      );
+                    },
+                    tooltip: 'Conversar com Cliente',
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
                   ),
                   IconButton(
                     icon: const Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
@@ -788,7 +810,7 @@ class _FinancialTabState extends State<_FinancialTab> {
             decoration: BoxDecoration(
               color: cs.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.outline ?? Theme.of(context).dividerColor),
+              border: Border.all(color: cs.outline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -854,7 +876,7 @@ class _FinancialTabState extends State<_FinancialTab> {
               children: stockItems.entries.map((e) {
                 final isLow = e.value < 10;
                 return Container(
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: cs.outline ?? Theme.of(context).dividerColor))),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: cs.outline))),
                   child: ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
@@ -1012,7 +1034,7 @@ class _CatalogTabState extends State<_CatalogTab> {
                 );
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
-                SnackbarUtil.showError(ctx, 'Erro ao salvar produto.');
+                if (ctx.mounted) SnackbarUtil.showError(ctx, 'Erro ao salvar produto.');
               }
             },
             child: const Text('SALVAR'),
@@ -1103,7 +1125,7 @@ class _CatalogTabState extends State<_CatalogTab> {
                 );
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
-                SnackbarUtil.showError(ctx, 'Erro ao salvar alterações do produto.');
+                if (ctx.mounted) SnackbarUtil.showError(ctx, 'Erro ao salvar alterações do produto.');
               }
             },
             child: const Text('SALVAR'),
@@ -1155,7 +1177,7 @@ class _CatalogTabState extends State<_CatalogTab> {
                               ? Image.network(
                                   p.imagemUrl!,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _buildImagePlaceholder(isDark),
+                                  errorBuilder: (_, _, _) => _buildImagePlaceholder(isDark),
                                   loadingBuilder: (_, child, progress) => progress == null
                                     ? child
                                     : Container(
@@ -1420,7 +1442,7 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<StatusOS?>(
-                        value: _selectedStatus,
+                        initialValue: _selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Status do Pedido',
                           isDense: true,

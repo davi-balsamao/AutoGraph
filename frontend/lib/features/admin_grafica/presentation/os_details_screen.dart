@@ -6,6 +6,7 @@ import '../../../core/services/os_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import '../../admin_chat/presentation/admin_chat_conversation_screen.dart';
 
 class OsDetailsScreen extends StatefulWidget {
   final OrdemServico os;
@@ -103,9 +104,9 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(widget.os.status).withOpacity(0.1),
+                    color: _getStatusColor(widget.os.status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: _getStatusColor(widget.os.status).withOpacity(0.5)),
+                    border: Border.all(color: _getStatusColor(widget.os.status).withValues(alpha: 0.5)),
                   ),
                   child: Text(
                     widget.os.status.label.toUpperCase(),
@@ -114,6 +115,32 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AdminChatConversationScreen(
+                        clientId: widget.os.clienteId,
+                        clientName: widget.os.clienteNome ?? 'Cliente',
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.chat_outlined),
+                label: const Text('CONVERSAR COM CLIENTE (WHATSAPP)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandGreen,
+                  foregroundColor: AppColors.brandTealDeep,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             const SizedBox(height: 32),
             
             // Core Information Grid
