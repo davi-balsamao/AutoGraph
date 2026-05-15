@@ -36,6 +36,8 @@ class AppColors {
   // Accents
   static const Color purple = Color(0xFF7B3FF2);
   static const Color orange = Color(0xFFFA6E39);
+  static const Color whatsappGreen = Color(0xFF25D366);
+  static const Color successLight = Color(0xFFE3FCEF);
 }
 
 class AppTheme {
