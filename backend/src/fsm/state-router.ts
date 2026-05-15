@@ -111,7 +111,7 @@ export class StateRouter {
       if (result.response?.trim()) {
         const texto = result.response.trim();
         responseParts.push(texto);
-        console.log(`🤖 Handler [${currentState}]: "${texto.substring(0, 120)}${texto.length > 120 ? '...' : ''}"`);
+        console.log(`🤖 Handler [${currentState}]: "${texto.substring(0, 500)}${texto.length > 500 ? '...' : ''}"`);
       }
       context = result.updatedContext;
       escalarHumano = escalarHumano || !!result.escalarHumano;

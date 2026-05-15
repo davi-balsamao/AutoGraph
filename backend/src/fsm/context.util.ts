@@ -38,6 +38,10 @@ export function specsCompletas(context: ConversationContext): boolean {
   return !context.specsPendentes || context.specsPendentes.length === 0;
 }
 
+const PRODUTOS_COM_ARTE = ['panfletos', 'cartão de visita', 'banner ou lona', 'blocos'];
+
 export function produtoExigeValidacaoArte(context: ConversationContext): boolean {
-  return context.artePronta === true;
+  if (!context.produto) return false;
+  const prod = context.produto.toLowerCase();
+  return PRODUTOS_COM_ARTE.some((p) => prod.includes(p));
 }

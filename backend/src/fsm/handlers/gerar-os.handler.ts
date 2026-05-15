@@ -33,6 +33,7 @@ export class GerarOsHandler implements StateHandler {
       clienteId: sessao.clienteId,
       especificacoes,
       mensagem_sugerida: mensagemSugerida,
+      observacoes: '⚠️ Validar arte antes de produzir: DPI mínimo 300, formato PDF/TIFF/JPG/PNG, sangria conforme template do produto.',
     } as Parameters<typeof osRepo.create>[0]);
 
     context.osId = os.id;

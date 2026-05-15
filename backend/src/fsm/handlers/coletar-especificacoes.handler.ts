@@ -79,6 +79,14 @@ export class ColetarEspecificacoesHandler implements StateHandler {
       };
     }
 
+    if (nextState === ConversationState.VALIDAR_ARQUIVO) {
+      return {
+        response: 'Você já tem o arquivo de arte pronto para enviar? Aceitamos PDF, JPG, PNG ou TIFF.',
+        nextState: ConversationState.VALIDAR_ARQUIVO,
+        updatedContext: context,
+      };
+    }
+
     if (nextState === ConversationState.CALCULAR_ORCAMENTO) {
       return {
         response: TRANSITION_MSG,

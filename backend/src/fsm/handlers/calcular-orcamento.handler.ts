@@ -20,7 +20,11 @@ export class CalcularOrcamentoHandler implements StateHandler {
       deps.conversationHistory || undefined
     );
 
-    const prices = guardrailsService.extractPrices(ragResult.answer);
+    // Usa a resposta bruta do LLM (pré-guardrails) para extrair o preço calculado.
+    // O guardrails compara preços unitários da KB com o total calculado, causando falso-positivo;
+    // o CALCULAR state é interno e não exibe preços ao usuário — guardrails não se aplica aqui.
+    const priceSource = ragResult.rawAnswer ?? ragResult.answer;
+    const prices = guardrailsService.extractPrices(priceSource);
     const total = prices.length > 0 ? Math.max(...prices) : 0;
 
     const prazoMatch = ragResult.answer.match(/PRAZO:\s*([^|]+)/i);

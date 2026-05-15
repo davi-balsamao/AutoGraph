@@ -3,7 +3,6 @@
     "produto": "Panfletos",
     "descricao": "Material impresso para divulgação em massa. Ideal para campanhas promocionais.",
     "requisitos_orcamento": [
-      "Você tem a arte pronta?",
       "Qual quantidade deseja?",
       "Qual será o tamanho (ex: 10x14cm, 15x21cm)?",
       "A impressão será só frente ou frente e verso?"
@@ -13,7 +12,6 @@
     "produto": "Cartão de Visita",
     "descricao": "Cartões para apresentação profissional e contatos comerciais.",
     "requisitos_orcamento": [
-      "Você tem a arte pronta?",
       "Qual quantidade deseja?",
       "A impressão será só frente ou frente e verso?",
       "Terá verniz total?",
@@ -24,7 +22,6 @@
     "produto": "Blocos",
     "descricao": "Blocos de anotações, receituários ou talões de pedido.",
     "requisitos_orcamento": [
-      "Você tem a arte pronta?",
       "Qual quantidade deseja?",
       "Qual o tamanho do bloco (ex: A4, A5, 10x15cm)?",
       "Quantas vias terá cada folha?",
@@ -37,7 +34,6 @@
     "produto": "Banner ou Lona",
     "descricao": "Material em lona para fachadas, festas ou eventos corporativos.",
     "requisitos_orcamento": [
-      "Você tem a arte pronta?",
       "Qual o tamanho desejado (Largura x Altura)?"
     ]
   },

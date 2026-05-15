@@ -88,6 +88,41 @@ export async function cleanupUser(telefone: string) {
   await prisma.usuario.delete({ where: { id: user.id } });
 }
 
+/** Retorna o estado FSM atual da sessão ativa do usuário. */
+export async function getSessionState(telefone: string): Promise<string | null> {
+  const cliente = await prisma.usuario.findFirst({ where: { telefone } });
+  if (!cliente) return null;
+
+  const sessao = await prisma.sessaoAtendimento.findFirst({
+    where: { clienteId: cliente.id, ativa: true },
+    orderBy: { atualizadoEm: 'desc' },
+  });
+  return sessao?.estadoAtual ?? null;
+}
+
+/** Retorna o contexto JSON da sessão ativa (produto, specs, orcamento, entrega, osId…). */
+export async function getSessionContext(telefone: string): Promise<Record<string, any> | null> {
+  const cliente = await prisma.usuario.findFirst({ where: { telefone } });
+  if (!cliente) return null;
+
+  const sessao = await prisma.sessaoAtendimento.findFirst({
+    where: { clienteId: cliente.id, ativa: true },
+    orderBy: { atualizadoEm: 'desc' },
+  });
+  return (sessao?.contexto as Record<string, any>) ?? null;
+}
+
+/** Retorna a última OS criada para o telefone dado. */
+export async function getLastOS(telefone: string) {
+  const cliente = await prisma.usuario.findFirst({ where: { telefone } });
+  if (!cliente) return null;
+
+  return prisma.ordensDeServico.findFirst({
+    where: { clienteId: cliente.id },
+    orderBy: { criadoEm: 'desc' },
+  });
+}
+
 /** Aguarda processamento assíncrono da IA (em ms). */
 export const wait = (ms = 8000) => new Promise<void>(r => setTimeout(r, ms));
 

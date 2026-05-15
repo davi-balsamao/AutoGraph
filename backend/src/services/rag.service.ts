@@ -23,6 +23,8 @@ interface RetrievedDocument {
 
 export interface RagQueryResult {
   answer: string;
+  /** Resposta bruta do LLM antes da correção dos guardrails. Populado apenas quando guardrailApplied=true. */
+  rawAnswer?: string;
   sourceDocuments: Array<{ id: string; similaridade: number }>;
   guardrailApplied?: boolean;
 }
@@ -160,15 +162,17 @@ export class RagService {
 
           const contextualAnswer = await chain.invoke({ context: kbContext, question });
           const validation = guardrailsService.validateResponse(contextualAnswer, []);
-          const finalAnswer = validation.isValid
-            ? stripDoubleNewlines(contextualAnswer)
-            : validation.correctedResponse || FALLBACK_RESPONSE;
+          const guardrailApplied = !validation.isValid;
+          const finalAnswer = guardrailApplied
+            ? validation.correctedResponse || FALLBACK_RESPONSE
+            : stripDoubleNewlines(contextualAnswer);
 
           console.log(`💬 Resposta final: "${finalAnswer}"`);
           return {
             answer: finalAnswer,
+            rawAnswer: guardrailApplied ? contextualAnswer : undefined,
             sourceDocuments: [],
-            guardrailApplied: !validation.isValid,
+            guardrailApplied,
           };
         }
 
@@ -199,18 +203,18 @@ export class RagService {
       
       const validation = guardrailsService.validateResponse(rawAnswer, langchainDocs);
 
-      let finalAnswer = stripDoubleNewlines(rawAnswer);
       let guardrailApplied = false;
+      let finalAnswer = stripDoubleNewlines(rawAnswer);
 
       if (!validation.isValid) {
         finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
         guardrailApplied = true;
       }
 
-
       console.log(`💬 Resposta final: "${finalAnswer}"`);
       return {
         answer: finalAnswer,
+        rawAnswer: guardrailApplied ? rawAnswer : undefined,
         sourceDocuments: documents.map((doc) => ({
           id: doc.id,
           similaridade: Number(doc.similaridade),
