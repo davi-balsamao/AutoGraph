@@ -42,6 +42,22 @@ model Usuario {
 
   ordensDeServico OrdensDeServico[]
   mensagens        Mensagens[]
+  sessoes          SessaoAtendimento[]
+}
+
+model SessaoAtendimento {
+  id              String   @id @default(uuid())
+  clienteId       String
+  cliente         Usuario  @relation(fields: [clienteId], references: [id])
+  estadoAtual     String   @default("BOAS_VINDAS")
+  estadoAnterior  String?
+  contexto        Json     @default("{}")
+  ativa           Boolean  @default(true)
+  lembreteEnviado Boolean  @default(false)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@index([clienteId, ativa])
 }
 
 model OrdensDeServico {

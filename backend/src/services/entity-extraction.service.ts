@@ -32,6 +32,11 @@ export interface RequisitoStatus {
 }
 
 /** Resultado completo da extração de entidades. */
+export interface ExtractOptions {
+  /** Produto já travado na sessão FSM — não re-inferir do histórico. */
+  produtoAtual?: string | null;
+}
+
 export interface PedidoEntities {
   /** Produto identificado na conversa (ex: "Cartão de Visita") */
   produtoIdentificado: string | null;
@@ -70,24 +75,40 @@ export class EntityExtractionService {
     }
   }
 
-  /**
-   * Identifica o produto desejado pelo cliente com base no texto da conversa.
-   * Usa correspondência por palavras-chave do nome do produto.
-   */
-  private identificarProduto(texto: string): CatalogItem | null {
+  private readonly sinonimos: Record<string, string[]> = {
+    'Panfletos': ['panfleto', 'panfletos', 'flyer', 'flyers', 'folheto', 'folhetos'],
+    'Cartão de Visita': [
+      'cartão de visita',
+      'cartao de visita',
+      'cartões de visita',
+      'cartoes de visita',
+    ],
+    'Blocos': ['bloco', 'blocos', 'talão', 'talao', 'talões', 'receituário', 'receituario'],
+    'Banner ou Lona': ['banner', 'banners', 'lona', 'lonas', 'faixa', 'faixas'],
+    'Apostila': ['apostila', 'apostilas', 'encadernação', 'encadernacao', 'manual', 'manuais'],
+  };
+
+  /** Identifica produto em um trecho de texto (uma mensagem). */
+  identificarProdutoNaMensagem(mensagem: string): CatalogItem | null {
+    return this.identificarProdutoEmTexto(mensagem);
+  }
+
+  private identificarProdutoEmTexto(texto: string): CatalogItem | null {
     const textoLower = texto.toLowerCase();
 
-    // Mapeamento de sinônimos/variações comuns
-    const sinonimos: Record<string, string[]> = {
-      'Panfletos': ['panfleto', 'panfletos', 'flyer', 'flyers', 'folheto', 'folhetos'],
-      'Cartão de Visita': ['cartão de visita', 'cartao de visita', 'cartões de visita', 'cartoes de visita', 'cartão', 'cartao'],
-      'Blocos': ['bloco', 'blocos', 'talão', 'talao', 'talões', 'receituário', 'receituario'],
-      'Banner ou Lona': ['banner', 'banners', 'lona', 'lonas', 'faixa', 'faixas'],
-      'Apostila': ['apostila', 'apostilas', 'encadernação', 'encadernacao', 'manual', 'manuais'],
-    };
+    // Ordem: nomes mais específicos primeiro (evita falso positivo genérico)
+    const ordem = [
+      'Cartão de Visita',
+      'Banner ou Lona',
+      'Apostila',
+      'Panfletos',
+      'Blocos',
+    ];
 
-    for (const item of this.catalogo) {
-      const palavras = sinonimos[item.produto] || [item.produto.toLowerCase()];
+    for (const nome of ordem) {
+      const item = this.catalogo.find((c) => c.produto === nome);
+      if (!item) continue;
+      const palavras = this.sinonimos[item.produto] || [item.produto.toLowerCase()];
       for (const palavra of palavras) {
         if (textoLower.includes(palavra)) {
           return item;
@@ -98,15 +119,68 @@ export class EntityExtractionService {
     return null;
   }
 
+  /** Só mensagens do cliente, da mais recente para a mais antiga. */
+  private identificarProdutoNasMensagensCliente(historico: string): CatalogItem | null {
+    const linhas = historico
+      .split('\n')
+      .filter((l) => l.startsWith('Cliente:'))
+      .map((l) => l.replace(/^Cliente:\s*/i, '').trim());
+
+    for (let i = linhas.length - 1; i >= 0; i--) {
+      const item = this.identificarProdutoEmTexto(linhas[i]);
+      if (item) return item;
+    }
+    return null;
+  }
+
+  private historicoApenasCliente(historico: string): string {
+    return historico
+      .split('\n')
+      .filter((l) => l.startsWith('Cliente:'))
+      .join('\n');
+  }
+
   /**
    * Tenta extrair respostas do histórico da conversa para cada requisito.
    * Usa heurísticas simples de mapeamento (sem LLM, para funcionar sem API key).
    */
+  /** Detecta pedido explícito de produto que não está no catálogo (só falas do cliente). */
+  private pediuProdutoForaDoCatalogo(historico: string): boolean {
+    if (this.identificarProdutoNasMensagensCliente(historico)) return false;
+
+    const textoLower = this.historicoApenasCliente(historico).toLowerCase();
+    const pediuAlgo =
+      /\b(quero|preciso|fazer|imprimir|impressão|impressao|orcamento|orçamento|vocês fazem|voces fazem)\b/.test(
+        textoLower
+      );
+    if (!pediuAlgo) return false;
+
+    const foraCatalogo = [
+      'camiseta', 'caneca', 'placa', 'adesivo', 'plotagem', 'sublimação', 'sublimacao',
+      'brinde', 'crachá', 'cracha', 'uniforme',
+    ];
+    return foraCatalogo.some((termo) => textoLower.includes(termo));
+  }
+
+  private getUltimaMensagemCliente(historico: string): string {
+    const linhas = historico.split('\n').filter((l) => l.startsWith('Cliente:'));
+    const ultima = linhas[linhas.length - 1] || '';
+    return ultima.replace(/^Cliente:\s*/i, '').trim();
+  }
+
+  private getUltimaMensagemAssistente(historico: string): string {
+    const linhas = historico.split('\n').filter((l) => l.startsWith('Assistente:'));
+    const ultima = linhas[linhas.length - 1] || '';
+    return ultima.replace(/^Assistente:\s*/i, '').trim();
+  }
+
   private extrairRespostas(
     historico: string,
     requisitos: string[]
   ): RequisitoStatus[] {
     const textoLower = historico.toLowerCase();
+    const ultimaCliente = this.getUltimaMensagemCliente(historico).toLowerCase();
+    const ultimaAssistente = this.getUltimaMensagemAssistente(historico).toLowerCase();
 
     return requisitos.map((pergunta) => {
       const perguntaLower = pergunta.toLowerCase();
@@ -116,17 +190,33 @@ export class EntityExtractionService {
       if (perguntaLower.includes('arte pronta') || perguntaLower.includes('arte')) {
         if (textoLower.includes('sim') && textoLower.includes('arte')) {
           resposta = 'Sim, tem arte pronta';
-        } else if (textoLower.includes('não') && textoLower.includes('arte') ||
-                   textoLower.includes('nao') && textoLower.includes('arte')) {
+        } else if (
+          (textoLower.includes('não') || textoLower.includes('nao')) &&
+          textoLower.includes('arte')
+        ) {
           resposta = 'Não tem arte pronta';
+        } else if (
+          /arte/.test(ultimaAssistente) &&
+          /^(sim|tenho( sim)?|isso|claro|pode ser)\b/.test(ultimaCliente)
+        ) {
+          resposta = 'Sim, tem arte pronta';
         }
       }
 
       // Heurística: quantidade (busca números)
-      if (perguntaLower.includes('quantidade') || perguntaLower.includes('quantas unidades')) {
-        const match = textoLower.match(/(\d{2,})\s*(?:unidades|cartões|cartoes|panfletos|blocos|cópias|copias|und)?/);
+      if (perguntaLower.includes('quantidade') || perguntaLower.includes('quantas')) {
+        const match = textoLower.match(
+          /(\d{1,6})\s*(?:unidades|cartões|cartoes|panfletos|blocos|cópias|copias|und)?/
+        );
         if (match) {
           resposta = `${match[1]} unidades`;
+        } else if (/^\d{1,6}$/.test(ultimaCliente.trim())) {
+          resposta = `${ultimaCliente.trim()} unidades`;
+        } else if (
+          /quantidade/.test(ultimaAssistente) &&
+          /^\d{1,6}$/.test(ultimaCliente.trim())
+        ) {
+          resposta = `${ultimaCliente.trim()} unidades`;
         }
       }
 
@@ -135,6 +225,11 @@ export class EntityExtractionService {
         const match = textoLower.match(/(\d+\s*x\s*\d+\s*(?:cm|mm)?|a4|a5|a3)/i);
         if (match) {
           resposta = match[1].toUpperCase();
+        } else if (
+          /\b(maior|menor|personalizado|customizado|outro tamanho)\b/.test(ultimaCliente) &&
+          /tamanho/.test(ultimaAssistente)
+        ) {
+          resposta = 'Tamanho personalizado (a definir em cm)';
         }
       }
 
@@ -218,26 +313,33 @@ export class EntityExtractionService {
   }
 
   /**
-   * Extrai as entidades do pedido a partir do histórico completo da conversa.
-   *
-   * @param conversationHistory Texto completo da conversa (todas as mensagens concatenadas)
-   * @returns Entidades extraídas com status de completude
+   * Extrai entidades do pedido.
+   * Regra: produto vem do contexto da sessão OU da última menção explícita do CLIENTE (nunca do bot).
    */
-  extract(conversationHistory: string): PedidoEntities {
-    // 1. Identificar o produto
-    const produto = this.identificarProduto(conversationHistory);
+  extract(conversationHistory: string, options?: ExtractOptions): PedidoEntities {
+    let produto: CatalogItem | null = null;
+
+    if (options?.produtoAtual) {
+      produto =
+        this.catalogo.find(
+          (c) => c.produto.toLowerCase() === options.produtoAtual!.toLowerCase()
+        ) || null;
+    }
+
+    if (!produto) {
+      produto = this.identificarProdutoNasMensagensCliente(conversationHistory);
+    }
 
     if (!produto) {
       return {
         produtoIdentificado: null,
-        produtoDesconhecido: true,
+        produtoDesconhecido: this.pediuProdutoForaDoCatalogo(conversationHistory),
         requisitos: [],
         completo: false,
         perguntasFaltantes: [],
       };
     }
 
-    // 2. Extrair respostas para os requisitos do produto
     const requisitos = this.extrairRespostas(conversationHistory, produto.requisitos_orcamento);
 
     // 3. Verificar completude

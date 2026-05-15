@@ -10,6 +10,7 @@ import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
 import produtoRoutes from './routes/produto.routes';
 import { prisma } from './config/prisma';
+import { cronService } from './services/cron.service';
 
 // Carregamento Físico do .env
 try {
@@ -87,4 +88,5 @@ app.get('/api/health', async (req, res) => {
 // IMPORTANTE: Usamos 'server.listen' em vez de 'app.listen' para o Socket.io funcionar
 server.listen(port, () => {
   console.log(`🚀 Servidor e Socket.io rodando na porta ${port}`);
+  cronService.start();
 });

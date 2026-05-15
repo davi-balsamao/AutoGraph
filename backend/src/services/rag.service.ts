@@ -8,7 +8,8 @@ import {
 } from '@langchain/core/prompts';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { Document } from '@langchain/core/documents';
-import { RAG_SYSTEM_PROMPT, RAG_HUMAN_PROMPT } from './rag-template';
+import { buildSystemPrompt, RAG_HUMAN_PROMPT, RAG_SYSTEM_PROMPT } from './rag-template';
+import { ConversationContext, ConversationState } from '../fsm/states';
 import { guardrailsService } from './guardrails.service';
 import dotenv from 'dotenv';
 
@@ -47,6 +48,7 @@ export class RagService {
   private embeddings: GoogleGenerativeAIEmbeddings;
   private llm: ChatGoogleGenerativeAI;
   private chain: RunnableSequence;
+  private statelessChain: RunnableSequence;
 
   constructor() {
     const safeApiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
@@ -70,7 +72,17 @@ export class RagService {
     ]);
 
     const outputParser = new StringOutputParser();
-    this.chain = RunnableSequence.from([prompt, this.llm, outputParser]);
+    this.statelessChain = RunnableSequence.from([prompt, this.llm, outputParser]);
+
+    this.chain = this.statelessChain;
+  }
+
+  private createStateChain(systemPrompt: string): RunnableSequence {
+    const prompt = ChatPromptTemplate.fromMessages([
+      SystemMessagePromptTemplate.fromTemplate(systemPrompt),
+      HumanMessagePromptTemplate.fromTemplate(RAG_HUMAN_PROMPT),
+    ]);
+    return RunnableSequence.from([prompt, this.llm, new StringOutputParser()]);
   }
 
   private async retrieveDocuments(queryEmbedding: number[]): Promise<RetrievedDocument[]> {
@@ -96,9 +108,32 @@ export class RagService {
   }
 
   /**
-   * Executa o pipeline RAG completo.
+   * RAG com prompt específico do estado da FSM.
+   */
+  async queryWithState(
+    question: string,
+    state: ConversationState,
+    context: ConversationContext,
+    conversationHistory?: string
+  ): Promise<RagQueryResult> {
+    const systemPrompt = buildSystemPrompt(state, context);
+    const stateChain = this.createStateChain(systemPrompt);
+    return this.runQuery(question, conversationHistory, stateChain, { alwaysInvokeLlm: true });
+  }
+
+  /**
+   * Executa o pipeline RAG completo (modo legado / testes).
    */
   async query(question: string, conversationHistory?: string): Promise<RagQueryResult> {
+    return this.runQuery(question, conversationHistory, this.statelessChain);
+  }
+
+  private async runQuery(
+    question: string,
+    conversationHistory: string | undefined,
+    chain: RunnableSequence,
+    options?: { alwaysInvokeLlm?: boolean }
+  ): Promise<RagQueryResult> {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
 
@@ -107,21 +142,37 @@ export class RagService {
       const documents = await this.retrieveDocuments(queryEmbedding);
 
       if (documents.length === 0) {
-        // Se existe histórico, o LLM consegue responder usando o contexto da conversa
-        // (ex: cliente diz "Sim" ou "500 unidades" sem precisar de docs da KB)
-        if (conversationHistory) {
-          console.log('⚠️  0 docs relevantes, usando histórico de conversa como contexto.');
-          const contextualAnswer = await this.chain.invoke({
-            context: `## HISTÓRICO DA CONVERSA ATÉ AGORA:\n${conversationHistory}`,
-            question,
-          });
+        const podeInvocarLlm =
+          options?.alwaysInvokeLlm || Boolean(conversationHistory?.trim());
+
+        if (podeInvocarLlm) {
+          console.log(
+            options?.alwaysInvokeLlm
+              ? '⚠️  0 docs na KB — FSM usa prompt do estado + histórico.'
+              : '⚠️  0 docs relevantes, usando histórico de conversa como contexto.'
+          );
+
+          let kbContext =
+            '(Nenhum trecho adicional recuperado da base vetorial para esta pergunta.)';
+          if (conversationHistory?.trim()) {
+            kbContext += `\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
+          }
+
+          const contextualAnswer = await chain.invoke({ context: kbContext, question });
           const validation = guardrailsService.validateResponse(contextualAnswer, []);
           const finalAnswer = validation.isValid
             ? stripDoubleNewlines(contextualAnswer)
-            : (validation.correctedResponse || FALLBACK_RESPONSE);
-          return { answer: finalAnswer, sourceDocuments: [], guardrailApplied: !validation.isValid };
+            : validation.correctedResponse || FALLBACK_RESPONSE;
 
+          console.log(`💬 Resposta final: "${finalAnswer}"`);
+          return {
+            answer: finalAnswer,
+            sourceDocuments: [],
+            guardrailApplied: !validation.isValid,
+          };
         }
+
+        console.log('⚠️  0 docs e sem histórico — fallback.');
         return { answer: FALLBACK_RESPONSE, sourceDocuments: [] };
       }
 
@@ -137,7 +188,7 @@ export class RagService {
         fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
       }
 
-      const rawAnswer = await this.chain.invoke({
+      const rawAnswer = await chain.invoke({
         context: fullContext,
         question,
       });
@@ -186,10 +237,9 @@ export class RagService {
       const quantidade = reqQuantidade ? reqQuantidade.resposta + ' ' : '';
 
       const prompt = `Você é um assistente de uma gráfica. O cliente ${nomeCliente} acabou de pedir um orçamento para ${quantidade}${produto}.
-Baseado no histórico, gere uma mensagem educada de NO MÁXIMO 2 linhas para a recepcionista enviar via WhatsApp.
-A mensagem DEVE ter exatamente este formato:
-"Olá ${nomeCliente}, vimos que você quer [Resumo do Pedido]. O valor fica R$ ____."
-Deixe o espaço em branco "____" para a recepcionista preencher o preço.
+Baseado no histórico, gere uma mensagem educada de NO MÁXIMO 2 linhas para a recepcionista enviar via WhatsApp após aprovar o orçamento no sistema.
+A mensagem DEVE seguir o tom: orçamento aprovado, valor total e formas de pagamento (Pix ou cartão em até 3x).
+Se o valor exato não estiver claro no histórico, use "R$ ____" no lugar do valor.
 NÃO adicione introduções como "Aqui está a mensagem". Retorne APENAS o texto final.
 
 Histórico da conversa:
