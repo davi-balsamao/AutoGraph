@@ -72,7 +72,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    final brandGreen = const Color(0xFF00ED64);
+    final brandGreen = AppColors.brandGreen;
 
     return Scaffold(
       appBar: AppBar(
@@ -177,7 +177,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               controller: _artUrlController,
               decoration: InputDecoration(
                 labelText: 'Artwork URL (Google Drive / Dropbox)',
-                labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF5C6C7A)),
+                labelStyle: const TextStyle(fontSize: 13, color: AppColors.steel),
                 prefixIcon: const Icon(Icons.link, size: 20),
                 fillColor: cs.surfaceContainerHighest,
                 filled: true,
@@ -191,13 +191,13 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF001E2B),
+                color: AppColors.brandTealDeep,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: TextField(
                 controller: _specsController,
                 maxLines: 8,
-                style: const TextStyle(fontFamily: 'Courier', fontSize: 13, color: Color(0xFF00ED64)),
+                style: const TextStyle(fontFamily: 'Courier', fontSize: 13, color: AppColors.brandGreen),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.all(16),
                   border: InputBorder.none,
@@ -230,14 +230,14 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.25) : const Color(0xFFE3FCEF),
+                  color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.25) : AppColors.successLight,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.brandGreen.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.auto_awesome, color: Color(0xFF00684A), size: 20),
+                    const Icon(Icons.auto_awesome, color: AppColors.brandGreenDark, size: 20),
                     const SizedBox(width: 16),
                     Expanded(
                       child: SelectableText(
@@ -259,12 +259,12 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
 
   Color _getStatusColor(StatusOS status) {
     switch (status) {
-      case StatusOS.aguardandoOrcamento: return const Color(0xFFFA6E39);
-      case StatusOS.emProducao: return const Color(0xFF7B3FF2);
-      case StatusOS.prontaParaRetirada: return const Color(0xFF00ED64);
-      case StatusOS.entregue: return const Color(0xFF5C6C7A);
-      case StatusOS.cancelada: return const Color(0xFFEF4444);
-      default: return const Color(0xFF003D4F);
+      case StatusOS.aguardandoOrcamento: return AppColors.orange;
+      case StatusOS.emProducao: return AppColors.purple;
+      case StatusOS.prontaParaRetirada: return AppColors.brandGreen;
+      case StatusOS.entregue: return AppColors.steel;
+      case StatusOS.cancelada: return Colors.red;
+      default: return AppColors.brandTeal;
     }
   }
 }

@@ -3,6 +3,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../core/theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -49,8 +50,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final brandGreen = const Color(0xFF00ED64);
-    final brandTealDeep = const Color(0xFF001E2B);
+    final brandGreen = AppColors.brandGreen;
+    final brandTealDeep = AppColors.brandTealDeep;
 
     final textColor = theme.colorScheme.onSurface;
     final subtitleColor = theme.colorScheme.onSurface.withValues(alpha: 0.7);
@@ -181,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                         ),
                         child: _isLoading 
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF001E2B))) 
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brandTealDeep)) 
                           : const Text('Login to Dashboard'),
                       ),
                     ),

@@ -57,7 +57,6 @@ class ChatService {
     // Simulating API call
     await Future.delayed(const Duration(milliseconds: 300));
     _mockMessages.add(message);
-    print('Message sent to WhatsApp via Backend: ${message.toJson()}');
   }
 
   Stream<ChatMessage> get messageStream {

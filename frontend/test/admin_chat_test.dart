@@ -15,6 +15,8 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+
     expect(find.text('Test Client'), findsOneWidget);
     expect(find.text('WhatsApp Connection Active'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);

@@ -181,21 +181,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final brandTealDeep = const Color(0xFF001E2B);
-    final brandGreen = const Color(0xFF00ED64);
+    final brandTealDeep = AppColors.brandTealDeep;
+    final brandGreen = AppColors.brandGreen;
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
-            const Icon(Icons.auto_awesome, color: Color(0xFF00ED64), size: 24),
+            const Icon(Icons.auto_awesome, color: AppColors.brandGreen, size: 24),
             const SizedBox(width: 12),
             Text('AutoGraph', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: brandTealDeep, borderRadius: BorderRadius.circular(4)),
-              child: const Text('ADMIN', style: TextStyle(color: Color(0xFF00ED64), fontSize: 10, fontWeight: FontWeight.bold)),
+              child: const Text('ADMIN', style: TextStyle(color: AppColors.brandGreen, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -485,11 +485,11 @@ class _KanbanColumn extends StatelessWidget {
 
   Color get _columnColor {
     switch (status) {
-      case StatusOS.aguardandoOrcamento: return const Color(0xFFFA6E39); // MongoDB Orange
-      case StatusOS.emProducao: return const Color(0xFF7B3FF2); // MongoDB Purple
-      case StatusOS.prontaParaRetirada: return const Color(0xFF00ED64); // MongoDB Green
-      case StatusOS.entregue: return const Color(0xFF5C6C7A); // MongoDB Steel
-      default: return const Color(0xFF003D4F); // MongoDB Teal
+      case StatusOS.aguardandoOrcamento: return AppColors.orange; // MongoDB Orange
+      case StatusOS.emProducao: return AppColors.purple; // MongoDB Purple
+      case StatusOS.prontaParaRetirada: return AppColors.brandGreen; // MongoDB Green
+      case StatusOS.entregue: return AppColors.steel; // MongoDB Steel
+      default: return AppColors.brandTeal; // MongoDB Teal
     }
   }
 
@@ -504,7 +504,7 @@ class _KanbanColumn extends StatelessWidget {
           width: 320,
           margin: const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
-            color: isHovering ? const Color(0xFFF4F7F6) : Colors.transparent,
+            color: isHovering ? AppColors.surfaceSoft : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -586,7 +586,7 @@ class _OSCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white, 
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF00ED64), width: 2),
+            border: Border.all(color: AppColors.brandGreen, width: 2),
           ),
           child: Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         ),
@@ -796,11 +796,11 @@ class _FinancialTabState extends State<_FinancialTab> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: _KpiCard(title: 'FATURAMENTO', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: const Color(0xFF00ED64))),
+              Expanded(child: _KpiCard(title: 'FATURAMENTO', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: AppColors.brandGreen)),
               const SizedBox(width: 16),
-              Expanded(child: _KpiCard(title: 'OS FINALIZADAS', value: '$osCompletedCount', icon: Icons.check_circle_outline, color: const Color(0xFF7B3FF2))),
+              Expanded(child: _KpiCard(title: 'OS FINALIZADAS', value: '$osCompletedCount', icon: Icons.check_circle_outline, color: AppColors.purple)),
               const SizedBox(width: 16),
-              Expanded(child: _KpiCard(title: 'TICKET MÉDIO', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: const Color(0xFFFA6E39))),
+              Expanded(child: _KpiCard(title: 'TICKET MÉDIO', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: AppColors.orange)),
             ],
           ),
           const SizedBox(height: 40),
@@ -854,7 +854,7 @@ class _FinancialTabState extends State<_FinancialTab> {
                           barRods: [
                             BarChartRodData(
                               toY: entry.value.value,
-                              color: const Color(0xFF00ED64),
+                              color: AppColors.brandGreen,
                               width: 32,
                               borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                             ),
@@ -1181,7 +1181,7 @@ class _CatalogTabState extends State<_CatalogTab> {
                                   loadingBuilder: (_, child, progress) => progress == null
                                     ? child
                                     : Container(
-                                        color: isDark ? AppColors.darkSurfaceLift : const Color(0xFFF4F7F6),
+                                        color: isDark ? AppColors.darkSurfaceLift : AppColors.surfaceSoft,
                                         child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                                       ),
                                 )
@@ -1254,7 +1254,7 @@ class _CatalogTabState extends State<_CatalogTab> {
 
   Widget _buildImagePlaceholder(bool isDark) {
     return Container(
-      color: isDark ? AppColors.darkSurfaceLift : const Color(0xFFF4F7F6),
+      color: isDark ? AppColors.darkSurfaceLift : AppColors.surfaceSoft,
       child: Center(
         child: Icon(
           Icons.image_outlined,
@@ -1364,12 +1364,12 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
 
   Color _statusColor(StatusOS s) {
     switch (s) {
-      case StatusOS.aguardandoOrcamento: return const Color(0xFFFA6E39);
-      case StatusOS.emProducao: return const Color(0xFF7B3FF2);
+      case StatusOS.aguardandoOrcamento: return AppColors.orange;
+      case StatusOS.emProducao: return AppColors.purple;
       case StatusOS.prontaParaRetirada: return AppColors.brandGreen;
-      case StatusOS.entregue: return const Color(0xFF5C6C7A);
-      case StatusOS.cancelada: return const Color(0xFFEF4444);
-      default: return const Color(0xFF003D4F);
+      case StatusOS.entregue: return AppColors.steel;
+      case StatusOS.cancelada: return Colors.red;
+      default: return AppColors.brandTeal;
     }
   }
 

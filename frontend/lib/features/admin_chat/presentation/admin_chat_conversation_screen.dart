@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -103,8 +102,6 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -284,9 +281,9 @@ class _ChatBubble extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.auto_awesome, size: 10, color: Color(0xFF00684A)),
+                    const Icon(Icons.auto_awesome, size: 10, color: AppColors.brandGreenDark),
                     const SizedBox(width: 4),
-                    Text('RAG Response', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF00684A))),
+                    Text('RAG Response', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.brandGreenDark)),
                   ],
                 ),
               ),
