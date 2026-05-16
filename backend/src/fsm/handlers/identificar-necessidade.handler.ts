@@ -4,6 +4,7 @@ import { syncContextFromEntities } from '../context.util';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationState, SessaoRecord } from '../states';
 import { DUVIDA, transitionService } from '../transition.service';
+import { prepareContext } from './base.handler';
 
 const SAIDA_DUVIDA = /\b(entendi|obrigad|beleza|ok|vou de|vou com|fico com|prefiro)\b/i;
 
@@ -14,10 +15,7 @@ export class IdentificarNecessidadeHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     if (DUVIDA.test(message) && !SAIDA_DUVIDA.test(message)) {
-      const entities = entityExtractionService.extract(deps.conversationHistory, {
-        produtoAtual: sessao.contexto.produto,
-      });
-      const context = syncContextFromEntities({ ...sessao.contexto }, entities);
+      const { context } = prepareContext(message, sessao, deps);
 
       // Resposta vem do RAG com o prompt do estado ESCLARECER_DUVIDA — assim
       // a dúvida do cliente já é respondida no MESMO turno em que entra no
@@ -59,10 +57,9 @@ export class IdentificarNecessidadeHandler implements StateHandler {
       };
     }
 
-    const entities = entityExtractionService.extract(deps.conversationHistory, {
-      produtoAtual: sessao.contexto.produto,
-    });
-    let context = syncContextFromEntities({ ...sessao.contexto }, entities);
+    const prepared = prepareContext(message, sessao, deps);
+    const entities = prepared.entities;
+    let context = prepared.context;
 
     let nextState = transitionService.resolve(
       ConversationState.IDENTIFICAR_NECESSIDADE,

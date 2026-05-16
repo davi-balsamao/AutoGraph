@@ -11,6 +11,7 @@ import {
   mensagemTrocaProduto,
 } from './intent.service';
 import { getHandlerForState } from './handlers';
+import { enrichForLeigo } from './handlers/base.handler';
 import { HandlerDeps, HandlerResult } from './handler.types';
 import {
   ConversationState,
@@ -109,7 +110,10 @@ export class StateRouter {
       const result: HandlerResult = await handler.handle(message, { ...sessao, contexto: context, estadoAtual: currentState }, deps);
 
       if (result.response?.trim()) {
-        const texto = result.response.trim();
+        // Middleware Regra 9 — enriquece termos técnicos para o leigo.
+        // Idempotente e contexto-sensível: se cliente já usou os termos no
+        // histórico, não adiciona explicação.
+        const texto = enrichForLeigo(result.response.trim(), conversationHistory);
         responseParts.push(texto);
         console.log(`🤖 Handler [${currentState}]: "${texto.substring(0, 500)}${texto.length > 500 ? '...' : ''}"`);
       }

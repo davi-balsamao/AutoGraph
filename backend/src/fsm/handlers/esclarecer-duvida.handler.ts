@@ -1,8 +1,7 @@
-import { entityExtractionService } from '../../services/entity-extraction.service';
-import { syncContextFromEntities } from '../context.util';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationContext, ConversationState, SessaoRecord } from '../states';
 import { transitionService } from '../transition.service';
+import { prepareContext } from './base.handler';
 
 /**
  * Detecta se a mensagem ainda contém uma pergunta — '?' ou palavras
@@ -42,17 +41,9 @@ export class EsclarecerDuvidaHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const historyForExtraction = deps.conversationHistory
-      ? `${deps.conversationHistory}\nCliente: ${message}`
-      : `Cliente: ${message}`;
-
-    const entities = entityExtractionService.extract(historyForExtraction, {
-      produtoAtual: sessao.contexto.produto,
-    });
-    const context: ConversationContext = syncContextFromEntities(
-      { ...sessao.contexto },
-      entities
-    );
+    const prepared = prepareContext(message, sessao, deps);
+    const entities = prepared.entities;
+    const context: ConversationContext = prepared.context;
 
     // Resposta vem SEMPRE da knowledge base — guardrails filtram off-scope
     // e bloqueiam preços não autorizados.
