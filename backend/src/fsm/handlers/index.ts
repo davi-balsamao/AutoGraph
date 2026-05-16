@@ -7,6 +7,7 @@ import { boasVindasHandler } from './boas-vindas.handler';
 import { calcularOrcamentoHandler } from './calcular-orcamento.handler';
 import { apresentarOrcamentoHandler } from './apresentar-orcamento.handler';
 import { gerarOsHandler } from './gerar-os.handler';
+import { esclarecerDuvidaHandler } from './esclarecer-duvida.handler';
 
 const GENERIC_STATES: ConversationState[] = [
   ConversationState.VALIDAR_ARQUIVO,
@@ -14,7 +15,6 @@ const GENERIC_STATES: ConversationState[] = [
   ConversationState.NEGOCIAR,
   ConversationState.COLETAR_DADOS_ENTREGA,
   ConversationState.CONFIRMAR_PEDIDO,
-  ConversationState.ESCLARECER_DUVIDA,
   ConversationState.PRODUTO_INDISPONIVEL,
   ConversationState.ESCALAR_HUMANO,
   ConversationState.AGUARDAR_RETORNO,
@@ -27,6 +27,8 @@ export function getHandlerForState(state: ConversationState): StateHandler {
       return boasVindasHandler;
     case ConversationState.IDENTIFICAR_NECESSIDADE:
       return identificarNecessidadeHandler;
+    case ConversationState.ESCLARECER_DUVIDA:
+      return esclarecerDuvidaHandler;
     case ConversationState.COLETAR_ESPECIFICACOES:
       return coletarEspecificacoesHandler;
     case ConversationState.CALCULAR_ORCAMENTO:

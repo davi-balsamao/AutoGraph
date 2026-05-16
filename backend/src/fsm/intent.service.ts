@@ -1,5 +1,6 @@
 import { entityExtractionService } from '../services/entity-extraction.service';
 import { ConversationState } from './states';
+import { DUVIDA } from './transition.service';
 
 export type SessionIntent =
   | { type: 'NONE' }
@@ -34,6 +35,11 @@ export function detectSessionIntent(
 ): SessionIntent {
   const msg = message.trim();
   const msgLower = msg.toLowerCase();
+
+  // Dúvida explícita ("qual a diferença", "não sei se", etc.) nunca é troca/novo.
+  if (DUVIDA.test(msg)) {
+    return { type: 'NONE' };
+  }
 
   if (NOVO_ATENDIMENTO.test(msgLower)) {
     return { type: 'NOVO_ATENDIMENTO' };

@@ -59,7 +59,11 @@ export class GenericStateHandler implements StateHandler {
       currentState === ConversationState.ESCLARECER_DUVIDA &&
       /\b(obrigad|entendi|ok|beleza)\b/i.test(message.toLowerCase())
     ) {
-      nextState = transitionService.restorePreviousState(sessao.estadoAnterior);
+      if (entities.produtoIdentificado || context.produto) {
+        nextState = ConversationState.COLETAR_ESPECIFICACOES;
+      } else {
+        nextState = transitionService.restorePreviousState(sessao.estadoAnterior);
+      }
     }
 
     if (
@@ -100,6 +104,14 @@ export class GenericStateHandler implements StateHandler {
       return {
         response: 'Ótimo! Você prefere receber a entrega ou retirar na loja?',
         nextState: ConversationState.COLETAR_DADOS_ENTREGA,
+        updatedContext: context,
+      };
+    }
+
+    if (currentState === ConversationState.ENCERRAR) {
+      return {
+        response: 'Pedido já registrado. Qualquer dúvida sobre essa O.S., é só chamar. Até logo!',
+        nextState: ConversationState.ENCERRAR,
         updatedContext: context,
       };
     }

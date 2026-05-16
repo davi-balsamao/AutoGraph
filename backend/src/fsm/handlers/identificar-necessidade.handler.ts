@@ -3,7 +3,9 @@ import { formatarPerguntaCatalogo } from '../catalog.util';
 import { syncContextFromEntities } from '../context.util';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationState, SessaoRecord } from '../states';
-import { transitionService } from '../transition.service';
+import { DUVIDA, transitionService } from '../transition.service';
+
+const SAIDA_DUVIDA = /\b(entendi|obrigad|beleza|ok|vou de|vou com|fico com|prefiro)\b/i;
 
 export class IdentificarNecessidadeHandler implements StateHandler {
   async handle(
@@ -11,6 +13,29 @@ export class IdentificarNecessidadeHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
+    if (DUVIDA.test(message) && !SAIDA_DUVIDA.test(message)) {
+      const entities = entityExtractionService.extract(deps.conversationHistory, {
+        produtoAtual: sessao.contexto.produto,
+      });
+      const context = syncContextFromEntities({ ...sessao.contexto }, entities);
+
+      // Resposta vem do RAG com o prompt do estado ESCLARECER_DUVIDA — assim
+      // a dúvida do cliente já é respondida no MESMO turno em que entra no
+      // estado, evitando "ping-pong" (cliente pergunta, bot pede pra repetir).
+      const ragResult = await deps.ragService.queryWithState(
+        message,
+        ConversationState.ESCLARECER_DUVIDA,
+        context,
+        deps.conversationHistory
+      );
+
+      return {
+        response: ragResult.answer,
+        nextState: ConversationState.ESCLARECER_DUVIDA,
+        updatedContext: context,
+      };
+    }
+
     const produtoNaMensagem = entityExtractionService.identificarProdutoNaMensagem(message);
 
     if (produtoNaMensagem) {

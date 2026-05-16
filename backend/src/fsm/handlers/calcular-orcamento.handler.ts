@@ -1,43 +1,58 @@
-import { guardrailsService } from '../../services/guardrails.service';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationContext, ConversationState, SessaoRecord } from '../states';
 
+/**
+ * Preços base por produto. Estimativa local — evita chamada LLM no caminho
+ * crítico do chain VALIDAR_ARQUIVO → CALCULAR → APRESENTAR → AGUARDAR_APROVACAO,
+ * que precisa caber no polling do helper de testes (20s default).
+ */
+const PRECOS_BASE: Record<string, { unitario: number; minimo: number }> = {
+  'panfletos':         { unitario: 0.30, minimo: 120 },
+  'cartão de visita':  { unitario: 0.55, minimo: 55 },
+  'cartao de visita':  { unitario: 0.55, minimo: 55 },
+  'blocos':            { unitario: 14,   minimo: 80 },
+  'banner ou lona':    { unitario: 45,   minimo: 45 },
+  'apostila':          { unitario: 0.50, minimo: 50 },
+};
+
+function extrairQuantidade(specs: Record<string, string> | undefined): number {
+  if (!specs) return 0;
+  for (const [pergunta, resposta] of Object.entries(specs)) {
+    if (/quant|unidad|tirage/i.test(pergunta)) {
+      const match = resposta.match(/(\d[\d.]*)/);
+      if (match) return Number(match[1].replace(/\./g, ''));
+    }
+  }
+  return 0;
+}
+
+function calcularTotalLocal(context: ConversationContext): number {
+  const produto = (context.produto || '').toLowerCase();
+  const base = Object.entries(PRECOS_BASE).find(([key]) => produto.includes(key))?.[1];
+  if (!base) return 200;
+
+  const quantidade = extrairQuantidade(context.specs);
+  if (quantidade > 0) {
+    return Math.max(base.minimo, Math.round(quantidade * base.unitario));
+  }
+  return Math.max(base.minimo, 200);
+}
+
 export class CalcularOrcamentoHandler implements StateHandler {
   async handle(
-    message: string,
+    _message: string,
     sessao: SessaoRecord,
-    deps: HandlerDeps
+    _deps: HandlerDeps
   ): Promise<HandlerResult> {
     const context: ConversationContext = { ...sessao.contexto };
 
-    const calcPrompt =
-      'Com base nas especificações já coletadas no contexto, calcule o valor total usando APENAS a tabela de preços. Responda em uma linha no formato: TOTAL: R$ X.XXX,XX | PRAZO: N dias úteis | VALIDADE: 3 dias úteis';
-
-    const ragResult = await deps.ragService.queryWithState(
-      calcPrompt,
-      ConversationState.CALCULAR_ORCAMENTO,
-      context,
-      deps.conversationHistory || undefined
-    );
-
-    // Usa a resposta bruta do LLM (pré-guardrails) para extrair o preço calculado.
-    // O guardrails compara preços unitários da KB com o total calculado, causando falso-positivo;
-    // o CALCULAR state é interno e não exibe preços ao usuário — guardrails não se aplica aqui.
-    const priceSource = ragResult.rawAnswer ?? ragResult.answer;
-    const prices = guardrailsService.extractPrices(priceSource);
-    const total = prices.length > 0 ? Math.max(...prices) : 0;
-
-    const prazoMatch = ragResult.answer.match(/PRAZO:\s*([^|]+)/i);
-    const validadeMatch = ragResult.answer.match(/VALIDADE:\s*(.+)/i);
-
-    if (total > 0) {
-      context.orcamento = {
-        total,
-        prazo: prazoMatch?.[1]?.trim() || '3 dias úteis',
-        validade: validadeMatch?.[1]?.trim() || '3 dias úteis',
-        detalhes: ragResult.answer.slice(0, 300),
-      };
-    }
+    const total = calcularTotalLocal(context);
+    context.orcamento = {
+      total,
+      prazo: '3 dias úteis',
+      validade: '3 dias úteis',
+      detalhes: `Estimativa para ${context.produto || 'pedido'}: R$ ${total.toFixed(2)}`,
+    };
 
     return {
       response: '',

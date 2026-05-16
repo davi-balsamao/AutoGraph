@@ -10,11 +10,6 @@ export class StateService {
   async getOrCreateSession(clienteId: string): Promise<SessaoRecord> {
     let sessao = await sessaoRepository.findActiveByClienteId(clienteId);
 
-    if (sessao && sessao.estadoAtual === ConversationState.ENCERRAR) {
-      await sessaoRepository.encerrar(sessao.id);
-      sessao = null;
-    }
-
     if (!sessao) {
       sessao = await sessaoRepository.create(clienteId);
     }

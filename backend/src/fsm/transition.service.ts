@@ -6,7 +6,7 @@ const SAUDACOES = /^(oi|olá|ola|bom dia|boa tarde|boa noite|tudo bem|e aí|eai)
 const APROVACAO = /\b(aceito|aprovo|aprovado|pode ser|fechado|confirmo|sim|ok|beleza|combinado|vamos)\b/i;
 const RECUSA = /\b(não quero|nao quero|desisto|cancela|cancelar|não vou|nao vou|recuso)\b/i;
 const NEGOCIACAO = /\b(caro|caro demais|desconto|mais barato|abaixa|concorrente|negociar)\b/i;
-const DUVIDA = /\b(dúvida|duvida|como funciona|o que é|qual a diferença|explica|não entendi|nao entendi)\b/i;
+export const DUVIDA = /\b(dúvida|duvida|como funciona|o que é|qual a diferença|qual.{0,20}diferen[çc]a|diferen[çc]a (entre|t[ée]cnica)|explica|não entendi|nao entendi|não sei se|nao sei se)\b/i;
 const RECLAMACAO = /\b(reclamação|reclamacao|problema grave|processo|advogado|péssimo|pessimo)\b/i;
 const ARTE_OK = /\b(enviei|mandei|anexei|segue a arte|arquivo ok|está certo|esta certo|pode usar)\b/i;
 const ENTREGA = /\b(entrega|entregar|retirada|retirar|buscar|endereço|endereco|rua|avenida|av\.|cep)\b/i;
@@ -69,7 +69,7 @@ export class TransitionService {
         if (NEGOCIACAO.test(msg)) return ConversationState.NEGOCIAR;
         if (DUVIDA.test(msg)) return ConversationState.ESCLARECER_DUVIDA;
         if (APROVACAO.test(msg)) return ConversationState.COLETAR_DADOS_ENTREGA;
-        return ConversationState.AGUARDAR_RETORNO;
+        return current;
 
       case ConversationState.NEGOCIAR:
         if (RECUSA.test(msg)) return ConversationState.ENCERRAR;
@@ -113,7 +113,7 @@ export class TransitionService {
         return current;
 
       case ConversationState.ENCERRAR:
-        return ConversationState.BOAS_VINDAS;
+        return current;
 
       default:
         return current;

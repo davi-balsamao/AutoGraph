@@ -203,29 +203,51 @@ export class EntityExtractionService {
         }
       }
 
-      // Heurística: quantidade (busca números)
+      // Heurística: quantidade — só olha mensagens do CLIENTE (em ordem reversa),
+      // ignora exemplos em mensagens do assistente (ex: "10x14cm").
       if (perguntaLower.includes('quantidade') || perguntaLower.includes('quantas')) {
-        const match = textoLower.match(
-          /(\d{1,6})\s*(?:unidades|cartões|cartoes|panfletos|blocos|cópias|copias|und)?/
-        );
-        if (match) {
-          resposta = `${match[1]} unidades`;
-        } else if (/^\d{1,6}$/.test(ultimaCliente.trim())) {
-          resposta = `${ultimaCliente.trim()} unidades`;
-        } else if (
-          /quantidade/.test(ultimaAssistente) &&
-          /^\d{1,6}$/.test(ultimaCliente.trim())
-        ) {
-          resposta = `${ultimaCliente.trim()} unidades`;
+        const linhasCliente = historico
+          .split('\n')
+          .filter((l) => l.startsWith('Cliente:'))
+          .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+          .reverse();
+
+        for (const linha of linhasCliente) {
+          const ll = linha.toLowerCase();
+          // Número + unidade explícita
+          const m1 = ll.match(
+            /\b(\d{1,6})\s*(?:unidades?|cartões|cartoes|panfletos|blocos|cópias|copias|und|peças|pecas|tirage|impressões|impressoes)\b/
+          );
+          if (m1) {
+            resposta = `${m1[1]} unidades`;
+            break;
+          }
+          // Linha é só o número (resposta direta a "qual quantidade?")
+          if (/^\d{1,6}$/.test(linha)) {
+            resposta = `${linha} unidades`;
+            break;
+          }
         }
       }
 
-      // Heurística: tamanho
+      // Heurística: tamanho — só olha mensagens do CLIENTE, ignora exemplos do bot
       if (perguntaLower.includes('tamanho') || perguntaLower.includes('qual o tamanho')) {
-        const match = textoLower.match(/(\d+\s*x\s*\d+\s*(?:cm|mm)?|a4|a5|a3)/i);
-        if (match) {
-          resposta = match[1].toUpperCase();
-        } else if (
+        const linhasCliente = historico
+          .split('\n')
+          .filter((l) => l.startsWith('Cliente:'))
+          .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+          .reverse();
+
+        for (const linha of linhasCliente) {
+          const m = linha.match(/(\d+\s*x\s*\d+\s*(?:cm|mm)?|\ba[3-5]\b)/i);
+          if (m) {
+            resposta = m[1].toUpperCase();
+            break;
+          }
+        }
+
+        if (
+          !resposta &&
           /\b(maior|menor|personalizado|customizado|outro tamanho)\b/.test(ultimaCliente) &&
           /tamanho/.test(ultimaAssistente)
         ) {
