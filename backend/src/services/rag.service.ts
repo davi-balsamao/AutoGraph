@@ -139,8 +139,20 @@ export class RagService {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
 
+    const RAG_TIMEOUT_MS = 25_000;
+    let timeoutHandle: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(
+        () => reject(new Error(`RAG timeout após ${RAG_TIMEOUT_MS / 1000}s`)),
+        RAG_TIMEOUT_MS
+      );
+    });
+
     try {
-      const queryEmbedding = await this.embeddings.embedQuery(question);
+      const queryEmbedding = await Promise.race([
+        this.embeddings.embedQuery(question),
+        timeoutPromise,
+      ]) as number[];
       const documents = await this.retrieveDocuments(queryEmbedding);
 
       if (documents.length === 0) {
@@ -192,10 +204,10 @@ export class RagService {
         fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
       }
 
-      const rawAnswer = await chain.invoke({
-        context: fullContext,
-        question,
-      });
+      const rawAnswer = await Promise.race([
+        chain.invoke({ context: fullContext, question }),
+        timeoutPromise,
+      ]) as string;
 
       const langchainDocs = documents.map(
         (doc) => new Document({ pageContent: doc.conteudo, metadata: { id: doc.id } })
@@ -224,6 +236,8 @@ export class RagService {
     } catch (error) {
       console.error('❌ Erro no RagService:', error);
       return { answer: FALLBACK_RESPONSE, sourceDocuments: [] };
+    } finally {
+      clearTimeout(timeoutHandle!);
     }
   }
 

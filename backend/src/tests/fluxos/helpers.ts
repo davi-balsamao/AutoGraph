@@ -131,3 +131,41 @@ export function uniquePhone(fluxoId: number): string {
   const suffix = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
   return `5531${fluxoId.toString().padStart(2, '0')}${suffix}`;
 }
+
+/**
+ * Envia mensagem e faz polling do estado a cada 1.5s até bater o esperado ou
+ * expirar o timeout. Para imediatamente (expect) se o estado divergir.
+ * Tolerante a variações de latência do LLM/embedding.
+ *
+ * @param timeoutMs  Default 20s. Use 30s em turnos com chains de LLM.
+ */
+export async function turno(
+  phone: string,
+  name: string,
+  text: string,
+  expectedState: string,
+  label: string,
+  timeoutMs = 20_000,
+): Promise<{ state: string; resp: string }> {
+  await sendMsg(phone, name, text);
+
+  const deadline = Date.now() + timeoutMs;
+  let state: string | null = null;
+  let resp:  string | null = null;
+
+  while (Date.now() < deadline) {
+    await wait(1_500);
+    state = await getSessionState(phone);
+    resp  = await getLastBotResponse(phone);
+    if (state === expectedState) break;
+  }
+
+  console.log(`\n[${label}]`);
+  console.log(`  Estado : ${state}  (esperado: ${expectedState})`);
+  console.log(`  Bot    : ${resp}`);
+
+  expect(state).toBe(expectedState);
+  expect(resp).toBeTruthy();
+
+  return { state: state!, resp: resp! };
+}

@@ -9,14 +9,13 @@ const TRANSITION_MSG =
 
 function parseEntrega(message: string, context: HandlerResult['updatedContext']) {
   const msg = message.toLowerCase();
-  const entrega = { ...context.entrega };
-  if (/\bretirad/.test(msg)) {
-    entrega.modalidade = 'retirada';
-  } else if (/\bentreg/.test(msg)) {
-    entrega.modalidade = 'entrega';
-    entrega.endereco = message.trim();
+  if (/\bretira[rd]/.test(msg)) {
+    return { ...context, entrega: { ...context.entrega, modalidade: 'retirada' as const } };
   }
-  return { ...context, entrega };
+  if (/\bentreg/.test(msg)) {
+    return { ...context, entrega: { ...context.entrega, modalidade: 'entrega' as const, endereco: message.trim() } };
+  }
+  return context;
 }
 
 export class GenericStateHandler implements StateHandler {
@@ -91,6 +90,17 @@ export class GenericStateHandler implements StateHandler {
         nextState: ConversationState.CALCULAR_ORCAMENTO,
         updatedContext: context,
         chainNext: ConversationState.CALCULAR_ORCAMENTO,
+      };
+    }
+
+    if (
+      currentState === ConversationState.AGUARDAR_APROVACAO &&
+      nextState === ConversationState.COLETAR_DADOS_ENTREGA
+    ) {
+      return {
+        response: 'Ótimo! Você prefere receber a entrega ou retirar na loja?',
+        nextState: ConversationState.COLETAR_DADOS_ENTREGA,
+        updatedContext: context,
       };
     }
 
