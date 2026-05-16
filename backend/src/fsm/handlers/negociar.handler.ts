@@ -33,7 +33,7 @@ export class NegociarHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const { context, entities } = prepareContext(message, sessao, deps);
+    const { context, entities } = await prepareContext(message, sessao, deps);
 
     // Regra 5: se cliente pede desconto explícito acima da margem, escala.
     const propostaPct = extrairDescontoPercentual(message);

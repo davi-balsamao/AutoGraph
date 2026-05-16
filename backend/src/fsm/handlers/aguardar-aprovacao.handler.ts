@@ -22,7 +22,7 @@ export class AguardarAprovacaoHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const { context, entities } = prepareContext(message, sessao, deps);
+    const { context, entities } = await prepareContext(message, sessao, deps);
 
     const nextState = transitionService.resolve(
       ConversationState.AGUARDAR_APROVACAO,

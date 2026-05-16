@@ -125,7 +125,7 @@ export class WebhookService {
       .filter((linha) => linha.startsWith('Cliente:'))
       .join('\n');
     const textoParaExtracao = `${linhasCliente}\nCliente: ${text}`;
-    const entities = entityExtractionService.extract(textoParaExtracao);
+    const entities = await entityExtractionService.extract(textoParaExtracao);
 
     if (entities.completo && entities.produtoIdentificado) {
       const cliente = await clienteRepo.findById(clienteId);

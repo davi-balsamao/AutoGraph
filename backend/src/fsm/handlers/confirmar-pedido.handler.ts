@@ -65,7 +65,7 @@ export class ConfirmarPedidoHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const { context } = prepareContext(message, sessao, deps);
+    const { context } = await prepareContext(message, sessao, deps);
 
     // Mensagem vazia (entrada via chain de COLETAR_DADOS_ENTREGA → CONFIRMAR_PEDIDO):
     // emite o resumo e aguarda o "confirmo" no próximo turno.

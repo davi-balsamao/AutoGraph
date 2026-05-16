@@ -42,7 +42,23 @@ export class StateRouter {
       ? sessao.estadoAtual
       : ConversationState.BOAS_VINDAS;
 
-    const intent = detectSessionIntent(message, currentState);
+    // Fase 3: histórico é montado antes do intent porque o LLM precisa dele
+    // para classificar (NOVO_ATENDIMENTO / TROCAR_PRODUTO / NONE).
+    let context = parseContext(sessao.contexto);
+    const history = await conversationService.getFormattedHistorySince(
+      sessao.clienteId,
+      sessao.criadoEm
+    );
+    const conversationHistory = history
+      ? `${history}\nCliente: ${message}`
+      : `Cliente: ${message}`;
+
+    const intent = await detectSessionIntent(
+      message,
+      currentState,
+      conversationHistory,
+      context.produto
+    );
     if (intent.type === 'NOVO_ATENDIMENTO' && currentState !== ConversationState.BOAS_VINDAS) {
       console.log('🔄 [FSM] Cliente pediu novo atendimento — sessão reiniciada.');
       sessao = await stateService.reiniciarSessao(sessao.clienteId);
@@ -72,7 +88,7 @@ export class StateRouter {
 
       let resposta = mensagemTrocaProduto(intent.produtoIdentificado);
       if (intent.produtoIdentificado) {
-        const entities = entityExtractionService.extract(`Cliente: ${message}`, {
+        const entities = await entityExtractionService.extract(`Cliente: ${message}`, {
           produtoAtual: intent.produtoIdentificado,
         });
         if (entities.perguntasFaltantes[0]) {
@@ -83,19 +99,10 @@ export class StateRouter {
       return { response: resposta, sessao };
     }
 
-    let context = parseContext(sessao.contexto);
     const responseParts: string[] = [];
     let gerouOs = false;
     let osMeta: { id: string; produto: string } | undefined;
     let escalarHumano = false;
-
-    const history = await conversationService.getFormattedHistorySince(
-      sessao.clienteId,
-      sessao.criadoEm
-    );
-    const conversationHistory = history
-      ? `${history}\nCliente: ${message}`
-      : `Cliente: ${message}`;
 
     const deps: HandlerDeps = {
       ragService,

@@ -1,22 +1,25 @@
 import { entityExtractionService } from '../services/entity-extraction.service';
 import { ConversationState } from './states';
-import { DUVIDA } from './transition.service';
 
 export type SessionIntent =
   | { type: 'NONE' }
   | { type: 'NOVO_ATENDIMENTO' }
   | { type: 'TROCAR_PRODUTO'; produtoIdentificado: string | null };
 
-const NOVO_ATENDIMENTO =
-  /\b(novo atendimento|iniciar (um )?novo|começar do zero|começar de novo|recomeçar|zerar|outro pedido|atendimento novo|cancelar tudo|esqueç[ae] (tudo|o que falei|isso)|desistir desse pedido|outro atendimento)\b/i;
+/**
+ * Fase 3 — Migração híbrida regex → LLM.
+ *
+ * Regex permanece apenas como GUARD EARLY-EXIT para casos óbvios em que
+ * disparar o LLM é desperdício (latência + custo). A decisão real é
+ * delegada ao `EntityExtractionService` (que internamente usa o LLM).
+ *
+ * Compartilhamento de cache: o resultado é guardado pelo extractor, então
+ * a chamada posterior do handler (via `prepareContext`) é hit de cache.
+ */
+const NOVO_ATENDIMENTO_OBVIO = /^(cancela tudo|esquece tudo|recome[çc]ar do zero|come[çc]ar de novo)\b/i;
 
-const TROCAR_PRODUTO =
-  /\b(mud(ar|ei|ou) de (produto|ideia)|na verdade (quero|preciso)|não quero mais|nao quero mais|prefiro (fazer |imprimir )?|trocar (para|por)|agora quero|mudei de ideia|outro produto)\b/i;
+const SAUDACAO_REINICIO = /^(oi|olá|ola|bom dia|boa tarde|boa noite|opa|e aí|eai)[\s,!.]*$/i;
 
-const SAUDACAO_REINICIO =
-  /^(oi|olá|ola|bom dia|boa tarde|boa noite|opa|e aí|eai)[\s,!.]*$/i;
-
-/** Estados em que um "oi de novo" sugere recomeço, não só cumprimento. */
 const ESTADOS_COM_FLUXO_AVANCADO = new Set<ConversationState>([
   ConversationState.COLETAR_ESPECIFICACOES,
   ConversationState.VALIDAR_ARQUIVO,
@@ -29,55 +32,43 @@ const ESTADOS_COM_FLUXO_AVANCADO = new Set<ConversationState>([
   ConversationState.PRODUTO_INDISPONIVEL,
 ]);
 
-export function detectSessionIntent(
+export async function detectSessionIntent(
   message: string,
-  estadoAtual: ConversationState
-): SessionIntent {
+  estadoAtual: ConversationState,
+  conversationHistory: string,
+  produtoAtual?: string | null
+): Promise<SessionIntent> {
   const msg = message.trim();
-  const msgLower = msg.toLowerCase();
 
-  // Dúvida explícita ("qual a diferença", "não sei se", etc.) nunca é troca/novo.
-  if (DUVIDA.test(msg)) {
-    return { type: 'NONE' };
-  }
-
-  if (NOVO_ATENDIMENTO.test(msgLower)) {
+  // Early-exit 1: padrão obvio de cancelamento.
+  if (NOVO_ATENDIMENTO_OBVIO.test(msg)) {
     return { type: 'NOVO_ATENDIMENTO' };
   }
 
-  // "quero fazer um banner" ≠ novo atendimento
-  if (/\bquero fazer um\b/.test(msgLower) && entityExtractionService.identificarProdutoNaMensagem(msg)) {
-    return { type: 'NONE' };
-  }
-
-  if (
-    SAUDACAO_REINICIO.test(msg) &&
-    ESTADOS_COM_FLUXO_AVANCADO.has(estadoAtual)
-  ) {
+  // Early-exit 2: saudação isolada em estado avançado = reinício implícito.
+  if (SAUDACAO_REINICIO.test(msg) && ESTADOS_COM_FLUXO_AVANCADO.has(estadoAtual)) {
     return { type: 'NOVO_ATENDIMENTO' };
   }
 
-  const produtoNaMsg = entityExtractionService.identificarProdutoNaMensagem(msg);
+  // Caminho principal: LLM via EntityExtractionService.
+  const entities = await entityExtractionService.extract(conversationHistory, {
+    produtoAtual: produtoAtual ?? null,
+  });
 
-  if (TROCAR_PRODUTO.test(msgLower)) {
+  if (entities.intent === 'NOVO_ATENDIMENTO') {
+    return { type: 'NOVO_ATENDIMENTO' };
+  }
+
+  if (entities.intent === 'TROCAR_PRODUTO') {
     return {
       type: 'TROCAR_PRODUTO',
-      produtoIdentificado: produtoNaMsg?.produto ?? null,
+      produtoIdentificado: entities.produtoIdentificado,
     };
   }
 
-  if (
-    produtoNaMsg &&
-    (ESTADOS_COM_FLUXO_AVANCADO.has(estadoAtual) ||
-      estadoAtual === ConversationState.IDENTIFICAR_NECESSIDADE) &&
-    /\b(quero|preciso|fazer|orçamento|orcamento|na verdade|agora)\b/i.test(msgLower)
-  ) {
-    return {
-      type: 'TROCAR_PRODUTO',
-      produtoIdentificado: produtoNaMsg.produto,
-    };
-  }
-
+  // Caso clássico: cliente menciona produto válido enquanto está em estado avançado.
+  // Não é mais reconhecido como NOVO_PEDIDO porque o cliente pode estar respondendo
+  // a uma pergunta — só consideramos troca quando o LLM marcou explicitamente.
   return { type: 'NONE' };
 }
 

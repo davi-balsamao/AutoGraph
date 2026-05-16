@@ -31,7 +31,7 @@ export class ProdutoIndisponivelHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const { context, entities } = prepareContext(message, sessao, deps);
+    const { context, entities } = await prepareContext(message, sessao, deps);
     const msg = message.trim();
 
     // Cliente identificou produto válido do catálogo → retoma fluxo.

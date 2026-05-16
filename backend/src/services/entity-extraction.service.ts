@@ -12,8 +12,14 @@
  * dinâmicos de cada produto.
  */
 
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+  llmEntityExtractor,
+  LlmEntityExtractor,
+  LlmExtractResult,
+} from './llm-entity-extractor.service';
 
 // --- Tipos ---
 
@@ -48,6 +54,56 @@ export interface PedidoEntities {
   completo: boolean;
   /** Lista das perguntas que ainda faltam responder */
   perguntasFaltantes: string[];
+  /** Intent inferido pelo LLM (null se extração caiu no fallback regex). */
+  intent?: LlmExtractResult['intent'];
+  /** Resolução de referência anafórica feita pelo LLM, se houve. */
+  resolveuReferencia?: LlmExtractResult['resolveuReferencia'];
+}
+
+// --- Cache em memória (compartilhado entre chamadas dentro do mesmo turno) ---
+
+/**
+ * Cache bounded por LRU simples (FIFO via Map order). 100 entradas é largamente
+ * suficiente para um turno típico (3-5 chamadas no mesmo histórico).
+ */
+const MAX_CACHE_ENTRIES = 100;
+const extractCache = new Map<string, PedidoEntities>();
+
+function cacheKey(historico: string, produtoAtual?: string | null): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${historico}|||${produtoAtual ?? ''}`)
+    .digest('hex');
+}
+
+function cacheGet(key: string): PedidoEntities | undefined {
+  return extractCache.get(key);
+}
+
+function cacheSet(key: string, value: PedidoEntities): void {
+  if (extractCache.size >= MAX_CACHE_ENTRIES) {
+    const oldest = extractCache.keys().next().value;
+    if (oldest !== undefined) extractCache.delete(oldest);
+  }
+  extractCache.set(key, value);
+}
+
+const LLM_TIMEOUT_MS = 5_000;
+
+/**
+ * Procura a resposta para uma pergunta no mapa de specs do LLM, tolerando
+ * variações de capitalização e pontuação final (`?`).
+ */
+function lookupSpecCaseInsensitive(
+  specs: Record<string, string | null>,
+  pergunta: string
+): string | null {
+  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/\?+$/, '').trim();
+  const alvo = normalize(pergunta);
+  for (const [k, v] of Object.entries(specs)) {
+    if (normalize(k) === alvo) return v;
+  }
+  return null;
 }
 
 // --- Classe ---
@@ -55,8 +111,10 @@ export interface PedidoEntities {
 export class EntityExtractionService {
   private catalogo: CatalogItem[];
   private regrasTecnicas: Record<string, any> = {};
+  private llmExtractor: LlmEntityExtractor;
 
-  constructor() {
+  constructor(llmExtractorOverride?: LlmEntityExtractor) {
+    this.llmExtractor = llmExtractorOverride ?? llmEntityExtractor;
     const catalogoPath = path.join(__dirname, '../../data/catalogo.json');
     if (fs.existsSync(catalogoPath)) {
       const raw = fs.readFileSync(catalogoPath, 'utf8');
@@ -335,10 +393,104 @@ export class EntityExtractionService {
   }
 
   /**
-   * Extrai entidades do pedido.
-   * Regra: produto vem do contexto da sessão OU da última menção explícita do CLIENTE (nunca do bot).
+   * Extrai entidades do pedido — LLM-first com fallback regex.
+   *
+   * Fluxo:
+   *  1. Cache check (mesmo histórico+produto na mesma rodada → reusa)
+   *  2. Tenta LLM com timeout de 5s (Fase 3 — resolve referências, números exatos)
+   *  3. Em caso de erro/timeout, cai para regex (`extractRegex`, comportamento legado)
+   *  4. Resultado vai para o cache
    */
-  extract(conversationHistory: string, options?: ExtractOptions): PedidoEntities {
+  async extract(conversationHistory: string, options?: ExtractOptions): Promise<PedidoEntities> {
+    const key = cacheKey(conversationHistory, options?.produtoAtual);
+    const cached = cacheGet(key);
+    if (cached) return cached;
+
+    let result: PedidoEntities;
+    try {
+      result = await this.extractViaLlm(conversationHistory, options);
+    } catch (err) {
+      console.warn(
+        `⚠️ [EntityExtraction] LLM falhou (${(err as Error).message}) — fallback regex.`
+      );
+      result = this.extractRegex(conversationHistory, options);
+    }
+
+    cacheSet(key, result);
+    return result;
+  }
+
+  /** Extração via LLM com timeout. Pode lançar erro — quem chama trata. */
+  private async extractViaLlm(
+    conversationHistory: string,
+    options?: ExtractOptions
+  ): Promise<PedidoEntities> {
+    const requisitosAtuais = options?.produtoAtual
+      ? this.getRequirementsForProduct(options.produtoAtual) ?? []
+      : [];
+
+    const llmResult = await this.llmExtractor.extract(
+      {
+        historicoCompleto: conversationHistory,
+        produtoAtual: options?.produtoAtual,
+        requisitosCatalogo: requisitosAtuais,
+        catalogoProdutos: this.catalogo.map((c) => c.produto),
+      },
+      LLM_TIMEOUT_MS
+    );
+
+    return this.mapLlmResultToEntities(llmResult, options?.produtoAtual);
+  }
+
+  /** Converte LlmExtractResult em PedidoEntities respeitando o catálogo. */
+  private mapLlmResultToEntities(
+    llm: LlmExtractResult,
+    produtoTravado?: string | null
+  ): PedidoEntities {
+    // Produto: prioridade ao travado na sessão; senão o que o LLM identificou.
+    const nomeProduto = produtoTravado || llm.produtoIdentificado || null;
+    const produto = nomeProduto
+      ? this.catalogo.find((c) => c.produto.toLowerCase() === nomeProduto.toLowerCase())
+      : undefined;
+
+    if (!produto) {
+      return {
+        produtoIdentificado: null,
+        produtoDesconhecido: llm.produtoDesconhecido,
+        requisitos: [],
+        completo: false,
+        perguntasFaltantes: [],
+        intent: llm.intent,
+        resolveuReferencia: llm.resolveuReferencia,
+      };
+    }
+
+    const requisitos: RequisitoStatus[] = produto.requisitos_orcamento.map((pergunta) => {
+      const resposta = lookupSpecCaseInsensitive(llm.specs, pergunta);
+      return {
+        pergunta,
+        resposta: resposta ?? null,
+        preenchido: resposta !== null && resposta !== '',
+      };
+    });
+
+    const perguntasFaltantes = requisitos.filter((r) => !r.preenchido).map((r) => r.pergunta);
+    return {
+      produtoIdentificado: produto.produto,
+      produtoDesconhecido: false,
+      requisitos,
+      completo: perguntasFaltantes.length === 0,
+      perguntasFaltantes,
+      intent: llm.intent,
+      resolveuReferencia: llm.resolveuReferencia,
+    };
+  }
+
+  /**
+   * Extração via regex (fallback).
+   * Comportamento legado — usado quando LLM falha/timeout.
+   */
+  extractRegex(conversationHistory: string, options?: ExtractOptions): PedidoEntities {
     let produto: CatalogItem | null = null;
 
     if (options?.produtoAtual) {
@@ -364,7 +516,6 @@ export class EntityExtractionService {
 
     const requisitos = this.extrairRespostas(conversationHistory, produto.requisitos_orcamento);
 
-    // 3. Verificar completude
     const perguntasFaltantes = requisitos
       .filter((r) => !r.preenchido)
       .map((r) => r.pergunta);

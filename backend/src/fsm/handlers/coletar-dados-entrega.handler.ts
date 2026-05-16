@@ -39,7 +39,7 @@ export class ColetarDadosEntregaHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const { context: prepared } = prepareContext(message, sessao, deps);
+    const { context: prepared } = await prepareContext(message, sessao, deps);
     const context: ConversationContext = { ...prepared };
     const msg = message.trim();
     const modalidadeAtual = context.entrega?.modalidade;

@@ -15,7 +15,7 @@ export class IdentificarNecessidadeHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     if (DUVIDA.test(message) && !SAIDA_DUVIDA.test(message)) {
-      const { context } = prepareContext(message, sessao, deps);
+      const { context } = await prepareContext(message, sessao, deps);
 
       // Resposta vem do RAG com o prompt do estado ESCLARECER_DUVIDA — assim
       // a dúvida do cliente já é respondida no MESMO turno em que entra no
@@ -37,7 +37,7 @@ export class IdentificarNecessidadeHandler implements StateHandler {
     const produtoNaMensagem = entityExtractionService.identificarProdutoNaMensagem(message);
 
     if (produtoNaMensagem) {
-      const entities = entityExtractionService.extract(deps.conversationHistory, {
+      const entities = await entityExtractionService.extract(deps.conversationHistory, {
         produtoAtual: produtoNaMensagem.produto,
       });
       const context = syncContextFromEntities(
@@ -57,7 +57,7 @@ export class IdentificarNecessidadeHandler implements StateHandler {
       };
     }
 
-    const prepared = prepareContext(message, sessao, deps);
+    const prepared = await prepareContext(message, sessao, deps);
     const entities = prepared.entities;
     let context = prepared.context;
 

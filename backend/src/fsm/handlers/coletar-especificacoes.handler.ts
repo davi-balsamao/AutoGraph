@@ -29,7 +29,7 @@ export class ColetarEspecificacoesHandler implements StateHandler {
       // aqui seguimos com o produto já travado até o intent capturar
     }
 
-    const prepared = prepareContext(message, sessao, deps);
+    const prepared = await prepareContext(message, sessao, deps);
     const entities = prepared.entities;
     let context: ConversationContext = syncContextFromEntities(
       { ...sessao.contexto, produto: produtoTravado || sessao.contexto.produto },

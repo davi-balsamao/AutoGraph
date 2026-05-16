@@ -23,7 +23,7 @@ export class AguardarRetornoHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const { context } = prepareContext(message, sessao, deps);
+    const { context } = await prepareContext(message, sessao, deps);
     const msg = message.trim();
 
     if (!msg) {

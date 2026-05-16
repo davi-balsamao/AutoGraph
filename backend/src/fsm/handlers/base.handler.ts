@@ -46,21 +46,24 @@ const CLIENTE_FAMILIARIZADO_RE = /\b(DPI|sangria|gramatura|CMYK|bleed|lamina[çc
  * Convenção: `deps.conversationHistory` já contém a mensagem atual no fim
  * (anexada por state-router). Este helper NÃO re-anexa para evitar duplicação.
  *
- *  - Extrai entidades direto do histórico montado pelo router
+ *  - Extrai entidades direto do histórico montado pelo router (LLM-first, fallback regex)
  *  - Sincroniza no contexto da sessão
  *  - Retorna `{ context, entities }`
+ *
+ * Fase 3: async porque a extração agora delega ao LLM. Cache no extractor
+ * garante que chamadas repetidas no mesmo turno custem zero.
  *
  * Handlers podem optar por não chamar (ex.: boas-vindas, calcular-orcamento)
  * quando entity-extraction não traz valor.
  */
-export function prepareContext(
+export async function prepareContext(
   _message: string,
   sessao: SessaoRecord,
   deps: HandlerDeps,
-): { context: ConversationContext; entities: PedidoEntities } {
+): Promise<{ context: ConversationContext; entities: PedidoEntities }> {
   const history = deps.conversationHistory || `Cliente: ${_message}`;
 
-  const entities = entityExtractionService.extract(history, {
+  const entities = await entityExtractionService.extract(history, {
     produtoAtual: sessao.contexto.produto,
   });
 

@@ -41,7 +41,7 @@ export class EsclarecerDuvidaHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const prepared = prepareContext(message, sessao, deps);
+    const prepared = await prepareContext(message, sessao, deps);
     const entities = prepared.entities;
     const context: ConversationContext = prepared.context;
 
