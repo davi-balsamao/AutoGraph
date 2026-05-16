@@ -41,11 +41,13 @@ export class GerarOsHandler implements StateHandler {
 
     const mensagemSugerida = montarMensagemSugerida(deps.clienteNome, context);
 
+    // Fase 2: observações ficam vazias por padrão. A validação técnica da arte
+    // (DPI, sangria, formato) é responsabilidade da recepcionista no momento
+    // da revisão da O.S. — conforme validar-arquivo.md:3.
     const os = await osRepo.create({
       clienteId: sessao.clienteId,
       especificacoes,
       mensagem_sugerida: mensagemSugerida,
-      observacoes: '⚠️ Validar arte antes de produzir: DPI mínimo 300, formato PDF/TIFF/JPG/PNG, sangria conforme template do produto.',
     } as Parameters<typeof osRepo.create>[0]);
 
     context.osId = os.id;

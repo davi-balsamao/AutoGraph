@@ -116,7 +116,9 @@ describe('Fluxo 1 · Fluxo base — sem desvios', () => {
     const os = await getLastOS(PHONE);
     console.log('  O.S. criada:', os ? `ID ${os.id.slice(0, 8).toUpperCase()}` : 'NENHUMA');
     expect(os).not.toBeNull();
-    expect(os!.observacoes).toMatch(/validar arte/i);
+    // Fase 2: observações ficam vazias por padrão — validação técnica de arte
+    // é responsabilidade da recepcionista, não do bot (validar-arquivo.md).
+    expect(os!.observacoes ?? '').toBe('');
 
     // A resposta deve mencionar a Ordem de Serviço
     expect(respEncerrar).toMatch(/ordem de servi[çc]o|O\.S\.|OS/i);

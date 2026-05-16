@@ -17,7 +17,10 @@ export class ApresentarOrcamentoHandler implements StateHandler {
 
     if (total && total > 0) {
       const valorFmt = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-      response = `Orçamento aprovado! O valor total para ${produto} fica em ${valorFmt}. Prazo de produção: ${prazo}. Validade: ${validade}. O pagamento pode ser feito via Pix ou Cartão em até 3x. Podemos dar andamento?`;
+      // Fase 2: removida pergunta de aprovação ("Podemos dar andamento?") —
+      // apresentar-orcamento.md proíbe a pergunta de aprovação nesta mesma mensagem.
+      // A reação do cliente é capturada pelo handler AGUARDAR_APROVACAO no próximo turno.
+      response = `Orçamento aprovado! O valor total para ${produto} fica em ${valorFmt}. Prazo de produção: ${prazo}. Validade: ${validade}. O pagamento pode ser feito via Pix ou Cartão em até 3x.`;
     } else {
       const ragResult = await deps.ragService.queryWithState(
         message || 'Apresente o orçamento aprovado ao cliente com valor, prazo e validade.',
