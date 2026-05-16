@@ -5,7 +5,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Davi\\\\AutoGraph\\\\backend\" -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(git stash *)",
-      "Bash(tee /tmp/tsc.log)"
+      "Bash(tee /tmp/tsc.log)",
+      "Bash(npm test *)"
     ]
   }
 }

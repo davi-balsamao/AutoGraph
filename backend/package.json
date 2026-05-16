@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "npx prisma migrate deploy && npm run seed:prod && node dist/src/server.js",
-    "test": "jest",
+    "test": "jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/dist/ --testPathIgnorePatterns=src/tests/fluxos",
     "test:fluxos": "jest src/tests/fluxos",
     "test:guardrails": "ts-node-dev src/scripts/test-guardrails.ts",
     "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",

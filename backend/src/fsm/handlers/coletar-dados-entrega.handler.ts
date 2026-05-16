@@ -17,7 +17,9 @@ import { prepareContext } from './base.handler';
 
 const RETIRADA_RE = /\b(retira[rd]|retir[oa]|buscar|busco|pego na loja|pegar na loja|na loja|loja)\b/i;
 const ENTREGA_RE  = /\b(entreg[ar]|enviar|mandar|levar|receber)\b/i;
-const ENDERECO_RE = /\b(rua|avenida|av\.|alameda|travessa|estrada|cep|n[ºo°]?\s*\d|endere[çc]o|bairro)\b/i;
+// Sinais de endereço — "av." aparece sem `\b` no fim porque "." seguido de
+// espaço não conta como boundary; ficaria sem match em "Av. Brasil".
+const ENDERECO_RE = /\b(rua|avenida|alameda|travessa|estrada|cep|endere[çc]o|bairro)\b|\bav\.|\bn[ºo°]\s*\d/i;
 
 /**
  * Heurística de endereço "completo o suficiente":
@@ -27,7 +29,7 @@ const ENDERECO_RE = /\b(rua|avenida|av\.|alameda|travessa|estrada|cep|n[ºo°]?\
  */
 function enderecoSuficiente(texto: string): boolean {
   const t = texto.toLowerCase();
-  const temLogradouro = /(rua|avenida|av\.|alameda|travessa|estrada)/.test(t);
+  const temLogradouro = /(rua|avenida|\bav\.|alameda|travessa|estrada)/.test(t);
   const temNumero = /\b\d{1,5}\b/.test(t);
   const temCep = /\b\d{5}-?\d{3}\b/.test(t);
   return (temLogradouro && temNumero) || temCep;

@@ -12,10 +12,11 @@ let catalogCache: CatalogItem[] | null = null;
 export function getCatalog(): CatalogItem[] {
   if (catalogCache) return catalogCache;
   const catalogoPath = path.join(__dirname, '../../data/catalogo.json');
-  catalogCache = fs.existsSync(catalogoPath)
+  const loaded: CatalogItem[] = fs.existsSync(catalogoPath)
     ? JSON.parse(fs.readFileSync(catalogoPath, 'utf8'))
     : [];
-  return catalogCache;
+  catalogCache = loaded;
+  return loaded;
 }
 
 export function findCatalogProduct(nome: string): CatalogItem | undefined {
