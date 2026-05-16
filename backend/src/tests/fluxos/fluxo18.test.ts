@@ -8,36 +8,28 @@
  *          Confirmar → Gerar O.S. → Encerrar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(18);
 const NAME = 'Sebastião Teste F18';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 18 · Atendimento em espanhol → redirecionamento para português', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve detectar espanhol, redirecionar para português e fechar o pedido', async () => {
-    await turno('¡Hola! Quiero hacer un pedido de impresión, folletos para mi negocio.', 'Boas-vindas em espanhol');
-    await turno('Quiero folletos. Prefiero hablar en español si es posible.', 'Identificar bilíngue');
-    await turno('Tudo bem, vou continuar em português então. Quero panfletos.', 'Transição para PT');
-    await turno('1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.', 'Coletar specs');
-    await turno('Tenho o arquivo em PDF com resolução adequada.', 'Validar arq.');
-    await turno('Pode calcular o orçamento.', 'Calcular');
-    await turno('Aprovado!', 'Aguardar aprov.');
-    await turno('Vou retirar na loja.', 'Dados entrega');
-    await turno('Confirmo o pedido.', 'Confirmar');
-    await turno('Pode fechar.', 'Gerar O.S.');
-    await turno('Obrigado! Hasta luego.', 'Encerrar');
+    await turno(PHONE, NAME, '¡Hola! Quiero hacer un pedido de impresión, folletos para mi negocio.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas em espanhol');
+    await turno(PHONE, NAME, 'Quiero folletos. Prefiero hablar en español si es posible.', 'COLETAR_ESPECIFICACOES', 'Identificar bilíngue');
+    await turno(PHONE, NAME, 'Tudo bem, vou continuar em português então. Quero panfletos.', 'COLETAR_ESPECIFICACOES', 'Transição para PT');
+    await turno(PHONE, NAME, '1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
+    await turno(PHONE, NAME, 'Tenho o arquivo em PDF com resolução adequada.', 'AGUARDAR_APROVACAO', 'Validar arq.');
+    await turno(PHONE, NAME, 'Pode calcular o orçamento.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Aprovado!', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
+    await turno(PHONE, NAME, 'Vou retirar na loja.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
+    await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
+    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Obrigado! Hasta luego.', 'ENCERRAR', 'Encerrar');
   }, 120_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {

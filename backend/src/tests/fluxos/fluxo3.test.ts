@@ -7,37 +7,29 @@
  *          Aguardar aprov. → Dados entrega → Confirmar → Gerar O.S. → Encerrar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(3);
 const NAME = 'Carla Teste F3';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 3 · Arquivo em baixa resolução', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve rejeitar arquivo de baixa resolução e retomar após reenvio correto', async () => {
-    await turno('Olá! Quero fazer panfletos para um evento.', 'Boas-vindas');
-    await turno('Preciso de panfletos para divulgar um show.', 'Identificar');
-    await turno('500 unidades, tamanho A5, só frente colorida, papel couchê 90g.', 'Coletar specs');
-    await turno('Tenho o arquivo pronto, está em JPEG mas com apenas 72 dpi.', 'Validar arq. ❌ dpi');
-    await turno('Entendi o problema de resolução. Vou refazer em 300 dpi.', 'Orientação dpi');
-    await turno('Reenviei o arquivo em PDF com 300 dpi, agora está correto.', 'Validar arq. ✓');
-    await turno('Pode calcular o orçamento agora.', 'Calcular');
-    await turno('Aprovado! Pode continuar.', 'Aguardar aprov.');
-    await turno('Vou retirar na loja.', 'Dados entrega');
-    await turno('Confirmo o pedido.', 'Confirmar');
-    await turno('Pode fechar.', 'Gerar O.S.');
-    await turno('Obrigada! Até logo.', 'Encerrar');
+    await turno(PHONE, NAME, 'Olá! Quero fazer panfletos para um evento.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
+    await turno(PHONE, NAME, 'Preciso de panfletos para divulgar um show.', 'COLETAR_ESPECIFICACOES', 'Identificar');
+    await turno(PHONE, NAME, '500 unidades, tamanho A5, só frente colorida, papel couchê 90g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
+    await turno(PHONE, NAME, 'Tenho o arquivo pronto, está em JPEG mas com apenas 72 dpi.', 'VALIDAR_ARQUIVO', 'Validar arq. ❌ dpi');
+    await turno(PHONE, NAME, 'Entendi o problema de resolução. Vou refazer em 300 dpi.', 'ESCLARECER_DUVIDA', 'Orientação dpi');
+    await turno(PHONE, NAME, 'Reenviei o arquivo em PDF com 300 dpi, agora está correto.', 'AGUARDAR_APROVACAO', 'Validar arq. ✓');
+    await turno(PHONE, NAME, 'Pode calcular o orçamento agora.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Aprovado! Pode continuar.', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
+    await turno(PHONE, NAME, 'Vou retirar na loja.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
+    await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
+    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Obrigada! Até logo.', 'ENCERRAR', 'Encerrar');
   }, 130_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {

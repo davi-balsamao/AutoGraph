@@ -8,36 +8,28 @@
  *          Dados entrega → Confirmar → Gerar O.S. → Encerrar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(13);
 const NAME = 'Marcos Teste F13';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 13 · Cliente recorrente sem acesso ao histórico', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve informar falta de histórico e recoletcar specs do zero', async () => {
-    await turno('Oi! Quero repetir o mesmo pedido que fiz no mês passado.', 'Boas-vindas + pedido repetir');
-    await turno('Era panfletos, exatamente igual ao anterior.', 'Identificar → re-coletar');
-    await turno('Tudo bem, vou informar de novo. Quero panfletos para minha empresa.', 'Re-coletar specs');
-    await turno('1000 unidades, tamanho A5, frente e verso colorido, couchê 90g.', 'Specs completas');
-    await turno('Tenho o arquivo de arte em PDF, igual ao anterior.', 'Validar arq.');
-    await turno('Pode calcular.', 'Calcular');
-    await turno('Aprovado!', 'Aguardar aprov.');
-    await turno('Vou retirar na loja como sempre.', 'Dados entrega');
-    await turno('Confirmo.', 'Confirmar');
-    await turno('Pode fechar.', 'Gerar O.S.');
-    await turno('Obrigado! Até o próximo pedido.', 'Encerrar');
+    await turno(PHONE, NAME, 'Oi! Quero repetir o mesmo pedido que fiz no mês passado.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas + pedido repetir');
+    await turno(PHONE, NAME, 'Era panfletos, exatamente igual ao anterior.', 'COLETAR_ESPECIFICACOES', 'Identificar → re-coletar');
+    await turno(PHONE, NAME, 'Tudo bem, vou informar de novo. Quero panfletos para minha empresa.', 'VALIDAR_ARQUIVO', 'Re-coletar specs');
+    await turno(PHONE, NAME, '1000 unidades, tamanho A5, frente e verso colorido, couchê 90g.', 'VALIDAR_ARQUIVO', 'Specs completas');
+    await turno(PHONE, NAME, 'Tenho o arquivo de arte em PDF, igual ao anterior.', 'AGUARDAR_APROVACAO', 'Validar arq.');
+    await turno(PHONE, NAME, 'Pode calcular.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Aprovado!', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
+    await turno(PHONE, NAME, 'Vou retirar na loja como sempre.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
+    await turno(PHONE, NAME, 'Confirmo.', 'ENCERRAR', 'Confirmar');
+    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Obrigado! Até o próximo pedido.', 'ENCERRAR', 'Encerrar');
   }, 120_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {

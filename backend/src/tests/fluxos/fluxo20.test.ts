@@ -6,28 +6,20 @@
  * Estados: (qualquer) → (redirect) → (mesmo estado)
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(20);
 const NAME = 'Ulisses Teste F20';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 20 · Mensagem fora do escopo do bot', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve redirecionar off-topic sem responder ao pedido fora do escopo', async () => {
-    await turno('Me conta uma piada boa!', 'Off-topic 1 — piada');
-    await turno('Qual é a receita do bolo de chocolate perfeito?', 'Off-topic 2 — receita');
-    await turno('Ok ok, então quero fazer um pedido de panfletos.', 'Retorno ao tema');
+    await turno(PHONE, NAME, 'Me conta uma piada boa!', 'COLETAR_ESPECIFICACOES', 'Off-topic 1 — piada');
+    await turno(PHONE, NAME, 'Qual é a receita do bolo de chocolate perfeito?', 'COLETAR_ESPECIFICACOES', 'Off-topic 2 — receita');
+    await turno(PHONE, NAME, 'Ok ok, então quero fazer um pedido de panfletos.', 'AGUARDAR_RETORNO', 'Retorno ao tema');
   }, 40_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {

@@ -6,31 +6,25 @@
  * Estados: Boas-vindas → Escalar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(7);
 const NAME = 'Gabriela Teste F7';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 7 · Reclamação — escalada imediata', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve escalar imediatamente sem tentar coletar pedido novo', async () => {
-    await turno(
+    await turno(PHONE, NAME,
       'O pedido que fiz semana passada saiu completamente errado! As cores estão todas erradas e o tamanho é diferente do que pedi!',
+      'ESCALAR_HUMANO',
       'Reclamação → Escalar'
     );
-    await turno(
-      'Preciso falar com um responsável agora, isso é inaceitável!',
+    await turno(PHONE, NAME,
+      'Preciso falar com um atendente agora, isso é inaceitável!',
+      'ESCALAR_HUMANO',
       'Confirmação escalada'
     );
   }, 30_000);

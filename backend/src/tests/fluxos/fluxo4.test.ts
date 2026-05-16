@@ -8,36 +8,28 @@
  *          Dados entrega → Confirmar → Gerar O.S. → Encerrar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(4);
 const NAME = 'Diego Teste F4';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 4 · Urgência — entrega em 24h com negociação', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve calcular custo expresso, negociar e fechar o pedido', async () => {
-    await turno('Oi! Preciso de material com muita urgência, é para amanhã!', 'Boas-vindas');
-    await turno('Preciso de panfletos para um evento que acontece amanhã cedo.', 'Identificar');
-    await turno('500 unidades, tamanho A5, frente e verso colorido, papel couchê 90g. Preciso em 24 horas!', 'Coletar specs urgente');
-    await turno('Qual o custo para entrega expressa em 24 horas?', 'Calcular expresso');
-    await turno('Nossa, ficou caro com essa urgência. Tem como reduzir um pouco?', 'Negociar');
-    await turno('Ok, entendo a situação. Aceito o valor então.', 'Aguardar aprov.');
-    await turno('Aprovado! Pode continuar.', 'Aprovação final');
-    await turno('Vou buscar na loja para agilizar.', 'Dados entrega');
-    await turno('Confirmo o pedido urgente.', 'Confirmar');
-    await turno('Pode gerar a ordem de serviço.', 'Gerar O.S.');
-    await turno('Obrigado! Até mais.', 'Encerrar');
+    await turno(PHONE, NAME, 'Oi! Preciso de material com muita urgência, é para amanhã!', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
+    await turno(PHONE, NAME, 'Preciso de panfletos para um evento que acontece amanhã cedo.', 'COLETAR_ESPECIFICACOES', 'Identificar');
+    await turno(PHONE, NAME, '500 unidades, tamanho A5, frente e verso colorido, papel couchê 90g. Preciso em 24 horas!', 'VALIDAR_ARQUIVO', 'Coletar specs urgente');
+    await turno(PHONE, NAME, 'Qual o custo para entrega expressa em 24 horas?', 'AGUARDAR_APROVACAO', 'Calcular expresso', 30_000);
+    await turno(PHONE, NAME, 'Nossa, ficou caro com essa urgência. Tem como reduzir um pouco?', 'NEGOCIAR', 'Negociar');
+    await turno(PHONE, NAME, 'Ok, entendo a situação. Aceito o valor então.', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
+    await turno(PHONE, NAME, 'Aprovado! Pode continuar.', 'COLETAR_DADOS_ENTREGA', 'Aprovação final');
+    await turno(PHONE, NAME, 'Vou buscar na loja para agilizar.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
+    await turno(PHONE, NAME, 'Confirmo o pedido urgente.', 'ENCERRAR', 'Confirmar');
+    await turno(PHONE, NAME, 'Pode gerar a ordem de serviço.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Obrigado! Até mais.', 'ENCERRAR', 'Encerrar');
   }, 120_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {

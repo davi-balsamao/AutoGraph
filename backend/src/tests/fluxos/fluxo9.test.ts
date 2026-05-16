@@ -8,37 +8,29 @@
  *          Aguardar aprov. → Dados entrega → Confirmar → Gerar O.S. → Encerrar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(9);
 const NAME = 'Isabela Teste F9';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 9 · Arquivo em formato incompatível (.PSD)', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve rejeitar .PSD e retomar após reenvio no formato correto', async () => {
-    await turno('Oi! Quero fazer flyers para uma promoção.', 'Boas-vindas');
-    await turno('Flyers para uma promoção de verão da minha loja.', 'Identificar');
-    await turno('500 unidades, tamanho A5, frente colorida, papel couchê 115g.', 'Coletar specs');
-    await turno('Tenho o arquivo de arte em .PSD com todas as camadas abertas.', 'Validar arq. ❌ fmt PSD');
-    await turno('Entendi, vou exportar para PDF. Pode aguardar.', 'Orientação formato');
-    await turno('Agora reenviei o arquivo em PDF com as camadas achatadas.', 'Validar arq. ✓');
-    await turno('Pode calcular o orçamento.', 'Calcular');
-    await turno('Aprovado!', 'Aguardar aprov.');
-    await turno('Vou retirar na loja.', 'Dados entrega');
-    await turno('Confirmo o pedido.', 'Confirmar');
-    await turno('Pode fechar.', 'Gerar O.S.');
-    await turno('Obrigada! Até mais.', 'Encerrar');
+    await turno(PHONE, NAME, 'Oi! Quero fazer flyers para uma promoção.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
+    await turno(PHONE, NAME, 'Flyers para uma promoção de verão da minha loja.', 'COLETAR_ESPECIFICACOES', 'Identificar');
+    await turno(PHONE, NAME, '500 unidades, tamanho A5, frente colorida, papel couchê 115g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
+    await turno(PHONE, NAME, 'Tenho o arquivo de arte em .PSD com todas as camadas abertas.', 'VALIDAR_ARQUIVO', 'Validar arq. ❌ fmt PSD');
+    await turno(PHONE, NAME, 'Entendi, vou exportar para PDF. Pode aguardar.', 'ESCLARECER_DUVIDA', 'Orientação formato');
+    await turno(PHONE, NAME, 'Agora reenviei o arquivo em PDF com as camadas achatadas.', 'AGUARDAR_APROVACAO', 'Validar arq. ✓');
+    await turno(PHONE, NAME, 'Pode calcular o orçamento.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Aprovado!', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
+    await turno(PHONE, NAME, 'Vou retirar na loja.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
+    await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
+    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Obrigada! Até mais.', 'ENCERRAR', 'Encerrar');
   }, 130_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {

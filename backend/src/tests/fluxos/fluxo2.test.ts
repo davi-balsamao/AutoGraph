@@ -8,37 +8,29 @@
  *          Aguardar aprov. → Dados entrega → Confirmar → Gerar O.S. → Encerrar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(2);
 const NAME = 'Bruno Teste F2';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 2 · Dúvida sobre produto antes de decidir', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve esclarecer dúvida e retomar fluxo normal', async () => {
-    await turno('Oi, boa tarde! Preciso de um material impresso.', 'Boas-vindas');
-    await turno('Não sei se quero panfleto ou flyer, qual a diferença?', 'Identificar → Esclarecer');
-    await turno('Qual é a diferença técnica entre panfleto e flyer?', 'Esclarecer dúvida');
-    await turno('Entendi! Então vou de panfleto mesmo.', 'Retorna Identificar');
-    await turno('Quero 500 unidades, tamanho A4, só frente, colorido, papel couchê 115g.', 'Coletar specs');
-    await turno('Sim, tenho o arquivo pronto em PDF com resolução 300 dpi.', 'Validar arq.');
-    await turno('Pode calcular o valor para mim?', 'Calcular');
-    await turno('Gostei do orçamento, aprovado!', 'Aguardar aprov.');
-    await turno('Quero entrega. Meu endereço é Av. Brasil, 500, São Paulo – SP.', 'Dados entrega');
-    await turno('Confirmo o pedido.', 'Confirmar');
-    await turno('Pode fechar o pedido.', 'Gerar O.S.');
-    await turno('Obrigado! Até logo.', 'Encerrar');
+    await turno(PHONE, NAME, 'Oi, boa tarde! Preciso de um material impresso.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
+    await turno(PHONE, NAME, 'Não sei se quero panfleto ou flyer, qual a diferença?', 'ESCLARECER_DUVIDA', 'Identificar → Esclarecer');
+    await turno(PHONE, NAME, 'Qual é a diferença técnica entre panfleto e flyer?', 'ESCLARECER_DUVIDA', 'Esclarecer dúvida');
+    await turno(PHONE, NAME, 'Entendi! Então vou de panfleto mesmo.', 'COLETAR_ESPECIFICACOES', 'Retorna Identificar');
+    await turno(PHONE, NAME, 'Quero 500 unidades, tamanho A4, só frente, colorido, papel couchê 115g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
+    await turno(PHONE, NAME, 'Sim, tenho o arquivo pronto em PDF com resolução 300 dpi.', 'AGUARDAR_APROVACAO', 'Validar arq.');
+    await turno(PHONE, NAME, 'Pode calcular o valor para mim?', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Gostei do orçamento, aprovado!', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
+    await turno(PHONE, NAME, 'Quero entrega. Meu endereço é Av. Brasil, 500, São Paulo – SP.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
+    await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
+    await turno(PHONE, NAME, 'Pode fechar o pedido.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Obrigado! Até logo.', 'ENCERRAR', 'Encerrar');
   }, 130_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {

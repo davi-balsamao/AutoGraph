@@ -20,40 +20,20 @@
 import {
   sendMsg,
   getLastBotResponse,
-  getSessionState,
   getSessionContext,
   getLastOS,
   cleanupUser,
   wait,
   uniquePhone,
+  turno as turnoHelper,
 } from './helpers';
 
 const PHONE = uniquePhone(1);
 const NAME  = 'Ana Teste F1';
 
-/** Envia mensagem, aguarda e retorna estado + resposta. Para na hora se o estado divergir. */
-async function turno(
-  text: string,
-  expectedState: string,
-  label: string,
-  waitMs = 8_000,
-): Promise<{ state: string; resp: string }> {
-  await sendMsg(PHONE, NAME, text);
-  await wait(waitMs);
-
-  const state = await getSessionState(PHONE);
-  const resp  = await getLastBotResponse(PHONE);
-
-  console.log(`\n[${label}]`);
-  console.log(`  Estado : ${state}  (esperado: ${expectedState})`);
-  console.log(`  Bot    : ${resp}`);
-
-  // Falha imediata se o estado divergir — evita continuar com dados corrompidos
-  expect(state).toBe(expectedState);
-  expect(resp).toBeTruthy();
-
-  return { state: state!, resp: resp! };
-}
+/** Wrapper que fixa PHONE e NAME para não repetir em cada chamada. */
+const turno = (text: string, expectedState: string, label: string, timeoutMs?: number) =>
+  turnoHelper(PHONE, NAME, text, expectedState, label, timeoutMs);
 
 describe('Fluxo 1 · Fluxo base — sem desvios', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
@@ -93,7 +73,7 @@ describe('Fluxo 1 · Fluxo base — sem desvios', () => {
       'Sim, tenho o arquivo de arte finalizada em PDF.',
       'AGUARDAR_APROVACAO',
       'Validar arquivo → chain Calcular → Apresentar',
-      10_000,
+      30_000,
     );
 
     // Checkpoint crítico: o orçamento deve ter sido calculado e salvo no contexto
@@ -129,7 +109,7 @@ describe('Fluxo 1 · Fluxo base — sem desvios', () => {
       'Confirmo o pedido.',
       'ENCERRAR',
       'Confirmar → chain Gerar O.S. → Encerrar',
-      14_000,
+      30_000,
     );
 
     // Checkpoint crítico: a O.S. deve ter sido criada no banco

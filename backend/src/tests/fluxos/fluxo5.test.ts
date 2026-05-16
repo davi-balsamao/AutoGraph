@@ -8,36 +8,28 @@
  *          Dados entrega → Confirmar → Gerar O.S. → Encerrar
  */
 
-import { sendMsg, getLastBotResponse, cleanupUser, wait, uniquePhone } from './helpers';
+import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(5);
 const NAME = 'Eduarda Teste F5';
 
-async function turno(text: string, label: string): Promise<string> {
-  await sendMsg(PHONE, NAME, text);
-  await wait();
-  const resp = await getLastBotResponse(PHONE);
-  expect(resp).toBeTruthy();
-  console.log(`[${label}] Bot: ${resp}`);
-  return resp!;
-}
 
 describe('Fluxo 5 · Atalho — pergunta de preço antes das specs', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
   afterAll(async () => { await cleanupUser(PHONE); });
 
   it('deve esclarecer necessidade de specs antes do preço e fechar o pedido', async () => {
-    await turno('Oi! Quanto custa 1000 panfletos?', 'Boas-vindas + pergunta preço');
-    await turno('Preciso saber o preço de 1000 panfletos, me diz logo.', 'Esclarecer preço');
-    await turno('Ah, entendi que precisa das especificações. Quero panfletos então.', 'Identificar');
-    await turno('1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.', 'Coletar specs');
-    await turno('Sim, tenho o arquivo em PDF pronto.', 'Validar arq.');
-    await turno('Agora sim, pode calcular o preço.', 'Calcular');
-    await turno('Aprovado! Esse valor está ótimo.', 'Aguardar aprov.');
-    await turno('Vou retirar na loja.', 'Dados entrega');
-    await turno('Confirmo o pedido.', 'Confirmar');
-    await turno('Pode fechar.', 'Gerar O.S.');
-    await turno('Obrigada!', 'Encerrar');
+    await turno(PHONE, NAME, 'Oi! Quanto custa 1000 panfletos?', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas + pergunta preço');
+    await turno(PHONE, NAME, 'Preciso saber o preço de 1000 panfletos, me diz logo.', 'ESCLARECER_DUVIDA', 'Esclarecer preço');
+    await turno(PHONE, NAME, 'Ah, entendi que precisa das especificações. Quero panfletos então.', 'COLETAR_ESPECIFICACOES', 'Identificar');
+    await turno(PHONE, NAME, '1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
+    await turno(PHONE, NAME, 'Sim, tenho o arquivo em PDF pronto.', 'AGUARDAR_APROVACAO', 'Validar arq.');
+    await turno(PHONE, NAME, 'Agora sim, pode calcular o preço.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Aprovado! Esse valor está ótimo.', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
+    await turno(PHONE, NAME, 'Vou retirar na loja.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
+    await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
+    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Obrigada!', 'ENCERRAR', 'Encerrar');
   }, 120_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
