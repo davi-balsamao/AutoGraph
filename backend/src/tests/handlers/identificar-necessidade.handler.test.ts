@@ -64,4 +64,26 @@ describe('IdentificarNecessidadeHandler', () => {
     expect(rag.queryWithState).toHaveBeenCalled();
     expect(r.response).toBe('Me conta qual material você precisa.');
   });
+
+  it('Fluxo 5: trata pergunta de preço antes das specs como DUVIDA → ESCLARECER_DUVIDA', async () => {
+    // Cliente menciona produto MAS está pedindo preço sem fornecer specs.
+    // A DUVIDA expandida (transition.service.ts) cobre "preço/quanto custa/preciso saber"
+    // e o handler desvia para ESCLARECER_DUVIDA antes de cair na rota de produto.
+    (entityExtractionService.identificarProdutoNaMensagem as jest.Mock).mockReturnValue({
+      produto: 'Panfletos',
+      descricao: 'x',
+      requisitos_orcamento: ['Qual quantidade deseja?'],
+    });
+
+    const sessao = makeSessao({ estadoAtual: 'IDENTIFICAR_NECESSIDADE' });
+    const rag = makeRagMock('Preciso de algumas informações antes de calcular o preço.');
+    const r = await identificarNecessidadeHandler.handle(
+      'Preciso saber o preço de 1000 panfletos, me diz logo.',
+      sessao,
+      makeDeps({ ragService: rag })
+    );
+
+    expect(r.nextState).toBe(ConversationState.ESCLARECER_DUVIDA);
+    expect(rag.queryWithState).toHaveBeenCalled();
+  });
 });

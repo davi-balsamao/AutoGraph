@@ -12,6 +12,7 @@
 
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationContext, ConversationState, SessaoRecord } from '../states';
+import { DUVIDA } from '../transition.service';
 import { prepareContext } from './base.handler';
 
 const ARTE_PRONTA_RE =
@@ -35,6 +36,19 @@ export class ValidarArquivoHandler implements StateHandler {
     const { context: prepared } = await prepareContext(message, sessao, deps);
     const context: ConversationContext = { ...prepared };
     const msg = message.trim();
+
+    // Fluxo 4: cliente pergunta sobre preço/custo/orçamento neste estado —
+    // não pula a validação de arte (preserva Regra 7), mas roteia para
+    // ESCLARECER_DUVIDA para que o RAG explique que precisamos confirmar a arte
+    // antes de calcular. Ao sair do esclarecimento, retorna a VALIDAR_ARQUIVO.
+    if (DUVIDA.test(msg)) {
+      return {
+        response: '',
+        nextState: ConversationState.ESCLARECER_DUVIDA,
+        updatedContext: context,
+        chainNext: ConversationState.ESCLARECER_DUVIDA,
+      };
+    }
 
     if (ENVIA_DEPOIS_RE.test(msg)) {
       return {
