@@ -121,7 +121,7 @@ authRoutes.get('/users', async (req: Request, res: Response) => {
  */
 authRoutes.put('/users/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { nome, email, telefone, role, atendimentoHumano, enderecoCompleto, enderecoReferencia, senha } = req.body;
 
     const existingUser = await prisma.usuario.findUnique({ where: { id } });
@@ -171,6 +171,48 @@ authRoutes.put('/users/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('❌ Erro ao atualizar usuário:', error);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+/**
+ * PUT /api/auth/users/:id/fcm
+ * Body: { fcmToken: string }
+ *
+ * Registra/atualiza o Token do Firebase Cloud Messaging (FCM) de um usuário.
+ */
+authRoutes.put('/users/:id/fcm', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { fcmToken } = req.body;
+
+    if (fcmToken === undefined) {
+      return res.status(400).json({ error: 'Token FCM é obrigatório.' });
+    }
+
+    const existingUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const updatedUser = await prisma.usuario.update({
+      where: { id },
+      data: { fcmToken: fcmToken || null },
+    });
+
+    console.log(`📱 Token FCM atualizado com sucesso para o usuário ${updatedUser.nome} (${updatedUser.id})`);
+
+    return res.json({
+      message: 'Token FCM atualizado com sucesso.',
+      user: {
+        id: updatedUser.id,
+        nome: updatedUser.nome,
+        role: updatedUser.role,
+        fcmToken: updatedUser.fcmToken,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar token FCM do usuário:', error);
     return res.status(500).json({ error: 'Erro interno.' });
   }
 });

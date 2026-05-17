@@ -7,6 +7,7 @@ import { entityExtractionService } from './entity-extraction.service';
 import { conversationService } from './conversation.service';
 import { WhatsAppMessageData } from '../utils/whatsapp.parser';
 import { io } from '../server';
+import { notificationService } from './notification.service';
 
 const clienteRepo = new ClienteRepository();
 const mensagemRepo = new MensagemRepository();
@@ -39,6 +40,13 @@ export class WebhookService {
         texto: messageData.text,
         criadoEm: msgCliente.criadoEm
       });
+
+      // Notificar administradores por push (FCM)
+      notificationService.sendToAdmins(
+        'Mensagem de Cliente 💬',
+        `${cliente.nome}: "${messageData.text.length > 50 ? messageData.text.substring(0, 50) + '...' : messageData.text}"`,
+        { clienteId: cliente.id, type: 'chat_message' }
+      ).catch(err => console.error('❌ Erro ao enviar push de chat:', err));
 
       // 🛡️ CEREJA DO BOLO: Se o atendimento humano estiver ativo, encerramos aqui
       if (cliente.atendimentoHumano) {
@@ -77,6 +85,14 @@ export class WebhookService {
         } as any);
 
         io.emit('nova-os', { id: os.id, cliente: cliente.nome, produto: entities.produtoIdentificado });
+        
+        // Notificar administradores por push (FCM)
+        notificationService.sendToAdmins(
+          'Novo Pedido Automático 📋',
+          `Cliente ${cliente.nome} solicitou "${entities.produtoIdentificado}" via assistente virtual.`,
+          { osId: os.id, type: 'new_os' }
+        ).catch(err => console.error('❌ Erro ao enviar push de OS automática:', err));
+
         aiResponse = TRANSBORDO_MESSAGE;
       }
 

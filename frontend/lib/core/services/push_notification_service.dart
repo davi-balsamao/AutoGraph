@@ -1,0 +1,159 @@
+import 'dart:convert';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
+import 'auth_service.dart';
+
+// Canal de alta importância do Android para exibir banners pop-up
+const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+  'autograph_high_importance_channel', // id
+  'Notificações Importantes AutoGraph', // title
+  description: 'Canal usado para alertas críticos, novos pedidos e chats.', // description
+  importance: Importance.max,
+  playSound: true,
+  enableVibration: true,
+);
+
+final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+
+/// Função global obrigatória para processar mensagens recebidas com o app em segundo plano/fechado
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint("📩 [FCM] Notificação recebida em Segundo Plano: ${message.messageId}");
+}
+
+class PushNotificationService {
+  static final PushNotificationService _instance = PushNotificationService._();
+  factory PushNotificationService() => _instance;
+  PushNotificationService._();
+
+  bool _isInitialized = false;
+
+  /// Inicializa as configurações de Push Notifications
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    try {
+      // 1. Configurar Background Handler
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+      // 2. Configurações do Local Notifications para o canal do Android
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_channel);
+
+      // Configuração inicial do Local Notifications para tratar cliques nas notificações em primeiro plano
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const InitializationSettings initializationSettings =
+          InitializationSettings(android: initializationSettingsAndroid);
+
+      await _localNotifications.initialize(
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          debugPrint("📱 [FCM] Usuário clicou na notificação em primeiro plano: ${response.payload}");
+        },
+      );
+
+      // 3. Solicitar Permissões do Usuário
+      final NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+
+      debugPrint('🔔 [FCM] Permissão de notificação concedida: ${settings.authorizationStatus}');
+
+      // 4. Configurar Listeners de mensagens em Primeiro Plano
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('📩 [FCM] Mensagem recebida em Primeiro Plano!');
+        
+        final RemoteNotification? notification = message.notification;
+        final AndroidNotification? android = message.notification?.android;
+
+        if (notification != null && !kIsWeb) {
+          _localNotifications.show(
+            id: notification.hashCode,
+            title: notification.title,
+            body: notification.body,
+            notificationDetails: NotificationDetails(
+              android: AndroidNotificationDetails(
+                _channel.id,
+                _channel.name,
+                channelDescription: _channel.description,
+                icon: android?.smallIcon ?? '@mipmap/ic_launcher',
+                importance: Importance.max,
+                priority: Priority.high,
+                playSound: true,
+                enableVibration: true,
+              ),
+            ),
+            payload: jsonEncode(message.data),
+          );
+        }
+      });
+
+      // App Aberto a partir de Notificação (Segundo plano)
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        debugPrint('🎯 [FCM] O aplicativo foi aberto a partir de uma notificação!');
+      });
+
+      // 5. Atualizar Token e escutar novos tokens gerados
+      await syncTokenWithBackend();
+      FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) async {
+        debugPrint('🔄 [FCM] Novo token FCM gerado: $newToken');
+        await _sendTokenToBackend(newToken);
+      });
+
+      _isInitialized = true;
+      debugPrint('🔥 [PushNotificationService] Inicializado com sucesso!');
+    } catch (e) {
+      debugPrint('❌ [PushNotificationService] Erro ao inicializar: $e');
+    }
+  }
+
+  /// Sincroniza o token atual do dispositivo com o backend caso o usuário esteja logado
+  Future<void> syncTokenWithBackend() async {
+    try {
+      final String? token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        debugPrint('🔑 [FCM] Token FCM Atual: $token');
+        await _sendTokenToBackend(token);
+      }
+    } catch (e) {
+      debugPrint('❌ [PushNotificationService] Falha ao sincronizar token: $e');
+    }
+  }
+
+  /// Envia o token FCM para o backend do usuário ativo
+  Future<void> _sendTokenToBackend(String token) async {
+    final authService = AuthService();
+    if (!authService.isLoggedIn) {
+      debugPrint('🤫 [FCM] Ignorando envio do token FCM: Nenhum usuário autenticado no momento.');
+      return;
+    }
+
+    final userId = authService.currentUser!.id;
+    final url = '${authService.baseUrl}/auth/users/$userId/fcm';
+
+    try {
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'fcmToken': token}),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ [FCM] Token FCM registrado no backend para o usuário $userId.');
+      } else {
+        debugPrint('⚠️ [FCM] Falha ao registrar token no backend: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ [FCM] Erro na requisição para registrar token FCM: $e');
+    }
+  }
+}

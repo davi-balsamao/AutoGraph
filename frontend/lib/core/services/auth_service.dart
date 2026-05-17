@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, ChangeNotifier, debugPrint
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import 'push_notification_service.dart';
 
 
 /// Serviço de autenticação local.
@@ -43,6 +44,10 @@ class AuthService extends ChangeNotifier {
         final user = UserModel.fromJson(data['user']);
         _currentUser = user;
         await _persistSession(user);
+        
+        // Sincronizar Token do FCM ao fazer Login
+        PushNotificationService().syncTokenWithBackend();
+        
         notifyListeners();
         return user;
       }
@@ -126,6 +131,10 @@ class AuthService extends ChangeNotifier {
 
     try {
       _currentUser = UserModel.fromJson(jsonDecode(json));
+      
+      // Sincronizar Token do FCM ao restaurar Sessão
+      PushNotificationService().syncTokenWithBackend();
+      
       notifyListeners();
       return true;
     } catch (_) {

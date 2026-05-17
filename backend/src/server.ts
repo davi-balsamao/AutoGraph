@@ -9,6 +9,7 @@ import webhookRoutes from './routes/webhook.routes';
 import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
 import produtoRoutes from './routes/produto.routes';
+import notificationRoutes from './routes/notification.routes';
 import { prisma } from './config/prisma';
 
 // Carregamento Físico do .env
@@ -69,6 +70,7 @@ app.use('/uploads', express.static(path.resolve(__dirname, '../data/uploads')));
 app.use(webhookRoutes);
 app.use('/api/os', osRoutes); 
 app.use('/api/auth', authRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Rotas de Produtos
 app.use('/api/produtos', produtoRoutes);

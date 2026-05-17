@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/auth_service.dart';
@@ -339,6 +341,150 @@ class _AdminUsuariosTabState extends State<AdminUsuariosTab> {
     );
   }
 
+  Future<void> _abrirDialogoNotificacao(UserModel? user) async {
+    final titleController = TextEditingController();
+    final bodyController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isSending = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  user == null ? Icons.campaign : Icons.mobile_screen_share, 
+                  color: Colors.amber[700], 
+                  size: 26
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    user == null ? 'Notificação Global (Todos)' : 'Notificar ${user.nome}',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            content: SizedBox(
+              width: 400,
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      user == null 
+                        ? 'Esta mensagem será enviada como notificação push para TODOS os clientes cadastrados.'
+                        : 'Esta notificação será enviada especificamente para o dispositivo móvel deste cliente.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Título da Notificação',
+                        prefixIcon: Icon(Icons.title, size: 18),
+                        hintText: 'Ex: Promoção imperdível ou Pedido pronto!',
+                      ),
+                      validator: (val) => val == null || val.trim().isEmpty ? 'O título é obrigatório.' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: bodyController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Mensagem (Corpo)',
+                        prefixIcon: Icon(Icons.chat_bubble_outline, size: 18),
+                        hintText: 'Escreva a mensagem que aparecerá no celular...',
+                      ),
+                      validator: (val) => val == null || val.trim().isEmpty ? 'A mensagem é obrigatória.' : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSending ? null : () => Navigator.pop(ctx),
+                child: Text(
+                  'CANCELAR',
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber[700],
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: isSending ? null : () async {
+                  if (!formKey.currentState!.validate()) return;
+
+                  setStateDialog(() {
+                    isSending = true;
+                  });
+
+                  try {
+                    final authService = AuthService();
+                    final url = '${authService.baseUrl}/notifications/send';
+                    
+                    final response = await http.post(
+                      Uri.parse(url),
+                      headers: {'Content-Type': 'application/json'},
+                      body: jsonEncode({
+                        'clienteId': user?.id ?? 'all',
+                        'title': titleController.text.trim(),
+                        'body': bodyController.text.trim(),
+                      }),
+                    );
+
+                    if (response.statusCode == 200) {
+                      if (mounted && ctx.mounted) {
+                        SnackbarUtil.showSuccess(context, 'Notificação push enviada com sucesso!');
+                        Navigator.pop(ctx);
+                      }
+                    } else {
+                      final errorBody = jsonDecode(response.body);
+                      throw Exception(errorBody['error'] ?? 'Falha ao enviar notificação.');
+                    }
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      SnackbarUtil.showError(ctx, 'Erro ao enviar notificação: $e');
+                    }
+                  } finally {
+                    if (ctx.mounted) {
+                      setStateDialog(() {
+                        isSending = false;
+                      });
+                    }
+                  }
+                },
+                child: isSending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('ENVIAR NOTIFICAÇÃO'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Color _getAvatarBgColor(String name, String role) {
     if (role == 'GERENTE') return AppColors.brandTeal;
     final int val = name.runes.fold(0, (prev, elem) => prev + elem);
@@ -475,6 +621,30 @@ class _AdminUsuariosTabState extends State<AdminUsuariosTab> {
                               ),
                             );
                           }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton.icon(
+                          key: const Key('btn_send_global_push'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber[700],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () => _abrirDialogoNotificacao(null),
+                          icon: const Icon(Icons.campaign, size: 18),
+                          label: Text(
+                            'NOTIFICAR TODOS OS CLIENTES',
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -759,6 +929,22 @@ class _AdminUsuariosTabState extends State<AdminUsuariosTab> {
                                                 style: TextStyle(fontSize: 11),
                                               ),
                                             ),
+                                            // Botão Enviar Push Notification (Disponível apenas para clientes)
+                                            if (user.role == 'CLIENTE')
+                                              ElevatedButton.icon(
+                                                key: Key('btn_send_push_${user.id}'),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.amber[700],
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                ),
+                                                onPressed: () => _abrirDialogoNotificacao(user),
+                                                icon: const Icon(Icons.mobile_screen_share, size: 16),
+                                                label: const Text(
+                                                  'ENVIAR PUSH',
+                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
                                           ],
                                         ),
                                       ],
