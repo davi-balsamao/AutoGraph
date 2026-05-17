@@ -34,6 +34,8 @@ export interface ConversationContext {
   osId?: string;
   artePronta?: boolean;
   validacaoArteOk?: boolean;
+  /** Fluxo 20: número de mensagens off-topic já recebidas na sessão. */
+  offTopicCount?: number;
 }
 
 export interface SessaoRecord {

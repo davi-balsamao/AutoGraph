@@ -1,5 +1,6 @@
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationState, SessaoRecord } from '../states';
+import { isOffTopicMessage } from './base.handler';
 
 const RECLAMACAO_HANDLER = /\b(reclamação|reclamacao|problema grave|processo|advogado|péssimo|pessimo|saiu errado|saiu completamente errado|errad[oa]s?|inaceit[aá]vel|inaceitaveis|diferente do que pedi|n[aã]o era isso|ficou errado|ficou diferente|incorret[oa]s?|insatisfeit[oa]|produto errado|qualidade p[eé]ssima)\b/i;
 const HUMANO_HANDLER = /\b(atendente|humano|gerente|pessoa|falar com alguém|falar com alguem)\b/i;
@@ -50,6 +51,19 @@ export class BoasVindasHandler implements StateHandler {
         nextState: ConversationState.ESCALAR_HUMANO,
         updatedContext: { ...sessao.contexto },
         chainNext: ConversationState.ESCALAR_HUMANO,
+      };
+    }
+
+    // Fluxo 20: cliente abre com mensagem totalmente fora do escopo (piada,
+    // receita, futebol...). Redireciona com firmeza ao tema e avança para
+    // COLETAR_ESPECIFICACOES, esperando que o cliente liste o produto.
+    if (isOffTopicMessage(message)) {
+      const offTopicCount = (sessao.contexto.offTopicCount || 0) + 1;
+      return {
+        response:
+          'Oi! Aqui é o atendimento da gráfica AutoGraph. Conseguimos te ajudar só com pedidos de impressão (panfletos, cartão de visita, banner, blocos ou apostilas). Qual produto você precisa?',
+        nextState: ConversationState.COLETAR_ESPECIFICACOES,
+        updatedContext: { ...sessao.contexto, offTopicCount },
       };
     }
 

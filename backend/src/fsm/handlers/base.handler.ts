@@ -20,6 +20,19 @@ import { DUVIDA } from '../transition.service';
 
 export type CrossCuttingIntent = 'DUVIDA' | 'ESCALAR' | 'NOVO' | 'PAUSA' | null;
 
+/**
+ * Fluxo 20: mensagem fora do propósito do bot (piada, receita, futebol, etc.).
+ * Lista conservadora — só termos que claramente não têm a ver com gráfica e
+ * que não conflitam com vocabulário do domínio (não inclui "tempo", "papel"...).
+ */
+const OFF_TOPIC_RE =
+  /\b(piada|piadas|receita|receitas|bolo|bolos|chocolate|futebol|m[úu]sica|m[úu]sicas|filme|filmes|s[ée]rie|s[ée]ries|hobby|hobbies|namorad[oa]s?|fofoca|cl[ií]ma|previs[ãa]o do tempo|signo|hor[óo]scopo)\b/i;
+
+export function isOffTopicMessage(message: string): boolean {
+  if (!message) return false;
+  return OFF_TOPIC_RE.test(message);
+}
+
 // Fase 5: DUVIDA é fonte única em transition.service.ts (importada acima).
 const ESCALAR_RE =
   /\b(atendente|humano|gerente|pessoa|falar com algu[ée]m)\b/i;
