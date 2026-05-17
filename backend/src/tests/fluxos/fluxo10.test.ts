@@ -18,10 +18,10 @@ describe('Fluxo 10 · Produto fora do catálogo', () => {
 
   it('deve informar produto indisponível e encerrar com educação', async () => {
     await turno(PHONE, NAME, 'Oi! Quero copos personalizados com o logo da minha empresa.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas + produto indisp.');
-    await turno(PHONE, NAME, 'Preciso de 100 copos com meu logo impresso.', 'COLETAR_ESPECIFICACOES', 'Identificar → Prod. indisp.');
-    await turno(PHONE, NAME, 'Entendido, vocês não fazem copos. Tem alguma alternativa impressa?', 'COLETAR_ESPECIFICACOES', 'Alternativa');
+    await turno(PHONE, NAME, 'Preciso de 100 copos com meu logo impresso.', 'PRODUTO_INDISPONIVEL', 'Identificar → Prod. indisp.');
+    await turno(PHONE, NAME, 'Entendido, vocês não fazem copos. Tem alguma alternativa impressa?', 'PRODUTO_INDISPONIVEL', 'Alternativa');
     await turno(PHONE, NAME, 'Tudo bem, por enquanto não preciso de mais nada. Obrigado!', 'ENCERRAR', 'Encerrar');
-  }, 50_000);
+  }, 120_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f10_${Date.now()}`;

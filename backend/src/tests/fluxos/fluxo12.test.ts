@@ -22,16 +22,16 @@ describe('Fluxo 12 · Dúvida sobre pagamento antes de decidir', () => {
     await turno(PHONE, NAME, 'Oi! Tenho uma dúvida sobre pagamento antes de fazer o pedido.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
     await turno(PHONE, NAME, 'Quero panfletos, mas primeiro preciso saber se posso parcelar.', 'ESCLARECER_DUVIDA', 'Identificar + Esclarecer pag.');
     await turno(PHONE, NAME, 'Vocês aceitam parcelamento no cartão? Em quantas vezes?', 'ESCLARECER_DUVIDA', 'Esclarecer pagamento');
-    await turno(PHONE, NAME, 'Ótimo, então posso parcelar. Quero fazer panfletos.', 'VALIDAR_ARQUIVO', 'Coletar specs');
+    await turno(PHONE, NAME, 'Ótimo, então posso parcelar. Quero fazer panfletos.', 'COLETAR_ESPECIFICACOES', 'Coletar specs');
     await turno(PHONE, NAME, '1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.', 'VALIDAR_ARQUIVO', 'Specs completas');
     await turno(PHONE, NAME, 'Sim, tenho o arquivo de arte em PDF.', 'AGUARDAR_APROVACAO', 'Validar arq.');
-    await turno(PHONE, NAME, 'Pode calcular o orçamento.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Pode calcular o orçamento.', 'AGUARDAR_APROVACAO', 'Calcular', 60_000);
     await turno(PHONE, NAME, 'Aprovado! Vou parcelar em 3x.', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
     await turno(PHONE, NAME, 'Entrega no endereço: Rua XV de Novembro, 50, Curitiba – PR.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
     await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
-    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 60_000);
     await turno(PHONE, NAME, 'Obrigada!', 'ENCERRAR', 'Encerrar');
-  }, 130_000);
+  }, 500_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f12_${Date.now()}`;

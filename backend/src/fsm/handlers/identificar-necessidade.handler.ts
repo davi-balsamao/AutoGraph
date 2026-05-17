@@ -84,6 +84,15 @@ export class IdentificarNecessidadeHandler implements StateHandler {
       }
     }
 
+    if (nextState === ConversationState.PRODUTO_INDISPONIVEL) {
+      return {
+        response: '',
+        nextState,
+        updatedContext: context,
+        chainNext: ConversationState.PRODUTO_INDISPONIVEL,
+      };
+    }
+
     const ragResult = await deps.ragService.queryWithState(
       message,
       ConversationState.IDENTIFICAR_NECESSIDADE,

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { prisma } from '../config/prisma';
 import { GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { RunnableSequence } from '@langchain/core/runnables';
@@ -11,9 +14,6 @@ import { Document } from '@langchain/core/documents';
 import { buildSystemPrompt, RAG_HUMAN_PROMPT, RAG_SYSTEM_PROMPT } from './rag-template';
 import { ConversationContext, ConversationState } from '../fsm/states';
 import { guardrailsService } from './guardrails.service';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 interface RetrievedDocument {
   id: string;
@@ -54,9 +54,10 @@ export class RagService {
 
   constructor() {
     const safeApiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
+    console.log('DEBUG: RagService constructor, GOOGLE_API_KEY:', process.env.GOOGLE_API_KEY ? 'Present' : 'Missing', 'key_status:', safeApiKey === 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse' ? 'Mock' : 'Loaded');
     
     this.embeddings = new GoogleGenerativeAIEmbeddings({
-      modelName: 'gemini-embedding-001',
+      modelName: 'gemini-embedding-2',
       apiKey: safeApiKey,
     });
 
@@ -139,7 +140,7 @@ export class RagService {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
 
-    const RAG_TIMEOUT_MS = 25_000;
+    const RAG_TIMEOUT_MS = 30_000;
     let timeoutHandle: ReturnType<typeof setTimeout>;
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(

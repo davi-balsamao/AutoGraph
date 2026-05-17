@@ -13,15 +13,16 @@
 
 ---
 
-## 1. Couché (Brilho e Fosco)
+## 1. Couché (Brilhante e Fosco)
 
 **O que é:** 
 O padrão ouro da impressão promocional. É um papel revestido (coated) em ambas as faces por uma camada de minerais (caolim/carbonato de cálcio) e látex. Este revestimento sela os poros do papel, impedindo que a tinta penetre profundamente nas fibras. O resultado é uma **ancoragem de tinta superficial que garante cores vibrantes e alta definição fotográfica**.
+* **Diferença entre papel Brilhante e Fosco:** O Couché Brilho (brilhante) tem um revestimento polido que reflete a luz, ideal para imagens que precisam chamar a atenção e cores saturadas. O Couché Fosco não tem brilho, ele absorve menos luz e é excelente para leituras mais longas e para passar uma imagem mais elegante e sofisticada.
 
-**Gramaturas comuns:**
+**Gramaturas comuns e Recomendações:**
 - **Leves (90g, 115g):** Panfletos de alto volume de distribuição.
 - **Médias (150g, 170g):** Folders, miolo de revistas premium e catálogos.
-- **Pesadas (250g, 300g):** Capas, cartões de visita, postais e embalagens leves.
+- **Pesadas (250g, 300g):** Capas, postais e embalagens leves. **Recomendação para Cartão de Visita:** Para cartões de visita, recomendamos sempre a gramatura de **300g**, pois confere firmeza, durabilidade e uma percepção de alta qualidade ("papel durinho e premium").
 
 **Aplicações ideais:**
 - Materiais promocionais onde o **apelo visual é o foco principal**.

@@ -162,9 +162,10 @@ export class StateRouter {
       if (
         nextState === ConversationState.ESCLARECER_DUVIDA &&
         currentState !== ConversationState.ESCLARECER_DUVIDA &&
-        /\b(obrigad|entendi)\b/i.test(message)
+        /\b(obrigad|entendi)\b/i.test(message) &&
+        !result.chainNext
       ) {
-        nextState = transitionService.restorePreviousState(sessao.estadoAnterior);
+        nextState = transitionService.restorePreviousState(estadoAnterior || null);
         estadoAnterior = null;
       }
 

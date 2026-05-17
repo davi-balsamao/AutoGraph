@@ -17,10 +17,10 @@
  *   - PostgreSQL com pgvector rodando
  */
 
-import { ragService, RagQueryResult } from '../services/rag.service';
 import dotenv from 'dotenv';
-
 dotenv.config();
+
+import { ragService, RagQueryResult } from '../services/rag.service';
 
 // --- Definição dos Testes ---
 
@@ -152,6 +152,9 @@ const testCases: TestCase[] = [
 // --- Execução ---
 
 async function runTests() {
+  console.log('DEBUG: process.env.LLM_MODEL inside runTests is:', process.env.LLM_MODEL);
+  console.log('DEBUG: process.env.GOOGLE_API_KEY inside runTests is:', process.env.GOOGLE_API_KEY ? 'Present' : 'Missing');
+
   console.log('╔══════════════════════════════════════════════════╗');
   console.log('║    BATERIA DE TESTES — RAG Service (Card 13)    ║');
   console.log('╚══════════════════════════════════════════════════╝\n');

@@ -50,7 +50,7 @@ export interface LlmExtractResult {
   resolveuReferencia: { texto: string; referenciaEncontrada: string } | null;
 }
 
-const DEFAULT_TIMEOUT_MS = 5_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 function buildPrompt(input: LlmExtractInput): string {
   const produtos = input.catalogoProdutos.join(', ');
@@ -96,6 +96,9 @@ export class LlmEntityExtractor {
   private llm: ChatGoogleGenerativeAI;
 
   constructor() {
+    console.log('DEBUG: LlmEntityExtractor constructor called!');
+    console.log('DEBUG: process.env.LLM_MODEL is:', process.env.LLM_MODEL);
+    console.log('DEBUG: process.env.GOOGLE_API_KEY is:', process.env.GOOGLE_API_KEY ? 'Present' : 'Missing');
     const apiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
     // Saída JSON é garantida via instrução no prompt + parser tolerante a
     // markdown code-fences (parseLlmResponse). Não usamos responseMimeType
@@ -107,20 +110,28 @@ export class LlmEntityExtractor {
     });
   }
 
-  /** Extrai entidades com timeout. Lança erro se LLM falhar ou estourar timeout. */
   async extract(input: LlmExtractInput, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<LlmExtractResult> {
     const prompt = buildPrompt(input);
+    console.log('DEBUG: Invoking LLM with prompt length:', prompt.length);
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`LlmEntityExtractor timeout após ${timeoutMs}ms`)), timeoutMs);
     });
 
-    const llmCall = this.llm.invoke([{ role: 'user', content: prompt }]);
-    const response = await Promise.race([llmCall, timeoutPromise]);
-    const raw = (response as { content: unknown }).content;
-    const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const startCall = Date.now();
+    try {
+      const llmCall = this.llm.invoke([{ role: 'user', content: prompt }]);
+      const response = await Promise.race([llmCall, timeoutPromise]);
+      console.log(`DEBUG: LLM responded in ${Date.now() - startCall}ms!`);
+      const raw = (response as { content: unknown }).content;
+      const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+      console.log('DEBUG: Raw response content:', text);
 
-    return parseLlmResponse(text);
+      return parseLlmResponse(text);
+    } catch (err) {
+      console.error(`DEBUG: Extraction call failed after ${Date.now() - startCall}ms with error:`, err);
+      throw err;
+    }
   }
 }
 

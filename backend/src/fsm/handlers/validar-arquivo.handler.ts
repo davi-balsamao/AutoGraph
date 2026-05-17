@@ -16,13 +16,16 @@ import { DUVIDA } from '../transition.service';
 import { prepareContext } from './base.handler';
 
 const ARTE_PRONTA_RE =
-  /\b(sim|tenho|j[áa] tenho|est[áa] pronto|est[áa] pronta|pronta|pronto|finalizad[oa]|enviei|mandei|anexei|segue|pode usar)\b/i;
+  /\b(sim|tenho|j[áa] tenho|est[áa] pronto|est[áa] pronta|pronta|pronto|finalizad[oa]|enviei|reenviei|mandei|anexei|segue|pode usar)\b/i;
 
 const SEM_ARTE_RE =
   /\b(n[ãa]o tenho|n[ãa]o tem|sem arte|n[ãa]o (estou |to )?com a arte|preciso (fazer|criar)|n[ãa]o sei (fazer|criar))\b/i;
 
 const ENVIA_DEPOIS_RE =
   /\b(envio depois|envia depois|mando depois|te mando|enviar depois|depois te (mando|envio)|amanh[ãa]|na pr[óo]xima|outro dia)\b/i;
+
+const INCOMPATIBLE_FORMAT_RE = /\b(psd|ai|cdr|indd|photoshop|illustrator|corel|coreldraw)\b/i;
+const FORMATO_RE = /\b(exportar|pdf|jpg|png|tiff|formato|extensão|extensao|aguardar|esperar|salvar)\b/i;
 
 const ORIENTACAO_SEM_ARTE =
   'Sem problema! Para a arte ficar boa, sugiro pedir para um designer ou usar uma ferramenta de sua preferência (Canva, por exemplo). Exporte em PDF, JPG, PNG ou TIFF e me envia quando estiver pronto.';
@@ -37,11 +40,27 @@ export class ValidarArquivoHandler implements StateHandler {
     const context: ConversationContext = { ...prepared };
     const msg = message.trim();
 
-    // Fluxo 4: cliente pergunta sobre preço/custo/orçamento neste estado —
-    // não pula a validação de arte (preserva Regra 7), mas roteia para
-    // ESCLARECER_DUVIDA para que o RAG explique que precisamos confirmar a arte
-    // antes de calcular. Ao sair do esclarecimento, retorna a VALIDAR_ARQUIVO.
-    if (DUVIDA.test(msg)) {
+    if (INCOMPATIBLE_FORMAT_RE.test(msg)) {
+      return {
+        response: 'Formatos de softwares de edição (como .PSD, .AI, .CDR) não são aceitos diretamente. Por favor, salve ou exporte seu arquivo em PDF, JPG, PNG ou TIFF antes de enviar!',
+        nextState: ConversationState.VALIDAR_ARQUIVO,
+        updatedContext: context,
+      };
+    }
+
+    if (ARTE_PRONTA_RE.test(msg)) {
+      context.validacaoArteOk = true;
+      return {
+        response: '',
+        nextState: ConversationState.CALCULAR_ORCAMENTO,
+        updatedContext: context,
+        chainNext: ConversationState.CALCULAR_ORCAMENTO,
+      };
+    }
+
+    // Fluxo 4 / Formatos: cliente pergunta sobre preço ou discute formatos/exportação —
+    // roteia para ESCLARECER_DUVIDA para que o RAG explique/oriente.
+    if (DUVIDA.test(msg) || FORMATO_RE.test(msg)) {
       return {
         response: '',
         nextState: ConversationState.ESCLARECER_DUVIDA,
@@ -66,15 +85,7 @@ export class ValidarArquivoHandler implements StateHandler {
       };
     }
 
-    if (ARTE_PRONTA_RE.test(msg)) {
-      context.validacaoArteOk = true;
-      return {
-        response: '',
-        nextState: ConversationState.CALCULAR_ORCAMENTO,
-        updatedContext: context,
-        chainNext: ConversationState.CALCULAR_ORCAMENTO,
-      };
-    }
+
 
     // Resposta ambígua — re-pergunta no formato do .md.
     return {

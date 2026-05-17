@@ -147,6 +147,19 @@ export async function turno(
   label: string,
   timeoutMs = 45_000,
 ): Promise<{ state: string; resp: string }> {
+  // Throttle requests to stay within Gemini Free Tier rate limits (15 RPM)
+  await wait(12000);
+
+  // Obter o ID da última mensagem do BOT antes de enviar a nova
+  const clienteAntes = await prisma.usuario.findFirst({ where: { telefone: phone } });
+  const lastBotMsgAntes = clienteAntes
+    ? await prisma.mensagens.findFirst({
+        where: { usuarioId: clienteAntes.id, origem: 'BOT' },
+        orderBy: { criadoEm: 'desc' },
+      })
+    : null;
+  const lastBotMsgIdAntes = lastBotMsgAntes?.id ?? null;
+
   await sendMsg(phone, name, text);
 
   const deadline = Date.now() + timeoutMs;
@@ -156,19 +169,26 @@ export async function turno(
   while (Date.now() < deadline) {
     await wait(1_500);
     state = await getSessionState(phone);
-    resp  = await getLastBotResponse(phone);
-    if (state === expectedState) {
-      // Estado salvo antes da mensagem BOT em webhook.service.ts — um poll
-      // extra garante que o registro já está visível no DB.
-      if (!resp) {
-        await wait(1_500);
-        resp = await getLastBotResponse(phone);
-      }
+
+    // Verificar se uma nova mensagem do BOT foi registrada
+    const clienteAtual = await prisma.usuario.findFirst({ where: { telefone: phone } });
+    const lastBotMsgAtual = clienteAtual
+      ? await prisma.mensagens.findFirst({
+          where: { usuarioId: clienteAtual.id, origem: 'BOT' },
+          orderBy: { criadoEm: 'desc' },
+        })
+      : null;
+    const lastBotMsgIdAtual = lastBotMsgAtual?.id ?? null;
+
+    if (state === expectedState && lastBotMsgIdAtual !== lastBotMsgIdAntes && lastBotMsgIdAtual !== null) {
+      const payload = lastBotMsgAtual!.payload as any;
+      resp = payload.text?.body ?? payload.text ?? JSON.stringify(payload);
       break;
     }
   }
 
   console.log(`\n[${label}]`);
+  console.log(`  Cliente: "${text}"`);
   console.log(`  Estado : ${state}  (esperado: ${expectedState})`);
   console.log(`  Bot    : ${resp}`);
 
