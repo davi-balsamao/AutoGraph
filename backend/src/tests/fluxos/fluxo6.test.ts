@@ -24,6 +24,7 @@ describe('Fluxo 6 · Interrupção e reengajamento', () => {
     await turno(PHONE, NAME, 'Preciso de 500 unidades, padrão 9x5cm, frente colorida, papel couchê 300g.', 'COLETAR_ESPECIFICACOES', 'Coletar specs parcial');
     await turno(PHONE, NAME, 'Preciso parar por agora, continue meu pedido depois.', 'AGUARDAR_RETORNO', 'Interrupção → Ag. retorno');
     await turno(PHONE, NAME, 'Voltei! Pode continuar meu pedido de cartões de visita?', 'COLETAR_ESPECIFICACOES', 'Retomada');
+    await turno(PHONE, NAME, 'Não, sem verniz e sem laminação.', 'VALIDAR_ARQUIVO', 'Finaliza specs');
     await turno(PHONE, NAME, 'Sim, tenho o arquivo de arte em PDF, resolução 300 dpi.', 'AGUARDAR_APROVACAO', 'Validar arq.');
     await turno(PHONE, NAME, 'Aprovado!', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
     await turno(PHONE, NAME, 'Entrega no endereço: Av. Paulista, 1000, São Paulo – SP.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
