@@ -44,4 +44,53 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/auth/register
+ * Body: { nome: string, email: string, senha: string, telefone?: string }
+ */
+authRoutes.post('/register', async (req: Request, res: Response) => {
+  try {
+    const { nome, email, senha, telefone } = req.body;
+
+    if (!nome || !email || !senha || !telefone) {
+      return res.status(400).json({ error: 'Nome, e-mail, senha e telefone são obrigatórios.' });
+    }
+
+    const existingEmail = await prisma.usuario.findUnique({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({ error: 'E-mail já cadastrado.' });
+    }
+
+    const existingPhone = await prisma.usuario.findUnique({ where: { telefone } });
+    if (existingPhone) {
+      return res.status(400).json({ error: 'Telefone já cadastrado.' });
+    }
+
+    const newUser = await prisma.usuario.create({
+      data: {
+        nome,
+        email,
+        senha, // Em produção, usar bcrypt
+        telefone,
+        role: 'CLIENTE',
+      },
+    });
+
+
+    return res.status(201).json({
+      user: {
+        id: newUser.id,
+        nome: newUser.nome,
+        email: newUser.email,
+        telefone: newUser.telefone,
+        role: newUser.role,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Erro no registro:', error);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
 export default authRoutes;
+

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/forgot_password_screen.dart';
+import '../../features/auth/presentation/register_screen.dart';
+import '../../features/auth/presentation/landing_page.dart';
 import '../../features/os_cliente/presentation/client_history_screen.dart';
 import '../../features/admin_grafica/presentation/admin_dashboard_screen.dart';
 import '../../features/admin_grafica/presentation/os_details_screen.dart';
@@ -8,21 +10,32 @@ import '../../../core/models/ordem_servico.dart';
 import '../services/auth_service.dart';
 
 abstract final class AppRoutes {
+  static const String landing = '/';
   static const String login = '/login';
+  static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
   static const String clientHistory = '/cliente/historico';
   static const String adminDashboard = '/admin/dashboard';
   static const String osDetails = '/admin/os/details';
 }
 
+
 abstract final class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case AppRoutes.landing:
+        return MaterialPageRoute(builder: (_) => const LandingPage());
+
       case AppRoutes.login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
 
+      case AppRoutes.register:
+        final isAdminCreating = settings.arguments == true;
+        return MaterialPageRoute(builder: (_) => RegisterScreen(isAdminCreating: isAdminCreating));
+
       case AppRoutes.forgotPassword:
         return MaterialPageRoute(builder: (_) => const ForgotPasswordScreen());
+
       case AppRoutes.clientHistory:
         // AuthGuard: requer login
         if (!AuthService().isLoggedIn) {

@@ -28,7 +28,7 @@ class AutoGraphApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeNotifier.themeMode,
-          initialRoute: AppRoutes.login,
+          initialRoute: AppRoutes.landing,
           onGenerateRoute: AppRouter.onGenerateRoute,
         );
       },
