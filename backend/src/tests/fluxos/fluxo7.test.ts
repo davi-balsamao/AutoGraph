@@ -33,7 +33,7 @@ describe('Fluxo 7 · Reclamação — escalada imediata', () => {
     const msgId = `wamid.dup_f7_${Date.now()}`;
     await sendMsg(PHONE, NAME, 'Retry test', msgId);
     await sendMsg(PHONE, NAME, 'Retry test', msgId);
-    await wait();
+    await wait(20_000); // Espera 20s para garantir que o timeout de 15s do LLM passe antes do cleanup
     expect(await getLastBotResponse(PHONE)).toBeTruthy();
-  }, 25_000);
+  }, 40_000);
 });

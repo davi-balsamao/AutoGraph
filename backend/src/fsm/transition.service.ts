@@ -4,7 +4,7 @@ import { produtoExigeValidacaoArte, specsCompletas } from './context.util';
 
 const SAUDACOES = /^(oi|olá|ola|bom dia|boa tarde|boa noite|tudo bem|e aí|eai)\b/i;
 const APROVACAO = /\b(aceito|aprovo|aprovado|pode ser|fechado|confirmo|sim|ok|beleza|combinado|vamos)\b/i;
-const RECUSA = /\b(não quero|nao quero|desisto|cancela|cancelar|não vou|nao vou|recuso)\b/i;
+const RECUSA = /\b(não quero|nao quero|desisto|cancela|cancelar|não vou|nao vou|recuso|vou pensar|vou passar|por enquanto não|por enquanto nao|não vou fechar|nao vou fechar|só comparar|so comparar|talvez retorne|não por agora|nao por agora)\b/i;
 const NEGOCIACAO = /\b(caro|caro demais|desconto|mais barato|abaixa|concorrente|negociar)\b/i;
 // Fase 5: ampliado para incluir perguntas de preço/orçamento. Cliente que pergunta
 // "quanto custa" antes de fornecer specs é tratado como dúvida — o bot redireciona
@@ -12,7 +12,7 @@ const NEGOCIACAO = /\b(caro|caro demais|desconto|mais barato|abaixa|concorrente|
 // (alinhado com Regras 3 e 10 das regras-gerais.md).
 export const DUVIDA =
   /\b(dúvida|duvida|como funciona|o que é|qual a diferença|qual.{0,20}diferen[çc]a|diferen[çc]a (entre|t[ée]cnica)|explica|não entendi|nao entendi|não sei se|nao sei se|pre[çc]o|quanto custa|quanto fica|qual o valor|qual valor|qual o or[çc]amento|or[çc]amento|preciso saber o pre[çc]o|preciso saber|qual o custo|qual custo)\b/i;
-const RECLAMACAO = /\b(reclamação|reclamacao|problema grave|processo|advogado|péssimo|pessimo)\b/i;
+const RECLAMACAO = /\b(reclamação|reclamacao|problema grave|processo|advogado|péssimo|pessimo|saiu errado|saiu completamente errado|errad[oa]s?|inaceit[aá]vel|inaceitaveis|diferente do que pedi|n[aã]o era isso|ficou errado|ficou diferente|incorret[oa]s?|insatisfeit[oa]|produto errado|qualidade p[eé]ssima)\b/i;
 const ARTE_OK = /\b(enviei|mandei|anexei|segue a arte|arquivo ok|está certo|esta certo|pode usar)\b/i;
 const ENTREGA = /\b(entrega|entregar|retirada|retirar|buscar|endereço|endereco|rua|avenida|av\.|cep)\b/i;
 const CONFIRMACAO_PEDIDO = /\b(confirmo|confirmado|está certo|esta certo|pode gerar|pode fazer)\b/i;
