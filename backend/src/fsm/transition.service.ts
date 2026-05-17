@@ -10,8 +10,11 @@ const NEGOCIACAO = /\b(caro|caro demais|desconto|mais barato|abaixa|concorrente|
 // "quanto custa" antes de fornecer specs é tratado como dúvida — o bot redireciona
 // via ESCLARECER_DUVIDA explicando que precisa de mais info antes de calcular
 // (alinhado com Regras 3 e 10 das regras-gerais.md).
+// Nota: "orçamento" sozinho NÃO é dúvida (ex.: "pode calcular o orçamento" é
+// instrução redundante, não pergunta). Só captura quando vier com semântica de
+// pergunta ("qual o orçamento", "sobre o orçamento", "dúvida sobre o orçamento").
 export const DUVIDA =
-  /\b(dúvida|duvida|como funciona|o que é|qual a diferença|qual.{0,20}diferen[çc]a|diferen[çc]a (entre|t[ée]cnica)|explica|não entendi|nao entendi|não sei se|nao sei se|pre[çc]o|quanto custa|quanto fica|qual o valor|qual valor|qual o or[çc]amento|or[çc]amento|preciso saber o pre[çc]o|preciso saber|qual o custo|qual custo)\b/i;
+  /\b(dúvida|duvida|como funciona|o que é|qual a diferença|qual.{0,20}diferen[çc]a|diferen[çc]a (entre|t[ée]cnica)|explica|não entendi|nao entendi|não sei se|nao sei se|pre[çc]o|quanto custa|quanto fica|qual o valor|qual valor|qual o or[çc]amento|preciso saber o pre[çc]o|preciso saber|qual o custo|qual custo)\b/i;
 const RECLAMACAO = /\b(reclamação|reclamacao|problema grave|processo|advogado|péssimo|pessimo|saiu errado|saiu completamente errado|errad[oa]s?|inaceit[aá]vel|inaceitaveis|diferente do que pedi|n[aã]o era isso|ficou errado|ficou diferente|incorret[oa]s?|insatisfeit[oa]|produto errado|qualidade p[eé]ssima)\b/i;
 const ARTE_OK = /\b(enviei|mandei|anexei|segue a arte|arquivo ok|está certo|esta certo|pode usar)\b/i;
 const ENTREGA = /\b(entrega|entregar|retirada|retirar|buscar|endereço|endereco|rua|avenida|av\.|cep)\b/i;

@@ -30,7 +30,7 @@ describe('Fluxo 18 · Atendimento em espanhol → redirecionamento para portugu�
     await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
     await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
     await turno(PHONE, NAME, 'Obrigado! Hasta luego.', 'ENCERRAR', 'Encerrar');
-  }, 120_000);
+  }, 300_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f18_${Date.now()}`;

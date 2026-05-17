@@ -16,6 +16,13 @@ import { ConversationState, SessaoRecord } from '../states';
 import { transitionService } from '../transition.service';
 import { prepareContext } from './base.handler';
 
+// "Pode calcular / fazer / preparar / gerar / montar / tirar" o orçamento depois
+// que o orçamento já foi apresentado é uma instrução redundante — o cliente está
+// ecoando o pedido inicial sem perceber que já recebeu o valor. Tratamos de forma
+// determinística para evitar uma rodada cara de RAG.
+const PEDIDO_CALCULO_REDUNDANTE =
+  /\b(pode|podem|podia|podiam|poderia|poderiam|d[áa])\s+(calcular?|fazer|tirar|preparar|gerar|montar|enviar|me passar|me mandar|prepararem)\b.*\bor[çc]amento\b/i;
+
 export class AguardarAprovacaoHandler implements StateHandler {
   async handle(
     message: string,
@@ -44,6 +51,17 @@ export class AguardarAprovacaoHandler implements StateHandler {
         nextState,
         updatedContext: context,
         chainNext: nextState,
+      };
+    }
+
+    // Cliente pede para calcular o orçamento (mas ele já foi calculado e
+    // apresentado). Responde de forma curta lembrando que o orçamento está
+    // pronto, sem repetir o valor e sem chamar o RAG.
+    if (PEDIDO_CALCULO_REDUNDANTE.test(message) && context.orcamentoApresentado) {
+      return {
+        response: 'O orçamento já está pronto e foi enviado logo acima. Posso seguir com a aprovação para combinarmos a entrega?',
+        nextState: ConversationState.AGUARDAR_APROVACAO,
+        updatedContext: context,
       };
     }
 

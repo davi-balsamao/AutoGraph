@@ -157,16 +157,47 @@ export class EntityExtractionService {
   }
 
   private readonly sinonimos: Record<string, string[]> = {
-    'Panfletos': ['panfleto', 'panfletos', 'flyer', 'flyers', 'folheto', 'folhetos'],
+    'Panfletos': [
+      'panfleto', 'panfletos', 'flyer', 'flyers', 'folheto', 'folhetos',
+      // Espanhol
+      'folleto', 'folletos',
+      // Inglês
+      'leaflet', 'leaflets', 'brochure', 'brochures',
+    ],
     'Cartão de Visita': [
       'cartão de visita',
       'cartao de visita',
       'cartões de visita',
       'cartoes de visita',
+      // Espanhol
+      'tarjeta de visita', 'tarjetas de visita',
+      'tarjeta de presentación', 'tarjeta de presentacion',
+      'tarjetas de presentación', 'tarjetas de presentacion',
+      // Inglês
+      'business card', 'business cards',
+      'visiting card', 'visiting cards',
     ],
-    'Blocos': ['bloco', 'blocos', 'talão', 'talao', 'talões', 'receituário', 'receituario'],
-    'Banner ou Lona': ['banner', 'banners', 'lona', 'lonas', 'faixa', 'faixas'],
-    'Apostila': ['apostila', 'apostilas', 'encadernação', 'encadernacao', 'manual', 'manuais'],
+    'Blocos': [
+      'bloco', 'blocos', 'talão', 'talao', 'talões', 'receituário', 'receituario',
+      // Espanhol
+      'talonario', 'talonarios', 'bloque', 'bloques',
+      // Inglês
+      'notepad', 'notepads', 'receipt book', 'receipt books',
+    ],
+    'Banner ou Lona': [
+      'banner', 'banners', 'lona', 'lonas', 'faixa', 'faixas',
+      // Espanhol
+      'pancarta', 'pancartas', 'cartel', 'carteles',
+      // Inglês compartilha "banner" e adiciona variações
+      'vinyl banner', 'vinyl banners',
+    ],
+    'Apostila': [
+      'apostila', 'apostilas', 'encadernação', 'encadernacao', 'manual', 'manuais',
+      // Espanhol
+      'apunte', 'apuntes', 'cuadernillo', 'cuadernillos',
+      // Inglês
+      'booklet', 'booklets', 'handbook', 'handbooks',
+    ],
   };
 
   /** Identifica produto em um trecho de texto (uma mensagem). */
