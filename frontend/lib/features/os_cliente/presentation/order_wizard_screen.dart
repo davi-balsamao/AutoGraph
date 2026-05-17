@@ -19,9 +19,22 @@ class _OrderWizardScreenState extends State<OrderWizardScreen> {
   final _larguraController = TextEditingController();
   final _alturaController = TextEditingController();
   final _observacoesController = TextEditingController();
+  final _enderecoConfirmacaoCtrl = TextEditingController();
+  final _referenciaConfirmacaoCtrl = TextEditingController();
   
+  String _opcaoEntrega = 'retirada'; // 'retirada' ou 'entrega'
   PlatformFile? _selectedFile;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = AuthService().currentUser;
+    if (user != null) {
+      _enderecoConfirmacaoCtrl.text = user.enderecoCompleto ?? '';
+      _referenciaConfirmacaoCtrl.text = user.enderecoReferencia ?? '';
+    }
+  }
 
   Future<void> _pickFile() async {
     try {
@@ -58,6 +71,9 @@ class _OrderWizardScreenState extends State<OrderWizardScreen> {
           'altura': _alturaController.text.trim(),
         },
         'precoBaseReferencia': widget.produto.precoBase,
+        'opcaoEntrega': _opcaoEntrega,
+        'enderecoEntrega': _opcaoEntrega == 'entrega' ? _enderecoConfirmacaoCtrl.text.trim() : null,
+        'referenciaEntrega': _opcaoEntrega == 'entrega' ? _referenciaConfirmacaoCtrl.text.trim() : null,
       };
 
       await OsService().createOrdemServico(
@@ -89,6 +105,8 @@ class _OrderWizardScreenState extends State<OrderWizardScreen> {
     _larguraController.dispose();
     _alturaController.dispose();
     _observacoesController.dispose();
+    _enderecoConfirmacaoCtrl.dispose();
+    _referenciaConfirmacaoCtrl.dispose();
     super.dispose();
   }
 
@@ -224,16 +242,95 @@ class _OrderWizardScreenState extends State<OrderWizardScreen> {
                               '${(_selectedFile!.size / 1024).toStringAsFixed(1)} KB',
                               style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
                             ),
-                          ]
+                          ],
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 32),
 
-                  // Seção 3: Observações
+                  // Seção 3: Método de Recebimento
                   Text(
-                    '3. Observações / Descrição da Arte',
+                    '3. Método de Recebimento',
+                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Escolha se deseja receber o produto em seu endereço ou retirar na loja física.',
+                    style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.6)),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          key: const Key('chip_retirada'),
+                          label: const Center(child: Text('Retirar na Loja')),
+                          selected: _opcaoEntrega == 'retirada',
+                          onSelected: (selected) {
+                            if (selected) setState(() => _opcaoEntrega = 'retirada');
+                          },
+                          selectedColor: AppColors.brandGreen.withValues(alpha: 0.2),
+                          checkmarkColor: AppColors.brandGreen,
+                          labelStyle: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _opcaoEntrega == 'retirada' ? AppColors.brandGreen : cs.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ChoiceChip(
+                          key: const Key('chip_entrega'),
+                          label: const Center(child: Text('Entrega em Casa')),
+                          selected: _opcaoEntrega == 'entrega',
+                          onSelected: (selected) {
+                            if (selected) setState(() => _opcaoEntrega = 'entrega');
+                          },
+                          selectedColor: AppColors.brandGreen.withValues(alpha: 0.2),
+                          checkmarkColor: AppColors.brandGreen,
+                          labelStyle: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _opcaoEntrega == 'entrega' ? AppColors.brandGreen : cs.onSurface,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_opcaoEntrega == 'entrega') ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'Confirmar Endereço de Entrega',
+                      style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: cs.onSurface),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const Key('input_confirm_endereco'),
+                      controller: _enderecoConfirmacaoCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Endereço Completo',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.home_outlined),
+                      ),
+                      validator: (v) => _opcaoEntrega == 'entrega' && (v == null || v.isEmpty) ? 'Obrigatório para entrega' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      key: const Key('input_confirm_referencia'),
+                      controller: _referenciaConfirmacaoCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Ponto de Referência',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.pin_drop_outlined),
+                      ),
+                      validator: (v) => _opcaoEntrega == 'entrega' && (v == null || v.isEmpty) ? 'Obrigatório para entrega' : null,
+                    ),
+                  ],
+                  const SizedBox(height: 32),
+
+                  // Seção 4: Observações
+                  Text(
+                    '4. Observações / Descrição da Arte',
                     style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: cs.onSurface),
                   ),
                   const SizedBox(height: 8),

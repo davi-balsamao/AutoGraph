@@ -87,6 +87,8 @@ class AuthService extends ChangeNotifier {
     required String email,
     required String senha,
     String? telefone,
+    String? enderecoCompleto,
+    String? enderecoReferencia,
   }) async {
     try {
       final response = await http.post(
@@ -97,6 +99,8 @@ class AuthService extends ChangeNotifier {
           'email': email,
           'senha': senha,
           'telefone': telefone,
+          'enderecoCompleto': enderecoCompleto,
+          'enderecoReferencia': enderecoReferencia,
         }),
       );
 

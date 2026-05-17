@@ -452,6 +452,26 @@ class _HistoryTabState extends State<_HistoryTab> {
               _DetailRow(label: 'Quantidade', value: quantidade),
               const Divider(height: 24),
               _DetailRow(
+                label: 'Recebimento',
+                value: os.especificacoes['opcaoEntrega'] == 'entrega' ? 'Entrega em Casa' : 'Retirada na Loja',
+              ),
+              if (os.especificacoes['opcaoEntrega'] == 'entrega') ...[
+                const Divider(height: 24),
+                _DetailRow(
+                  label: 'Endereço',
+                  value: os.especificacoes['enderecoEntrega'] ?? os.clienteEnderecoCompleto ?? 'Não informado',
+                ),
+                if ((os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia) != null &&
+                    (os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia).toString().isNotEmpty) ...[
+                  const Divider(height: 24),
+                  _DetailRow(
+                    label: 'Referência',
+                    value: os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia!,
+                  ),
+                ],
+              ],
+              const Divider(height: 24),
+              _DetailRow(
                 label: 'Solicitado em',
                 value: '${os.criadoEm.day.toString().padLeft(2, '0')}/${os.criadoEm.month.toString().padLeft(2, '0')}/${os.criadoEm.year} às ${os.criadoEm.hour.toString().padLeft(2, '0')}:${os.criadoEm.minute.toString().padLeft(2, '0')}',
               ),

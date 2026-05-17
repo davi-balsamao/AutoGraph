@@ -18,6 +18,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _senhaCtrl = TextEditingController();
   final _telefoneCtrl = TextEditingController();
+  final _enderecoCompletoCtrl = TextEditingController();
+  final _enderecoReferenciaCtrl = TextEditingController();
   bool _isLoading = false;
   bool _obscureSenha = true;
 
@@ -27,6 +29,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailCtrl.dispose();
     _senhaCtrl.dispose();
     _telefoneCtrl.dispose();
+    _enderecoCompletoCtrl.dispose();
+    _enderecoReferenciaCtrl.dispose();
     super.dispose();
   }
 
@@ -39,6 +43,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailCtrl.text.trim(),
         senha: _senhaCtrl.text,
         telefone: _telefoneCtrl.text.trim(),
+        enderecoCompleto: _enderecoCompletoCtrl.text.trim(),
+        enderecoReferencia: _enderecoReferenciaCtrl.text.trim(),
       );
       
       if (!mounted) return;
@@ -148,6 +154,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   ),
                   validator: (v) => v == null || v.isEmpty ? 'Informe o telefone' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const Key('field_reg_endereco'),
+                  controller: _enderecoCompletoCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Endereço Completo',
+                    prefixIcon: const Icon(Icons.home_outlined),
+                    helperText: 'Ex: Rua das Flores, 123, Bairro Centro, Cidade - SP',
+                    filled: true,
+                    fillColor: fieldBgColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  validator: (v) => v == null || v.isEmpty ? 'Informe seu endereço completo' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const Key('field_reg_referencia'),
+                  controller: _enderecoReferenciaCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Ponto de Referência',
+                    prefixIcon: const Icon(Icons.pin_drop_outlined),
+                    helperText: 'Ex: Próximo à padaria central',
+                    filled: true,
+                    fillColor: fieldBgColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  ),
+                  validator: (v) => v == null || v.isEmpty ? 'Informe um ponto de referência' : null,
                 ),
 
                 const SizedBox(height: 16),
