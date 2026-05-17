@@ -11,7 +11,7 @@ import {
   mensagemTrocaProduto,
 } from './intent.service';
 import { getHandlerForState } from './handlers';
-import { enrichForLeigo } from './handlers/base.handler';
+import { detectCrossCuttingIntent, enrichForLeigo } from './handlers/base.handler';
 import { HandlerDeps, HandlerResult } from './handler.types';
 import {
   ConversationState,
@@ -97,6 +97,31 @@ export class StateRouter {
       }
 
       return { response: resposta, sessao };
+    }
+
+    // Fluxo 6 / Regra 6 estendida — pedido explícito de pausa do cliente.
+    // Cliente diz "preciso parar / continue depois / volto mais tarde" em
+    // qualquer estado avançado → transita imediatamente para AGUARDAR_RETORNO.
+    // O estado anterior é preservado para permitir retomada quando voltar.
+    const crossCutting = detectCrossCuttingIntent(message);
+    if (
+      crossCutting === 'PAUSA' &&
+      currentState !== ConversationState.AGUARDAR_RETORNO &&
+      currentState !== ConversationState.ENCERRAR &&
+      currentState !== ConversationState.BOAS_VINDAS
+    ) {
+      console.log(`⏸️  [FSM] Cliente pediu pausa em ${currentState} — entrando em AGUARDAR_RETORNO.`);
+      sessao = await stateService.transition(
+        sessao.id,
+        ConversationState.AGUARDAR_RETORNO,
+        context,
+        { previousState: currentState },
+      );
+      return {
+        response:
+          'Tudo bem! Vou pausar seu atendimento aqui. Quando voltar, é só me mandar mensagem que retomamos de onde paramos.',
+        sessao,
+      };
     }
 
     const responseParts: string[] = [];

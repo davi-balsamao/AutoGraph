@@ -16,15 +16,18 @@ import {
 import { syncContextFromEntities } from '../context.util';
 import { HandlerDeps } from '../handler.types';
 import { ConversationContext, SessaoRecord } from '../states';
+import { DUVIDA } from '../transition.service';
 
-export type CrossCuttingIntent = 'DUVIDA' | 'ESCALAR' | 'NOVO' | null;
+export type CrossCuttingIntent = 'DUVIDA' | 'ESCALAR' | 'NOVO' | 'PAUSA' | null;
 
-const DUVIDA_RE =
-  /\b(dúvida|duvida|como funciona|o que é|qual a diferença|qual.{0,20}diferen[çc]a|diferen[çc]a (entre|t[ée]cnica)|explica|não entendi|nao entendi|não sei se|nao sei se)\b/i;
+// Fase 5: DUVIDA é fonte única em transition.service.ts (importada acima).
 const ESCALAR_RE =
   /\b(atendente|humano|gerente|pessoa|falar com algu[ée]m)\b/i;
 const NOVO_RE =
   /\b(novo atendimento|come[çc]ar de novo|reiniciar|outro pedido|esquece tudo|cancela tudo)\b/i;
+// Pedido explícito de pausa — Regra 6 estendida (Fluxo 6).
+const PAUSE_RE =
+  /\b(preciso parar|vou parar|pausa|pausar|continue (meu pedido )?depois|retorno depois|volto (mais )?(tarde|depois)|n[ãa]o posso (agora|continuar)|ocupad[oa] agora|tenho que sair)\b/i;
 
 // Termos técnicos da gráfica que exigem explicação curta ao leigo (Regra 9).
 const TERMOS_TECNICOS: Array<{ termo: RegExp; explicacao: string }> = [
@@ -85,7 +88,9 @@ export function detectCrossCuttingIntent(message: string): CrossCuttingIntent {
   if (!message) return null;
   if (NOVO_RE.test(message)) return 'NOVO';
   if (ESCALAR_RE.test(message)) return 'ESCALAR';
-  if (DUVIDA_RE.test(message)) return 'DUVIDA';
+  // PAUSA antes de DUVIDA: "preciso parar" não é uma dúvida, é interrupção.
+  if (PAUSE_RE.test(message)) return 'PAUSA';
+  if (DUVIDA.test(message)) return 'DUVIDA';
   return null;
 }
 

@@ -32,6 +32,18 @@ describe('detectCrossCuttingIntent', () => {
     expect(detectCrossCuttingIntent('cancela tudo')).toBe('NOVO');
   });
 
+  it('Fluxo 6: detecta PAUSA quando cliente pede para retornar depois', () => {
+    expect(detectCrossCuttingIntent('Preciso parar por agora, continue meu pedido depois.')).toBe('PAUSA');
+    expect(detectCrossCuttingIntent('Volto mais tarde')).toBe('PAUSA');
+    expect(detectCrossCuttingIntent('Não posso agora, tenho que sair')).toBe('PAUSA');
+    expect(detectCrossCuttingIntent('Pausa aqui, retorno depois')).toBe('PAUSA');
+  });
+
+  it('PAUSA tem precedência sobre DUVIDA (interrupção ≠ dúvida)', () => {
+    // "preciso parar" não contém "preciso saber" mas é defensivo.
+    expect(detectCrossCuttingIntent('Preciso parar')).toBe('PAUSA');
+  });
+
   it('retorna null para mensagens neutras', () => {
     expect(detectCrossCuttingIntent('500 unidades em A4')).toBeNull();
     expect(detectCrossCuttingIntent('')).toBeNull();
