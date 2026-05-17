@@ -6,7 +6,11 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(git stash *)",
       "Bash(tee /tmp/tsc.log)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(timeout 90 npx ts-node src/scripts/test-gemini-stream.ts)",
+      "Bash(echo \"EXIT=$?\")",
+      "PowerShell(Set-Location C:\\\\Davi\\\\AutoGraph\\\\backend; npx tsc --noEmit; \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri 'http://localhost:3000/health' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop; \"STATUS=$\\($r.StatusCode\\) BODY=$\\($r.Content\\)\" } catch { \"ERROR: $\\($_.Exception.Message\\)\" })"
     ]
   }
 }

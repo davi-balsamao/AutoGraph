@@ -20,10 +20,10 @@ describe('Fluxo 5 · Atalho — pergunta de preço antes das specs', () => {
 
   it('deve esclarecer necessidade de specs antes do preço e fechar o pedido', async () => {
     await turno(PHONE, NAME, 'Oi! Quanto custa 1000 panfletos?', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas + pergunta preço');
-    await turno(PHONE, NAME, 'Preciso saber o preço de 1000 panfletos, me diz logo.', 'ESCLARECER_DUVIDA', 'Esclarecer preço');
-    await turno(PHONE, NAME, 'Ah, entendi que precisa das especificações. Quero panfletos então.', 'COLETAR_ESPECIFICACOES', 'Identificar');
-    await turno(PHONE, NAME, '1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
-    await turno(PHONE, NAME, 'Sim, tenho o arquivo em PDF pronto.', 'AGUARDAR_APROVACAO', 'Validar arq.');
+    await turno(PHONE, NAME, 'Preciso saber o preço de 1000 panfletos, me diz logo.', 'ESCLARECER_DUVIDA', 'Esclarecer preço', 40_000);
+    await turno(PHONE, NAME, 'Ah, entendi que precisa das especificações. Quero panfletos então.', 'COLETAR_ESPECIFICACOES', 'Identificar', 40_000);
+    await turno(PHONE, NAME, '1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.', 'VALIDAR_ARQUIVO', 'Coletar specs', 25_000);
+    await turno(PHONE, NAME, 'Sim, tenho o arquivo em PDF pronto.', 'AGUARDAR_APROVACAO', 'Validar arq.', 40_000);
     await turno(PHONE, NAME, 'Aprovado! Esse valor está ótimo.', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
     await turno(PHONE, NAME, 'Vou retirar na loja.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
     await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');

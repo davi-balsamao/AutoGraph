@@ -59,17 +59,25 @@ export async function sendMsg(from: string, name: string, text: string, msgId?: 
 
 /** Retorna o texto da última resposta do BOT para o telefone dado. */
 export async function getLastBotResponse(telefone: string): Promise<string | null> {
+  const lastMsg = await getLastBotMessage(telefone);
+  if (!lastMsg) return null;
+  const payload = lastMsg.payload as any;
+  return payload.text?.body ?? payload.text ?? JSON.stringify(payload);
+}
+
+/** Retorna o ID da última mensagem do BOT (ou null se não houver). */
+export async function getLastBotMessageId(telefone: string): Promise<string | null> {
+  const lastMsg = await getLastBotMessage(telefone);
+  return lastMsg?.id ?? null;
+}
+
+async function getLastBotMessage(telefone: string) {
   const cliente = await prisma.usuario.findFirst({ where: { telefone } });
   if (!cliente) return null;
-
-  const lastMsg = await prisma.mensagens.findFirst({
+  return prisma.mensagens.findFirst({
     where: { usuarioId: cliente.id, origem: 'BOT' },
     orderBy: { criadoEm: 'desc' },
   });
-  if (!lastMsg) return null;
-
-  const payload = lastMsg.payload as any;
-  return payload.text?.body ?? payload.text ?? JSON.stringify(payload);
 }
 
 /**
@@ -132,12 +140,28 @@ export function uniquePhone(fluxoId: number): string {
   return `5531${fluxoId.toString().padStart(2, '0')}${suffix}`;
 }
 
+export interface TurnoOptions {
+  /** Timeout total do polling (ms). Default 45_000. */
+  timeoutMs?: number;
+  /**
+   * Se true (default), o helper só sai do polling quando uma NOVA mensagem do bot
+   * aparecer (id diferente da última registrada antes do envio). Isso evita
+   * capturar uma resposta stale quando o estado é atualizado antes do LLM gerar
+   * a resposta nova.
+   *
+   * Em turnos onde a IA fica silenciada (ex.: depois de ESCALAR_HUMANO), passe
+   * false — nesse caso a última resposta do bot continua sendo a anterior por
+   * design e o teste deve aceitar isso.
+   */
+  expectNewResponse?: boolean;
+}
+
 /**
- * Envia mensagem e faz polling do estado a cada 1.5s até bater o esperado ou
- * expirar o timeout. Para imediatamente (expect) se o estado divergir.
- * Tolerante a variações de latência do LLM/embedding.
+ * Envia mensagem e faz polling do estado + resposta a cada 1.5s até bater o
+ * esperado ou expirar o timeout. Falha (expect) se o estado divergir, e por
+ * padrão também falha se nenhuma resposta nova do bot for emitida.
  *
- * @param timeoutMs  Default 20s. Use 30s em turnos com chains de LLM.
+ * Tolerante a variações de latência do LLM/embedding.
  */
 export async function turno(
   phone: string,
@@ -145,27 +169,44 @@ export async function turno(
   text: string,
   expectedState: string,
   label: string,
-  timeoutMs = 45_000,
+  optionsOrTimeoutMs: TurnoOptions | number = {},
 ): Promise<{ state: string; resp: string }> {
+  const opts: TurnoOptions =
+    typeof optionsOrTimeoutMs === 'number'
+      ? { timeoutMs: optionsOrTimeoutMs }
+      : optionsOrTimeoutMs;
+  const timeoutMs = opts.timeoutMs ?? 45_000;
+  const expectNewResponse = opts.expectNewResponse ?? true;
+
+  const beforeBotMsgId = await getLastBotMessageId(phone);
   await sendMsg(phone, name, text);
 
   const deadline = Date.now() + timeoutMs;
   let state: string | null = null;
-  let resp:  string | null = null;
+  let resp: string | null = null;
+  let respIsNew = false;
 
   while (Date.now() < deadline) {
     await wait(1_500);
     state = await getSessionState(phone);
-    resp  = await getLastBotResponse(phone);
-    if (state === expectedState) break;
+    const currentMsgId = await getLastBotMessageId(phone);
+    respIsNew = currentMsgId !== null && currentMsgId !== beforeBotMsgId;
+    resp = await getLastBotResponse(phone);
+
+    const stateOk = state === expectedState;
+    const respOk = expectNewResponse ? respIsNew : true;
+    if (stateOk && respOk) break;
   }
 
   console.log(`\n[${label}]`);
   console.log(`  Estado : ${state}  (esperado: ${expectedState})`);
-  console.log(`  Bot    : ${resp}`);
+  console.log(`  Bot    : ${resp}${expectNewResponse && !respIsNew ? '  ⚠️ (resposta NÃO renovada)' : ''}`);
 
   expect(state).toBe(expectedState);
   expect(resp).toBeTruthy();
+  if (expectNewResponse) {
+    expect(respIsNew).toBe(true);
+  }
 
   return { state: state!, resp: resp! };
 }

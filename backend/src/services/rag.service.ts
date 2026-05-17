@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma';
-import { GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
+import { createChatLlm, nextEmbeddingApiKey } from './llm-factory';
 import { RunnableSequence } from '@langchain/core/runnables';
 import {
   ChatPromptTemplate,
@@ -48,43 +49,34 @@ function stripDoubleNewlines(text: string): string {
 
 export class RagService {
   private embeddings: GoogleGenerativeAIEmbeddings;
-  private llm: ChatGoogleGenerativeAI;
-  private chain: RunnableSequence;
-  private statelessChain: RunnableSequence;
 
   constructor() {
-    const safeApiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
-    
+    // Embeddings: usa a primeira chave do pool do Gemini. Rotação faz menos
+    // sentido aqui porque embeddings têm cota separada e bem mais alta (15 RPM
+    // no free tier do Gemini), e mudar a chave a cada request quebraria cache.
     this.embeddings = new GoogleGenerativeAIEmbeddings({
       modelName: 'gemini-embedding-001',
-      apiKey: safeApiKey,
+      apiKey: nextEmbeddingApiKey(),
     });
+  }
 
-    // LLM — Temperature 0.3: naturalidade suficiente sem perder consistência
-    this.llm = new ChatGoogleGenerativeAI({
-      temperature: 0.3,
-      model: process.env.LLM_MODEL || 'gemini-2.0-flash',
-      apiKey: safeApiKey,
-    });
-
-
+  /** Constrói uma chain stateless com uma chave rotacionada do pool. */
+  private buildStatelessChain(): RunnableSequence {
+    const llm = createChatLlm('rag');
     const prompt = ChatPromptTemplate.fromMessages([
       SystemMessagePromptTemplate.fromTemplate(RAG_SYSTEM_PROMPT),
       HumanMessagePromptTemplate.fromTemplate(RAG_HUMAN_PROMPT),
     ]);
-
-    const outputParser = new StringOutputParser();
-    this.statelessChain = RunnableSequence.from([prompt, this.llm, outputParser]);
-
-    this.chain = this.statelessChain;
+    return RunnableSequence.from([prompt, llm, new StringOutputParser()]);
   }
 
   private createStateChain(systemPrompt: string): RunnableSequence {
+    const llm = createChatLlm('rag');
     const prompt = ChatPromptTemplate.fromMessages([
       SystemMessagePromptTemplate.fromTemplate(systemPrompt),
       HumanMessagePromptTemplate.fromTemplate(RAG_HUMAN_PROMPT),
     ]);
-    return RunnableSequence.from([prompt, this.llm, new StringOutputParser()]);
+    return RunnableSequence.from([prompt, llm, new StringOutputParser()]);
   }
 
   private async retrieveDocuments(queryEmbedding: number[]): Promise<RetrievedDocument[]> {
@@ -134,7 +126,7 @@ export class RagService {
    * Executa o pipeline RAG completo (modo legado / testes).
    */
   async query(question: string, conversationHistory?: string): Promise<RagQueryResult> {
-    return this.runQuery(question, conversationHistory, this.statelessChain);
+    return this.runQuery(question, conversationHistory, this.buildStatelessChain());
   }
 
   private async runQuery(
@@ -146,25 +138,39 @@ export class RagService {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
 
-    const RAG_TIMEOUT_MS = 25_000;
-    let timeoutHandle: ReturnType<typeof setTimeout>;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeout(
-        () => reject(new Error(`RAG timeout após ${RAG_TIMEOUT_MS / 1000}s`)),
-        RAG_TIMEOUT_MS
-      );
-    });
+    const EMBED_TIMEOUT_MS = 10_000;
+    const LLM_TIMEOUT_MS = 60_000;
+    const t0 = Date.now();
+    const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+
+    const makeAbortTimeout = (ms: number, label: string) => {
+      const controller = new AbortController();
+      const handle = setTimeout(() => controller.abort(), ms);
+      return {
+        signal: controller.signal,
+        clear: () => clearTimeout(handle),
+        aborted: () => controller.signal.aborted,
+        errorMsg: `RAG timeout após ${ms / 1000}s (${label})`,
+      };
+    };
+
+    const embedTimeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`RAG timeout após ${EMBED_TIMEOUT_MS / 1000}s (embedding)`)), EMBED_TIMEOUT_MS)
+    );
 
     try {
       let documents: RetrievedDocument[] = [];
       const trimmedQuestion = question?.trim() || "";
 
       if (trimmedQuestion !== "") {
+        console.log(`⏱  [${elapsed()}] Iniciando embedding...`);
         const queryEmbedding = await Promise.race([
           this.embeddings.embedQuery(trimmedQuestion),
-          timeoutPromise,
+          embedTimeoutPromise,
         ]) as number[];
+        console.log(`⏱  [${elapsed()}] Embedding OK. Buscando docs no pgvector...`);
         documents = await this.retrieveDocuments(queryEmbedding);
+        console.log(`⏱  [${elapsed()}] ${documents.length} docs recuperados.`);
       } else {
         console.log('⚠️ Pergunta vazia detectada no RAG. Ignorando busca vetorial da KB.');
       }
@@ -186,7 +192,20 @@ export class RagService {
             kbContext += `\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
           }
 
-          const contextualAnswer = await chain.invoke({ context: kbContext, question: trimmedQuestion });
+          console.log(`⏱  [${elapsed()}] Invocando LLM (0 docs)...`);
+          const llmAbort0 = makeAbortTimeout(LLM_TIMEOUT_MS, 'llm-no-docs');
+          let contextualAnswer: string;
+          try {
+            contextualAnswer = await chain.invoke(
+              { context: kbContext, question: trimmedQuestion },
+              { signal: llmAbort0.signal }
+            ) as string;
+            llmAbort0.clear();
+          } catch (e) {
+            if (llmAbort0.aborted()) throw new Error(llmAbort0.errorMsg);
+            throw e;
+          }
+          console.log(`⏱  [${elapsed()}] LLM respondeu (0 docs).`);
           const validation = guardrailsService.validateResponse(contextualAnswer, []);
           
           let guardrailApplied = !validation.isValid;
@@ -218,18 +237,27 @@ export class RagService {
         .map((doc, i) => `--- Documento ${i + 1} (ID: ${doc.id}) ---\n${doc.conteudo}`)
         .join('\n\n');
 
-      console.log('\n📤 Prompt final montado. Enviando para o LLM...');
-
       // Montar contexto com histórico de conversa
       let fullContext = context;
       if (conversationHistory) {
         fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
       }
 
-      const rawAnswer = await Promise.race([
-        chain.invoke({ context: fullContext, question: trimmedQuestion }),
-        timeoutPromise,
-      ]) as string;
+      console.log(`\n📤 [${elapsed()}] Prompt montado (${fullContext.length} chars). Invocando LLM...`);
+
+      const llmAbort = makeAbortTimeout(LLM_TIMEOUT_MS, 'llm');
+      let rawAnswer: string;
+      try {
+        rawAnswer = await chain.invoke(
+          { context: fullContext, question: trimmedQuestion },
+          { signal: llmAbort.signal }
+        ) as string;
+        llmAbort.clear();
+      } catch (e) {
+        if (llmAbort.aborted()) throw new Error(llmAbort.errorMsg);
+        throw e;
+      }
+      console.log(`⏱  [${elapsed()}] LLM respondeu.`);
 
       const langchainDocs = documents.map(
         (doc) => new Document({ pageContent: doc.conteudo, metadata: { id: doc.id } })
@@ -262,8 +290,6 @@ export class RagService {
     } catch (error) {
       console.error('❌ Erro no RagService:', error);
       return { answer: FALLBACK_RESPONSE, sourceDocuments: [] };
-    } finally {
-      clearTimeout(timeoutHandle!);
     }
   }
 
@@ -289,7 +315,8 @@ NÃO adicione introduções como "Aqui está a mensagem". Retorne APENAS o texto
 Histórico da conversa:
 ${historico}`;
 
-      const response = await this.llm.invoke([{ role: 'user', content: prompt }]);
+      const llm = createChatLlm('rag');
+      const response = await llm.invoke([{ role: 'user', content: prompt }]);
       return response.content.toString().trim();
     } catch (error) {
       console.error('❌ Erro ao gerar mensagem sugerida:', error);

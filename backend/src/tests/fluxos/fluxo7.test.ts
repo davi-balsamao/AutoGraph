@@ -22,10 +22,12 @@ describe('Fluxo 7 · Reclamação — escalada imediata', () => {
       'ESCALAR_HUMANO',
       'Reclamação → Escalar'
     );
+    // Após escalar, IA fica silenciada — não há resposta nova do bot.
     await turno(PHONE, NAME,
       'Preciso falar com um atendente agora, isso é inaceitável!',
       'ESCALAR_HUMANO',
-      'Confirmação escalada'
+      'Confirmação escalada',
+      { expectNewResponse: false }
     );
   }, 300_000);
 

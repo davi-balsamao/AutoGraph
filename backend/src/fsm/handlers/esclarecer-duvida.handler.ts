@@ -1,7 +1,8 @@
+import { entityExtractionService } from '../../services/entity-extraction.service';
+import { syncContextFromEntities } from '../context.util';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
-import { ConversationContext, ConversationState, SessaoRecord } from '../states';
+import { ConversationContext, ConversationState, parseContext, SessaoRecord } from '../states';
 import { transitionService } from '../transition.service';
-import { prepareContext } from './base.handler';
 
 /**
  * Detecta se a mensagem ainda contém uma pergunta — '?' ou palavras
@@ -41,9 +42,12 @@ export class EsclarecerDuvidaHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const prepared = await prepareContext(message, sessao, deps);
-    const entities = prepared.entities;
-    const context: ConversationContext = prepared.context;
+    const context: ConversationContext = parseContext(sessao.contexto);
+    const entities = entityExtractionService.extractRegex(
+      deps.conversationHistory || `Cliente: ${message}`,
+      { produtoAtual: sessao.contexto.produto }
+    );
+    syncContextFromEntities(context, entities);
 
     // Resposta vem SEMPRE da knowledge base — guardrails filtram off-scope
     // e bloqueiam preços não autorizados.
@@ -71,10 +75,13 @@ export class EsclarecerDuvidaHandler implements StateHandler {
           ? ConversationState.COLETAR_ESPECIFICACOES
           : estadoRetomar;
 
+      // Chain pra que o handler de destino processe a mesma mensagem
+      // (ex.: "Sim, tenho a arte" em VALIDAR_ARQUIVO encadeia CALCULAR → APRESENTAR).
       return {
         response: ragResult.answer,
         nextState,
         updatedContext: context,
+        chainNext: nextState,
       };
     }
 

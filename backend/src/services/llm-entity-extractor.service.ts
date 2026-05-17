@@ -14,7 +14,7 @@
  *  - Sem fallback aqui: o fallback (regex) é responsabilidade do EntityExtractionService
  */
 
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { createChatLlm } from './llm-factory';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -59,8 +59,13 @@ function buildPrompt(input: LlmExtractInput): string {
     ? input.requisitosCatalogo.map((r) => `  • "${r}"`).join('\n')
     : '  (nenhum — produto não identificado ainda)';
 
-  return `Você é um extrator de entidades de uma conversa de atendimento de gráfica.
-Analise o HISTÓRICO abaixo e retorne JSON com a extração estruturada.
+  return `Você é um extrator DETERMINÍSTICO de entidades em conversas de gráfica.
+Sua ÚNICA fonte de verdade é o HISTÓRICO abaixo. Você NÃO pode inventar valores,
+NÃO pode inferir do "contexto típico", NÃO pode completar com defaults.
+
+REGRA DE OURO: se a informação não está LITERALMENTE escrita no histórico do
+cliente (linhas iniciadas por "Cliente:"), retorne null. Não importa o quão
+óbvio você ache que seja.
 
 # Catálogo disponível
 ${produtos}
@@ -86,41 +91,96 @@ ${input.historicoCompleto}
    - "APROVACAO": aceita orçamento/pedido
    - "RECUSA": rejeita orçamento/pedido
    - "OUTRO": qualquer outra coisa
-4. specs: para CADA pergunta do catálogo listada acima, extraia a resposta do cliente literal do histórico — preserve números EXATOS (ex: "1000 unidades" NUNCA "10"). Se a resposta não estiver no histórico, null. Use a string da pergunta como chave EXATAMENTE como aparece acima.
+4. specs: para CADA pergunta do catálogo, extraia a resposta SOMENTE se ela aparecer
+   no que o cliente escreveu. Caso contrário, null. Use a string da pergunta como
+   chave EXATAMENTE como aparece acima. Regras anti-alucinação:
+   • Números devem estar LITERALMENTE no histórico ("1000 unidades" → só extraia
+     se "1000" aparecer textual; jamais arredonde, jamais infira).
+   • Se o cliente disse só "quero cartão de visita" sem qualquer spec → TODAS as
+     specs devem ser null. Não preencha valores "típicos" ou "esperados".
+   • Se o cliente respondeu uma pergunta com paráfrase (ex.: "ambos os lados"
+     para uma pergunta sobre frente/verso), você pode normalizar para o termo
+     do catálogo — mas a paráfrase precisa estar no histórico.
+   • Booleanos (verniz, laminação): null se o cliente não mencionou
+     explicitamente. NUNCA chute "true" ou "false".
 5. resolveuReferencia: se o cliente usou referência ambígua ("a primeira", "essa", "a que você sugeriu") e foi possível identificar no histórico recente, preencha { texto, referenciaEncontrada }. Caso contrário null.
+
+# Exemplos do que NÃO fazer
+Histórico: "Cliente: Quero cartão de visita para minha empresa."
+ERRADO: {"specs": {"Qual quantidade deseja?": "1000 unidades", ...}}
+CERTO:  {"specs": {"Qual quantidade deseja?": null, ...}}  // não foi mencionado
+
+Histórico: "Cliente: 500 unidades, formato 9x5cm, só frente colorida."
+ERRADO: {"specs": {"Terá verniz total?": "true", ...}}    // alucinado
+CERTO:  {"specs": {"Terá verniz total?": null, ...}}      // não foi mencionado
+
+Antes de devolver, FAÇA o auto-check: para cada spec NÃO-null, confirme mentalmente
+que o valor que você está retornando aparece no histórico do cliente. Se não
+aparece, troque por null.
 
 Responda APENAS com JSON válido. Sem markdown, sem comentários, sem prefixos.`;
 }
 
 export class LlmEntityExtractor {
-  private llm: ChatGoogleGenerativeAI;
-
-  constructor() {
-    const apiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
-    // Saída JSON é garantida via instrução no prompt + parser tolerante a
-    // markdown code-fences. Não dependemos de flag específica da SDK aqui.
-    this.llm = new ChatGoogleGenerativeAI({
-      temperature: 0,
-      model: process.env.LLM_MODEL || 'gemini-2.0-flash',
-      apiKey,
-    });
-  }
-
   /** Extrai entidades com timeout. Lança erro se LLM falhar ou estourar timeout. */
   async extract(input: LlmExtractInput, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<LlmExtractResult> {
     const prompt = buildPrompt(input);
+
+    // Constrói o LLM por request para que a rotação de chaves do factory
+    // funcione efetivamente (próxima chave do pool a cada chamada).
+    const llm = createChatLlm('extractor');
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`LlmEntityExtractor timeout após ${timeoutMs}ms`)), timeoutMs);
     });
 
-    const llmCall = this.llm.invoke([{ role: 'user', content: prompt }]);
+    const llmCall = llm.invoke([{ role: 'user', content: prompt }]);
     const response = await Promise.race([llmCall, timeoutPromise]);
     const raw = (response as { content: unknown }).content;
     const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
 
-    return parseLlmResponse(text);
+    const parsed = parseLlmResponse(text);
+    parsed.specs = dropHallucinatedSpecs(parsed.specs, input.historicoCompleto);
+    return parsed;
   }
+}
+
+/**
+ * Filtro determinístico pós-LLM: descarta valores que claramente foram
+ * alucinados (ex.: número que não aparece no que o cliente escreveu).
+ *
+ * Estratégia conservadora — só zera quando a evidência de alucinação é forte,
+ * pra não derrubar paráfrases legítimas:
+ *  • Se o valor extraído contém dígitos, TODOS os números devem aparecer no
+ *    histórico do cliente. Caso contrário → null.
+ *  • Valores puramente textuais (sem dígitos) passam direto. O prompt já cuida
+ *    do resto.
+ */
+export function dropHallucinatedSpecs(
+  specs: Record<string, string | null>,
+  historicoCompleto: string,
+): Record<string, string | null> {
+  const userText = historicoCompleto
+    .split('\n')
+    .filter((l) => /^Cliente:/i.test(l))
+    .map((l) => l.replace(/^Cliente:\s*/i, ''))
+    .join(' ');
+
+  const cleaned: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(specs)) {
+    if (!v) {
+      cleaned[k] = null;
+      continue;
+    }
+    const numbers = v.match(/\d+/g);
+    if (numbers && numbers.length > 0) {
+      const allFound = numbers.every((n) => userText.includes(n));
+      cleaned[k] = allFound ? v : null;
+    } else {
+      cleaned[k] = v;
+    }
+  }
+  return cleaned;
 }
 
 /**

@@ -27,8 +27,11 @@ describe('Fluxo 14 · Ambiguidade no produto solicitado', () => {
     // 👇 ADICIONAMOS ESSA LINHA: Respondemos o bot e aí sim ele vai para a validação do PDF!
     await turno(PHONE, NAME, 'Não terá verniz, pode ser fosco mesmo.', 'VALIDAR_ARQUIVO', 'Finalizar specs (verniz)');
     
+    // "Tenho o arquivo em PDF..." em VALIDAR_ARQUIVO já dispara CALCULAR_ORCAMENTO
+    // → APRESENTAR_ORCAMENTO → AGUARDAR_APROVACAO, com a mensagem do orçamento.
+    // Um turno extra "Pode calcular." antes da aprovação seria redundante (orçamento
+    // já está na tela) e instável (RAG do AGUARDAR_APROVACAO pode demorar). Pula direto.
     await turno(PHONE, NAME, 'Tenho o arquivo em PDF com sangria de 3mm.', 'AGUARDAR_APROVACAO', 'Validar arq.');
-    await turno(PHONE, NAME, 'Pode calcular o preço.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
     await turno(PHONE, NAME, 'Aprovado!', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
     
     await turno(PHONE, NAME, 'Vou retirar na loja física, não preciso de entrega.', 'CONFIRMAR_PEDIDO', 'Dados entrega');

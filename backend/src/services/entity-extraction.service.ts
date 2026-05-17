@@ -69,10 +69,18 @@ export interface PedidoEntities {
 const MAX_CACHE_ENTRIES = 100;
 const extractCache = new Map<string, PedidoEntities>();
 
+function canonicalizarHistorico(historico: string): string {
+  return historico
+    .split('\n')
+    .filter((l) => l.startsWith('Cliente:'))
+    .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+    .join('\n');
+}
+
 function cacheKey(historico: string, produtoAtual?: string | null): string {
   return crypto
     .createHash('sha256')
-    .update(`${historico}|||${produtoAtual ?? ''}`)
+    .update(`${canonicalizarHistorico(historico)}|||${produtoAtual ?? ''}`)
     .digest('hex');
 }
 
@@ -98,10 +106,25 @@ function lookupSpecCaseInsensitive(
   specs: Record<string, string | null>,
   pergunta: string
 ): string | null {
-  const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').replace(/\?+$/, '').trim();
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[?:.\s]+$/, '')
+      .trim();
   const alvo = normalize(pergunta);
+  // 1ª passada: match exato (mais previsível).
   for (const [k, v] of Object.entries(specs)) {
     if (normalize(k) === alvo) return v;
+  }
+  // 2ª passada: substring bidirecional — tolera LLM resumindo a chave
+  // ("Qual quantidade deseja?" ↔ "quantidade") ou expandindo.
+  for (const [k, v] of Object.entries(specs)) {
+    if (v === null || v === '') continue;
+    const normK = normalize(k);
+    if (normK.includes(alvo) || alvo.includes(normK)) return v;
   }
   return null;
 }
@@ -422,6 +445,27 @@ export class EntityExtractionService {
     let result: PedidoEntities;
     try {
       result = await this.extractViaLlm(conversationHistory, options);
+      // Merge: se o LLM perdeu specs, complementa com regex (heurísticas confiáveis
+      // pra quantidade/tamanho/frente-verso/papel). LLM 8B/70B às vezes só extrai
+      // a spec mais recente que o bot pediu, em vez de tudo na mensagem.
+      const faltantes = result.requisitos.filter((r) => !r.preenchido);
+      if (faltantes.length > 0 && result.produtoIdentificado) {
+        const regex = this.extractRegex(conversationHistory, {
+          ...options,
+          produtoAtual: result.produtoIdentificado,
+        });
+        const merged: RequisitoStatus[] = result.requisitos.map((r) => {
+          if (r.preenchido) return r;
+          const regexReq = regex.requisitos.find((rr) => rr.pergunta === r.pergunta);
+          return regexReq?.preenchido ? regexReq : r;
+        });
+        result = {
+          ...result,
+          requisitos: merged,
+          perguntasFaltantes: merged.filter((r) => !r.preenchido).map((r) => r.pergunta),
+          completo: merged.every((r) => r.preenchido),
+        };
+      }
     } catch (err) {
       console.warn(
         `⚠️ [EntityExtraction] LLM falhou (${(err as Error).message}) — fallback regex.`
@@ -452,6 +496,12 @@ export class EntityExtractionService {
       LLM_TIMEOUT_MS
     );
 
+    console.log('🔬 [EntityExtraction] LLM result:', JSON.stringify({
+      produto: llmResult.produtoIdentificado,
+      intent: llmResult.intent,
+      specs: llmResult.specs,
+    }));
+
     return this.mapLlmResultToEntities(llmResult, options?.produtoAtual);
   }
 
@@ -462,8 +512,25 @@ export class EntityExtractionService {
   ): PedidoEntities {
     // Produto: prioridade ao travado na sessão; senão o que o LLM identificou.
     const nomeProduto = produtoTravado || llm.produtoIdentificado || null;
+    const normalizar = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .trim();
     const produto = nomeProduto
-      ? this.catalogo.find((c) => c.produto.toLowerCase() === nomeProduto.toLowerCase())
+      ? (() => {
+          const target = normalizar(nomeProduto);
+          // Exact match primeiro (mais previsível), depois inclusão bidirecional
+          // para tolerar singular/plural e variações do LLM ("PANFLETO" vs "Panfletos").
+          return (
+            this.catalogo.find((c) => normalizar(c.produto) === target) ||
+            this.catalogo.find((c) => {
+              const cat = normalizar(c.produto);
+              return cat.includes(target) || target.includes(cat);
+            })
+          );
+        })()
       : undefined;
 
     if (!produto) {

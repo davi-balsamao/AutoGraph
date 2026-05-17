@@ -22,10 +22,12 @@ describe('Fluxo 19 · Alteração de pedido após emissão de O.S.', () => {
       'ESCALAR_HUMANO',
       'Solicitação de alteração pós-OS'
     );
+    // Após escalar, IA fica silenciada — não há resposta nova do bot.
     await turno(PHONE, NAME,
       'Quero trocar de papel couchê 90g para papel offset 75g. É possível mudar agora?',
       'ESCALAR_HUMANO',
-      'Escalada — bot não edita O.S.'
+      'Escalada — bot não edita O.S.',
+      { expectNewResponse: false }
     );
   }, 30_000);
 
