@@ -69,10 +69,18 @@ export interface PedidoEntities {
 const MAX_CACHE_ENTRIES = 100;
 const extractCache = new Map<string, PedidoEntities>();
 
+function canonicalizarHistorico(historico: string): string {
+  return historico
+    .split('\n')
+    .filter((l) => l.startsWith('Cliente:'))
+    .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+    .join('\n');
+}
+
 function cacheKey(historico: string, produtoAtual?: string | null): string {
   return crypto
     .createHash('sha256')
-    .update(`${historico}|||${produtoAtual ?? ''}`)
+    .update(`${canonicalizarHistorico(historico)}|||${produtoAtual ?? ''}`)
     .digest('hex');
 }
 
@@ -88,7 +96,7 @@ function cacheSet(key: string, value: PedidoEntities): void {
   extractCache.set(key, value);
 }
 
-const LLM_TIMEOUT_MS = 5_000;
+const LLM_TIMEOUT_MS = 15_000;
 
 /**
  * Procura a resposta para uma pergunta no mapa de specs do LLM, tolerando
@@ -381,6 +389,19 @@ export class EntityExtractionService {
         const match = textoLower.match(/(\d+)\s*p[aá]ginas?/);
         if (match) {
           resposta = `${match[1]} páginas`;
+        }
+      }
+
+      // Heurística: papel
+      if (perguntaLower.includes('papel') || perguntaLower.includes('material')) {
+        const match = textoLower.match(/(papel\s+(?:couch[êe]|sulfite|reciclado|kraft)\s*\d*g?)/i);
+        if (match) {
+          // Capitalize first letter
+          resposta = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+        } else if (textoLower.includes('couch') && textoLower.includes('90g')) {
+          resposta = 'Papel couchê 90g';
+        } else if (textoLower.includes('couch')) {
+          resposta = 'Papel couchê';
         }
       }
 

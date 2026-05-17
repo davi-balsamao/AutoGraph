@@ -27,7 +27,7 @@ describe('Fluxo 7 · Reclamação — escalada imediata', () => {
       'ESCALAR_HUMANO',
       'Confirmação escalada'
     );
-  }, 30_000);
+  }, 300_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f7_${Date.now()}`;

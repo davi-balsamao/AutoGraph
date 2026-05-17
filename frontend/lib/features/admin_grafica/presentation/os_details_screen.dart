@@ -6,6 +6,7 @@ import '../../../core/services/os_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import '../../admin_chat/presentation/admin_chat_conversation_screen.dart';
 
 class OsDetailsScreen extends StatefulWidget {
   final OrdemServico os;
@@ -71,7 +72,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final DateFormat dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    final brandGreen = const Color(0xFF00ED64);
+    final brandGreen = AppColors.brandGreen;
 
     return Scaffold(
       appBar: AppBar(
@@ -103,9 +104,9 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(widget.os.status).withOpacity(0.1),
+                    color: _getStatusColor(widget.os.status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: _getStatusColor(widget.os.status).withOpacity(0.5)),
+                    border: Border.all(color: _getStatusColor(widget.os.status).withValues(alpha: 0.5)),
                   ),
                   child: Text(
                     widget.os.status.label.toUpperCase(),
@@ -114,6 +115,32 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AdminChatConversationScreen(
+                        clientId: widget.os.clienteId,
+                        clientName: widget.os.clienteNome ?? 'Cliente',
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.chat_outlined),
+                label: const Text('CONVERSAR COM CLIENTE (WHATSAPP)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandGreen,
+                  foregroundColor: AppColors.brandTealDeep,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             const SizedBox(height: 32),
             
             // Core Information Grid
@@ -150,7 +177,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               controller: _artUrlController,
               decoration: InputDecoration(
                 labelText: 'Artwork URL (Google Drive / Dropbox)',
-                labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF5C6C7A)),
+                labelStyle: const TextStyle(fontSize: 13, color: AppColors.steel),
                 prefixIcon: const Icon(Icons.link, size: 20),
                 fillColor: cs.surfaceContainerHighest,
                 filled: true,
@@ -164,13 +191,13 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF001E2B),
+                color: AppColors.brandTealDeep,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: TextField(
                 controller: _specsController,
                 maxLines: 8,
-                style: const TextStyle(fontFamily: 'Courier', fontSize: 13, color: Color(0xFF00ED64)),
+                style: const TextStyle(fontFamily: 'Courier', fontSize: 13, color: AppColors.brandGreen),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.all(16),
                   border: InputBorder.none,
@@ -203,14 +230,14 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.25) : const Color(0xFFE3FCEF),
+                  color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.25) : AppColors.successLight,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.brandGreen.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.auto_awesome, color: Color(0xFF00684A), size: 20),
+                    const Icon(Icons.auto_awesome, color: AppColors.brandGreenDark, size: 20),
                     const SizedBox(width: 16),
                     Expanded(
                       child: SelectableText(
@@ -232,12 +259,12 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
 
   Color _getStatusColor(StatusOS status) {
     switch (status) {
-      case StatusOS.aguardandoOrcamento: return const Color(0xFFFA6E39);
-      case StatusOS.emProducao: return const Color(0xFF7B3FF2);
-      case StatusOS.prontaParaRetirada: return const Color(0xFF00ED64);
-      case StatusOS.entregue: return const Color(0xFF5C6C7A);
-      case StatusOS.cancelada: return const Color(0xFFEF4444);
-      default: return const Color(0xFF003D4F);
+      case StatusOS.aguardandoOrcamento: return AppColors.orange;
+      case StatusOS.emProducao: return AppColors.purple;
+      case StatusOS.prontaParaRetirada: return AppColors.brandGreen;
+      case StatusOS.entregue: return AppColors.steel;
+      case StatusOS.cancelada: return Colors.red;
+      default: return AppColors.brandTeal;
     }
   }
 }

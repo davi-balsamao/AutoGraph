@@ -191,7 +191,6 @@ export class StateRouter {
 
       if (result.chainNext) {
         currentState = result.chainNext;
-        message = '';
         continue;
       }
 

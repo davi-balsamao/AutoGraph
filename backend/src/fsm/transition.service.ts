@@ -71,9 +71,9 @@ export class TransitionService {
 
       case ConversationState.AGUARDAR_APROVACAO:
         if (RECUSA.test(msg)) return ConversationState.ENCERRAR;
+        if (APROVACAO.test(msg)) return ConversationState.COLETAR_DADOS_ENTREGA;
         if (NEGOCIACAO.test(msg)) return ConversationState.NEGOCIAR;
         if (DUVIDA.test(msg)) return ConversationState.ESCLARECER_DUVIDA;
-        if (APROVACAO.test(msg)) return ConversationState.COLETAR_DADOS_ENTREGA;
         return current;
 
       case ConversationState.NEGOCIAR:

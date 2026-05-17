@@ -82,7 +82,7 @@ class _ClientHistoryScreenState extends State<ClientHistoryScreen> {
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('fab_whatsapp_client'),
         onPressed: _openWhatsApp,
-        backgroundColor: const Color(0xFF25D366),
+        backgroundColor: AppColors.whatsappGreen,
         foregroundColor: Colors.white,
         elevation: 3,
         icon: const FaIcon(FontAwesomeIcons.whatsapp, size: 24),
@@ -199,7 +199,7 @@ class _ClientCatalogTabState extends State<_ClientCatalogTab> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.3) : const Color(0xFFE3FCEF),
+                            color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.3) : AppColors.successLight,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text('DISPONÍVEL', style: TextStyle(color: isDark ? AppColors.brandGreen : AppColors.brandGreenDark, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
@@ -277,12 +277,12 @@ class _HistoryTabState extends State<_HistoryTab> {
 
   Color _statusColor(StatusOS s) {
     switch (s) {
-      case StatusOS.aguardandoOrcamento: return const Color(0xFFFA6E39);
-      case StatusOS.emProducao: return const Color(0xFF7B3FF2);
+      case StatusOS.aguardandoOrcamento: return AppColors.orange;
+      case StatusOS.emProducao: return AppColors.purple;
       case StatusOS.prontaParaRetirada: return AppColors.brandGreen;
-      case StatusOS.entregue: return const Color(0xFF5C6C7A);
-      case StatusOS.cancelada: return const Color(0xFFEF4444);
-      default: return const Color(0xFF003D4F);
+      case StatusOS.entregue: return AppColors.steel;
+      case StatusOS.cancelada: return Colors.red;
+      default: return AppColors.brandTeal;
     }
   }
 

@@ -2,7 +2,7 @@ import { entityExtractionService } from '../../services/entity-extraction.servic
 import { formatarPerguntaCatalogo } from '../catalog.util';
 import { syncContextFromEntities } from '../context.util';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
-import { ConversationState, SessaoRecord } from '../states';
+import { ConversationState, parseContext, SessaoRecord } from '../states';
 import { DUVIDA, transitionService } from '../transition.service';
 import { prepareContext } from './base.handler';
 
@@ -15,7 +15,7 @@ export class IdentificarNecessidadeHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     if (DUVIDA.test(message) && !SAIDA_DUVIDA.test(message)) {
-      const { context } = await prepareContext(message, sessao, deps);
+      const context = parseContext(sessao.contexto);
 
       // Resposta vem do RAG com o prompt do estado ESCLARECER_DUVIDA — assim
       // a dúvida do cliente já é respondida no MESMO turno em que entra no

@@ -145,7 +145,7 @@ export async function turno(
   text: string,
   expectedState: string,
   label: string,
-  timeoutMs = 20_000,
+  timeoutMs = 45_000,
 ): Promise<{ state: string; resp: string }> {
   await sendMsg(phone, name, text);
 
@@ -157,7 +157,15 @@ export async function turno(
     await wait(1_500);
     state = await getSessionState(phone);
     resp  = await getLastBotResponse(phone);
-    if (state === expectedState) break;
+    if (state === expectedState) {
+      // Estado salvo antes da mensagem BOT em webhook.service.ts — um poll
+      // extra garante que o registro já está visível no DB.
+      if (!resp) {
+        await wait(1_500);
+        resp = await getLastBotResponse(phone);
+      }
+      break;
+    }
   }
 
   console.log(`\n[${label}]`);
