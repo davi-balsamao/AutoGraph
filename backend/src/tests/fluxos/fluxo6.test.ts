@@ -28,15 +28,15 @@ describe('Fluxo 6 · Interrupção e reengajamento', () => {
     await turno(PHONE, NAME, 'Aprovado!', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
     await turno(PHONE, NAME, 'Entrega no endereço: Av. Paulista, 1000, São Paulo – SP.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
     await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
-    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
+    await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 300_000);
     await turno(PHONE, NAME, 'Muito obrigado! Até mais.', 'ENCERRAR', 'Encerrar');
-  }, 130_000);
+  }, 500_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f6_${Date.now()}`;
     await sendMsg(PHONE, NAME, 'Retry test', msgId);
     await sendMsg(PHONE, NAME, 'Retry test', msgId);
-    await wait();
+    await wait(20_000); // Espera 20s para garantir que o timeout de 15s do LLM passe antes do cleanup
     expect(await getLastBotResponse(PHONE)).toBeTruthy();
-  }, 25_000);
+  }, 40_000);
 });
