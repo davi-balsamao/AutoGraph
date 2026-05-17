@@ -12,7 +12,7 @@ void main() async {
   );
   
   // Confirmar inicialização com sucesso no console
-  print('🔥 [AutoGraph Firebase] Inicializado com sucesso! ID do Projeto: ${Firebase.app().options.projectId}');
+  debugPrint('🔥 [AutoGraph Firebase] Inicializado com sucesso! ID do Projeto: ${Firebase.app().options.projectId}');
   
   runApp(const AutoGraphApp());
 }
