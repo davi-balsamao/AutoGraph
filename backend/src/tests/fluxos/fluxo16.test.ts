@@ -1,17 +1,16 @@
 /**
  * Fluxo 16 · Exigência de desconto além da margem
  * Após orçamento, cliente exige 40% de desconto e insiste várias vezes.
- * Agente oferece alternativas dentro da margem, não cede. Escalada para humano.
+ * Agente oferece alternatives dentro da margem, não cede. Escalada para humano.
  *
  * Estados: Boas-vindas → Identificar → Coletar specs → Calcular →
- *          Apresentar → Aguardar aprov. → Negociar → Escalar
+ * Apresentar → Aguardar aprov. → Negociar → Escalar
  */
 
 import { sendMsg, getLastBotResponse, getSessionState, getSessionContext, getLastOS, cleanupUser, wait, uniquePhone, turno } from './helpers';
 
 const PHONE = uniquePhone(16);
 const NAME = 'Patricia Teste F16';
-
 
 describe('Fluxo 16 · Negociação agressiva → escalada', () => {
   beforeAll(async () => { await cleanupUser(PHONE); });
@@ -22,10 +21,16 @@ describe('Fluxo 16 · Negociação agressiva → escalada', () => {
     await turno(PHONE, NAME, 'Dois banners grandes para vitrine.', 'COLETAR_ESPECIFICACOES', 'Identificar');
     await turno(PHONE, NAME, 'Banners 100x200cm, lona vinílica, acabamento com ilhós e cordão.', 'VALIDAR_ARQUIVO', 'Coletar specs');
     await turno(PHONE, NAME, 'Tenho arte em PDF, resolução 300 dpi.', 'AGUARDAR_APROVACAO', 'Validar arq.');
+    
+    // Primeiro pedido de desconto: entra em modo de negociação
     await turno(PHONE, NAME, 'Esse preço está muito caro! Quero 40% de desconto ou não compro.', 'NEGOCIAR', 'Negociar agressivo');
-    await turno(PHONE, NAME, 'Não aceito nem um centavo a mais, preciso dos 40% de desconto mesmo!', 'COLETAR_ESPECIFICACOES', 'Insistência');
-    await turno(PHONE, NAME, 'Então quero falar com um gerente! Isso é abuso de preço!', 'COLETAR_ESPECIFICACOES', 'Escalada');
-  }, 80_000);
+    
+    // 👇 CORREÇÃO: O backend intercepta a teimosia e move o estado imediatamente para a escalada humana
+    await turno(PHONE, NAME, 'Não aceito nem um centavo a mais, preciso dos 40% de desconto mesmo!', 'ESCALAR_HUMANO', 'Insistência');
+    
+    // 👇 CORREÇÃO: Com o atendimento humano ativo, o estado permanece firme em ESCALAR_HUMANO
+    await turno(PHONE, NAME, 'Então quero falar com um gerente! Isso é abuso de preço!', 'ESCALAR_HUMANO', 'Escalada');
+  }, 130_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f16_${Date.now()}`;

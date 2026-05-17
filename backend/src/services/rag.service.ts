@@ -120,7 +120,14 @@ export class RagService {
   ): Promise<RagQueryResult> {
     const systemPrompt = buildSystemPrompt(state, context);
     const stateChain = this.createStateChain(systemPrompt);
-    return this.runQuery(question, conversationHistory, stateChain, { alwaysInvokeLlm: true });
+
+    // Determina se é um estado comportamental/negociação para contornar bloqueios rígidos do guardrail por falta de docs
+    const isBehavioralState = state === 'NEGOCIAR' || state === 'ENCERRAR';
+
+    return this.runQuery(question, conversationHistory, stateChain, { 
+      alwaysInvokeLlm: true,
+      isBehavioralState
+    });
   }
 
   /**
@@ -134,7 +141,7 @@ export class RagService {
     question: string,
     conversationHistory: string | undefined,
     chain: RunnableSequence,
-    options?: { alwaysInvokeLlm?: boolean }
+    options?: { alwaysInvokeLlm?: boolean; isBehavioralState?: boolean }
   ): Promise<RagQueryResult> {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
@@ -149,11 +156,18 @@ export class RagService {
     });
 
     try {
-      const queryEmbedding = await Promise.race([
-        this.embeddings.embedQuery(question),
-        timeoutPromise,
-      ]) as number[];
-      const documents = await this.retrieveDocuments(queryEmbedding);
+      let documents: RetrievedDocument[] = [];
+      const trimmedQuestion = question?.trim() || "";
+
+      if (trimmedQuestion !== "") {
+        const queryEmbedding = await Promise.race([
+          this.embeddings.embedQuery(trimmedQuestion),
+          timeoutPromise,
+        ]) as number[];
+        documents = await this.retrieveDocuments(queryEmbedding);
+      } else {
+        console.log('⚠️ Pergunta vazia detectada no RAG. Ignorando busca vetorial da KB.');
+      }
 
       if (documents.length === 0) {
         const podeInvocarLlm =
@@ -172,12 +186,20 @@ export class RagService {
             kbContext += `\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
           }
 
-          const contextualAnswer = await chain.invoke({ context: kbContext, question });
+          const contextualAnswer = await chain.invoke({ context: kbContext, question: trimmedQuestion });
           const validation = guardrailsService.validateResponse(contextualAnswer, []);
-          const guardrailApplied = !validation.isValid;
-          const finalAnswer = guardrailApplied
-            ? validation.correctedResponse || FALLBACK_RESPONSE
-            : stripDoubleNewlines(contextualAnswer);
+          
+          let guardrailApplied = !validation.isValid;
+          let finalAnswer = stripDoubleNewlines(contextualAnswer);
+
+          if (guardrailApplied) {
+            if (options?.isBehavioralState) {
+              guardrailApplied = false;
+              console.log('ℹ️ Guardrail de grounding ignorado por se tratar de estado comportamental.');
+            } else {
+              finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
+            }
+          }
 
           console.log(`💬 Resposta final: "${finalAnswer}"`);
           return {
@@ -205,7 +227,7 @@ export class RagService {
       }
 
       const rawAnswer = await Promise.race([
-        chain.invoke({ context: fullContext, question }),
+        chain.invoke({ context: fullContext, question: trimmedQuestion }),
         timeoutPromise,
       ]) as string;
 
@@ -215,12 +237,16 @@ export class RagService {
       
       const validation = guardrailsService.validateResponse(rawAnswer, langchainDocs);
 
-      let guardrailApplied = false;
+      let guardrailApplied = !validation.isValid;
       let finalAnswer = stripDoubleNewlines(rawAnswer);
 
-      if (!validation.isValid) {
-        finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
-        guardrailApplied = true;
+      if (guardrailApplied) {
+        if (options?.isBehavioralState) {
+          guardrailApplied = false;
+          console.log('ℹ️ Guardrail de grounding ignorado no bloco com docs por se tratar de estado comportamental.');
+        } else {
+          finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
+        }
       }
 
       console.log(`💬 Resposta final: "${finalAnswer}"`);
