@@ -37,6 +37,8 @@ model Usuario {
   role             Role       @default(CLIENTE)
   atendimentoHumano Boolean    @default(false) // <- CEREJA DO BOLO: Controla se a IA responde
   fcmToken         String?
+  enderecoCompleto  String?
+  enderecoReferencia String?
   criadoEm         DateTime   @default(now())
   atualizadoEm     DateTime   @updatedAt
 

@@ -36,6 +36,8 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
         email: usuario.email,
         telefone: usuario.telefone,
         role: usuario.role,
+        enderecoCompleto: usuario.enderecoCompleto,
+        enderecoReferencia: usuario.enderecoReferencia,
       },
     });
   } catch (error) {
@@ -46,11 +48,11 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
 
 /**
  * POST /api/auth/register
- * Body: { nome: string, email: string, senha: string, telefone?: string }
+ * Body: { nome: string, email: string, senha: string, telefone?: string, enderecoCompleto?: string, enderecoReferencia?: string }
  */
 authRoutes.post('/register', async (req: Request, res: Response) => {
   try {
-    const { nome, email, senha, telefone } = req.body;
+    const { nome, email, senha, telefone, enderecoCompleto, enderecoReferencia } = req.body;
 
     if (!nome || !email || !senha || !telefone) {
       return res.status(400).json({ error: 'Nome, e-mail, senha e telefone são obrigatórios.' });
@@ -73,6 +75,8 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
         senha, // Em produção, usar bcrypt
         telefone,
         role: 'CLIENTE',
+        enderecoCompleto: enderecoCompleto || null,
+        enderecoReferencia: enderecoReferencia || null,
       },
     });
 
@@ -84,6 +88,8 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
         email: newUser.email,
         telefone: newUser.telefone,
         role: newUser.role,
+        enderecoCompleto: newUser.enderecoCompleto,
+        enderecoReferencia: newUser.enderecoReferencia,
       },
     });
   } catch (error) {

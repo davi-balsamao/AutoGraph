@@ -19,7 +19,7 @@ export class OsRepository {
       where: status ? { status } : {},
       include: { 
         cliente: {
-          select: { nome: true, telefone: true }
+          select: { nome: true, telefone: true, enderecoCompleto: true, enderecoReferencia: true }
         } 
       },
       orderBy: { criadoEm: 'desc' }
@@ -28,9 +28,31 @@ export class OsRepository {
 
   // Atualiza apenas o status da OS
   async updateStatus(id: string, status: StatusOS) {
+    const os = await prisma.ordensDeServico.findUnique({ where: { id } });
+    if (!os) throw new Error('OS não encontrada');
+
+    const data: any = { status };
+
+    // Se mudou para EM_PRODUCAO, inicia o timer se já não estiver rodando
+    if (status === StatusOS.EM_PRODUCAO) {
+      if (!os.timerStartedAt) {
+        data.timerStartedAt = new Date();
+        data.timerEndedAt = null;
+      }
+    } else {
+      // Se mudou de EM_PRODUCAO para outro status, para o timer e atualiza a duração
+      if (os.timerStartedAt) {
+        const now = new Date();
+        const elapsed = Math.floor((now.getTime() - os.timerStartedAt.getTime()) / 1000);
+        data.durationSeconds = os.durationSeconds + elapsed;
+        data.timerEndedAt = now;
+        data.timerStartedAt = null;
+      }
+    }
+
     return prisma.ordensDeServico.update({
       where: { id },
-      data: { status }
+      data
     });
   }
 
