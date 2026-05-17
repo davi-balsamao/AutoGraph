@@ -10,6 +10,7 @@ import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
 import produtoRoutes from './routes/produto.routes';
 import { prisma } from './config/prisma';
+import { whatsappService } from './services/whatsapp.service'; 
 
 // Carregamento Físico do .env
 try {
@@ -32,12 +33,11 @@ const port = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Em produção, restringir para o domínio do seu app
+    origin: "*", // Em produção, restringir para o domínio do app
     methods: ["GET", "POST"]
   }
 });
 
-// Exportamos o 'io' para ser usado nos Services e Controllers
 export { io };
 
 app.use(cors());
@@ -53,38 +53,54 @@ app.use(
 io.on('connection', (socket) => {
   console.log(`🔌 Novo dispositivo conectado ao Socket: ${socket.id}`);
   
+  // INTERCEPTADOR DE MENSAGENS DO ADMIN
+  socket.on('message', async (data) => {
+    // Se a mensagem que chegou no Socket veio do Painel Admin do Flutter...
+    if (data.senderId === 'admin') {
+      try {
+        console.log(`📤 [SOCKET -> WPP] Admin respondendo para o telefone: ${data.receiverId}`);
+        // 1. Atira a mensagem para a API oficial do WhatsApp da Meta
+        await whatsappService.sendMessage(data.receiverId, data.text);
+        
+        // 2. SILENCIADOR DA IA: Atualiza o banco de dados para avisar que o humano assumiu!
+        await prisma.usuario.updateMany({
+          where: { telefone: data.receiverId },
+          data: { atendimentoHumano: true }
+        });
+        console.log(`🤫 IA desativada para o cliente ${data.receiverId} (Humano assumiu a conversa)`);
+        
+        console.log(`✅ [WPP] Mensagem do Admin entregue com sucesso!`);
+      } catch (error) {
+        console.error(`❌ [WPP] Erro ao enviar mensagem do Admin:`, error);
+      }
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('🔌 Dispositivo desconectado');
   });
 });
 
-// Rota principal
 app.get('/', (req, res) => {
   res.json({ message: 'Hello World from AutoGraph API!' });
 });
 
-// Servindo os arquivos de upload de forma estática para visualização do Admin
 app.use('/uploads', express.static(path.resolve(__dirname, '../data/uploads')));
-
 app.use(webhookRoutes);
 app.use('/api/os', osRoutes); 
 app.use('/api/auth', authRoutes);
-
-// Rotas de Produtos
 app.use('/api/produtos', produtoRoutes);
 
-// Endpoint de Health Check (Verifica DB)
 app.get('/api/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.status(200).json({ status: 'ok', database: 'connected' });
   } catch (error) {
     console.error('❌ ERRO NO HEALTH CHECK (Banco de Dados Inacessível):', error);
-    res.status(503).json({ status: 'error', database: 'disconnected', message: 'Serviço de banco de dados indisponível no momento.' });
+    res.status(503).json({ status: 'error', database: 'disconnected', message: 'Serviço indisponível' });
   }
 });
 
-// IMPORTANTE: Usamos 'server.listen' em vez de 'app.listen' para o Socket.io funcionar
 server.listen(port, () => {
   console.log(`🚀 Servidor e Socket.io rodando na porta ${port}`);
 });
