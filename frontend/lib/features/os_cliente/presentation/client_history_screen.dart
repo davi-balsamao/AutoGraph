@@ -204,9 +204,13 @@ class _ClientCatalogTabState extends State<_ClientCatalogTab> {
                           ),
                           child: Text('DISPONÍVEL', style: TextStyle(color: isDark ? AppColors.brandGreen : AppColors.brandGreenDark, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                         ),
-                        Text(
-                          'A partir de R\$ ${p.precoBase.toStringAsFixed(2)}',
-                          style: GoogleFonts.outfit(color: cs.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
+                        Flexible(
+                          child: Text(
+                            'A partir de R\$ ${p.precoBase.toStringAsFixed(2)}',
+                            textAlign: TextAlign.end,
+                            style: GoogleFonts.outfit(color: cs.onSurface, fontWeight: FontWeight.bold, fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),

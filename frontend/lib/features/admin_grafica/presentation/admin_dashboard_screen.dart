@@ -201,7 +201,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         actions: [
           IconButton(
+            key: const Key('btn_admin_register_client'),
+            icon: const Icon(Icons.person_add_alt_1),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.register, arguments: true),
+            tooltip: 'Cadastrar Cliente',
+          ),
+          IconButton(
             key: const Key('btn_toggle_theme_admin'),
+
             icon: Icon(
               themeNotifier.themeMode == ThemeMode.dark
                   ? Icons.light_mode
@@ -430,7 +437,62 @@ class _KanbanTabState extends State<_KanbanTab> {
       );
     }
 
-    final visibleStatuses = [StatusOS.criada, StatusOS.aguardandoOrcamento, StatusOS.emProducao, StatusOS.prontaParaRetirada, StatusOS.entregue];
+    final visibleStatuses = [
+      StatusOS.criada,
+      StatusOS.aguardandoOrcamento,
+      StatusOS.emProducao,
+      StatusOS.prontaParaRetirada,
+      StatusOS.entregue
+    ];
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 700;
+
+    if (isMobile) {
+      return DefaultTabController(
+        length: visibleStatuses.length,
+        child: Column(
+          children: [
+            TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelColor: AppColors.brandGreen,
+              unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              indicatorColor: AppColors.brandGreen,
+              indicatorWeight: 3,
+              labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+              tabs: visibleStatuses.map((s) => Tab(text: s.label)).toList(),
+            ),
+            Expanded(
+              child: TabBarView(
+                children: visibleStatuses.map((status) {
+                  final items = _columns[status] ?? [];
+                  return RefreshIndicator(
+                    onRefresh: _fetchData,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: _KanbanColumn(
+                        status: status,
+                        items: items,
+                        isMobile: true,
+                        onAccept: (os) => _moveOS(os, status),
+                        onMoveTo: _moveOS,
+                        onCancel: _cancelOS,
+                        onToggleTimer: _toggleTimer,
+                        timers: _timers,
+                        elapsed: _elapsed,
+                        formatDuration: _formatDuration,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _fetchData,
       child: CustomScrollView(
@@ -446,7 +508,9 @@ class _KanbanTabState extends State<_KanbanTab> {
                 return _KanbanColumn(
                   status: status,
                   items: items,
+                  isMobile: false,
                   onAccept: (os) => _moveOS(os, status),
+                  onMoveTo: _moveOS,
                   onCancel: _cancelOS,
                   onToggleTimer: _toggleTimer,
                   timers: _timers,
@@ -465,7 +529,9 @@ class _KanbanTabState extends State<_KanbanTab> {
 class _KanbanColumn extends StatelessWidget {
   final StatusOS status;
   final List<OrdemServico> items;
+  final bool isMobile;
   final void Function(OrdemServico) onAccept;
+  final void Function(OrdemServico, StatusOS) onMoveTo;
   final void Function(OrdemServico) onCancel;
   final void Function(String) onToggleTimer;
   final Map<String, Timer?> timers;
@@ -475,7 +541,9 @@ class _KanbanColumn extends StatelessWidget {
   const _KanbanColumn({
     required this.status,
     required this.items,
+    required this.isMobile,
     required this.onAccept,
+    required this.onMoveTo,
     required this.onCancel,
     required this.onToggleTimer,
     required this.timers,
@@ -501,8 +569,8 @@ class _KanbanColumn extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
         return Container(
-          width: 320,
-          margin: const EdgeInsets.only(right: 20),
+          width: isMobile ? double.infinity : 320,
+          margin: isMobile ? EdgeInsets.zero : const EdgeInsets.only(right: 20),
           decoration: BoxDecoration(
             color: isHovering ? AppColors.surfaceSoft : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
@@ -544,6 +612,7 @@ class _KanbanColumn extends StatelessWidget {
                           elapsedSecs: elapsed[items[i].id] ?? 0,
                           onToggleTimer: () => onToggleTimer(items[i].id),
                           onCancel: () => onCancel(items[i]),
+                          onMove: (newStatus) => onMoveTo(items[i], newStatus),
                           formatDuration: formatDuration,
                         ),
                       ),
@@ -563,6 +632,7 @@ class _OSCard extends StatelessWidget {
   final int elapsedSecs;
   final VoidCallback onToggleTimer;
   final VoidCallback onCancel;
+  final void Function(StatusOS) onMove;
   final String Function(int) formatDuration;
 
   const _OSCard({
@@ -571,6 +641,7 @@ class _OSCard extends StatelessWidget {
     required this.elapsedSecs,
     required this.onToggleTimer,
     required this.onCancel,
+    required this.onMove,
     required this.formatDuration,
   });
 
@@ -657,6 +728,13 @@ class _OSCard extends StatelessWidget {
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
                   ),
+                   IconButton(
+                    icon: const Icon(Icons.low_priority, color: AppColors.brandTeal, size: 20),
+                    onPressed: () => _showMoveMenu(context),
+                    tooltip: 'Mover Pedido',
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                  ),
                   IconButton(
                     icon: const Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
                     onPressed: onCancel,
@@ -699,6 +777,53 @@ class _OSCard extends StatelessWidget {
                   ),
                 ),
               ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMoveMenu(BuildContext context) {
+    final statuses = StatusOS.values.where((s) => s != os.status && s != StatusOS.cancelada).toList();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Alterar Status', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 8),
+              Text('Selecione para onde mover esta OS', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+              const SizedBox(height: 24),
+              ...statuses.map((s) {
+                Color color;
+                switch (s) {
+                  case StatusOS.aguardandoOrcamento: color = AppColors.orange; break;
+                  case StatusOS.emProducao: color = AppColors.purple; break;
+                  case StatusOS.prontaParaRetirada: color = AppColors.brandGreen; break;
+                  case StatusOS.entregue: color = AppColors.steel; break;
+                  default: color = AppColors.brandTeal;
+                }
+                
+                return ListTile(
+                  leading: Container(
+                    width: 12, height: 12,
+                    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  ),
+                  title: Text(s.label, style: GoogleFonts.outfit(fontWeight: FontWeight.w500, fontSize: 15)),
+                  trailing: const Icon(Icons.chevron_right, size: 18),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    onMove(s);
+                  },
+                );
+              }),
             ],
           ),
         ),
@@ -794,13 +919,13 @@ class _FinancialTabState extends State<_FinancialTab> {
         children: [
           Text('Visão Geral', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: cs.onSurface)),
           const SizedBox(height: 24),
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
             children: [
-              Expanded(child: _KpiCard(title: 'FATURAMENTO', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: AppColors.brandGreen)),
-              const SizedBox(width: 16),
-              Expanded(child: _KpiCard(title: 'OS FINALIZADAS', value: '$osCompletedCount', icon: Icons.check_circle_outline, color: AppColors.purple)),
-              const SizedBox(width: 16),
-              Expanded(child: _KpiCard(title: 'TICKET MÉDIO', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: AppColors.orange)),
+              _KpiCard(title: 'FATURAMENTO', value: 'R\$ ${totalRevenue.toStringAsFixed(0)}', icon: Icons.attach_money, color: AppColors.brandGreen),
+              _KpiCard(title: 'OS FINALIZADAS', value: '$osCompletedCount', icon: Icons.check_circle_outline, color: AppColors.purple),
+              _KpiCard(title: 'TICKET MÉDIO', value: 'R\$ ${avgTicket.toStringAsFixed(0)}', icon: Icons.trending_up, color: AppColors.orange),
             ],
           ),
           const SizedBox(height: 40),
@@ -909,18 +1034,25 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 16),
-            Text(value, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-            const SizedBox(height: 4),
-            Text(title, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5)),
-          ],
+    final width = MediaQuery.of(context).size.width;
+    // Em telas pequenas, ocupa largura total. Em telas maiores (desktop), divide o espaço.
+    final cardWidth = width < 600 ? (width - 48) : (width - 48 - 32) / 3;
+
+    return SizedBox(
+      width: cardWidth,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 16),
+              Text(value, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+              const SizedBox(height: 4),
+              Text(title, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5)),
+            ],
+          ),
         ),
       ),
     );
@@ -1154,7 +1286,7 @@ class _CatalogTabState extends State<_CatalogTab> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 1.0,
+                childAspectRatio: 0.85,
               ),
               itemCount: _produtos.length,
               itemBuilder: (context, i) {
@@ -1416,9 +1548,12 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
             ),
             child: Column(
               children: [
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 250,
                       child: TextField(
                         controller: _clienteFilterController,
                         decoration: const InputDecoration(
@@ -1428,8 +1563,8 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 200,
                       child: TextField(
                         controller: _produtoFilterController,
                         decoration: const InputDecoration(
@@ -1439,17 +1574,19 @@ class _AdminHistoryTabState extends State<_AdminHistoryTab> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 200,
                       child: DropdownButtonFormField<StatusOS?>(
+                        isExpanded: true,
                         initialValue: _selectedStatus,
                         decoration: const InputDecoration(
                           labelText: 'Status do Pedido',
                           isDense: true,
+                          prefixIcon: Icon(Icons.filter_list, size: 18),
                         ),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('Todos')),
-                          ...StatusOS.values.map((s) => DropdownMenuItem(value: s, child: Text(s.label))),
+                          const DropdownMenuItem(value: null, child: Text('Todos', overflow: TextOverflow.ellipsis)),
+                          ...StatusOS.values.map((s) => DropdownMenuItem(value: s, child: Text(s.label, overflow: TextOverflow.ellipsis))),
                         ],
                         onChanged: (val) => setState(() => _selectedStatus = val),
                       ),

@@ -181,8 +181,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           foregroundColor: brandTealDeep,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                         ),
-                        child: _isLoading 
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brandTealDeep)) 
+                        child: _isLoading
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(AppColors.brandTealDeep))) 
                           : const Text('Login to Dashboard'),
                       ),
                     ),
@@ -192,6 +192,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () => Navigator.pushNamed(context, AppRoutes.forgotPassword),
                       child: Text('Esqueceu a senha?', style: TextStyle(color: brandGreen.withValues(alpha: 0.8))),
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Não tem uma conta?', style: TextStyle(color: subtitleColor)),
+                        TextButton(
+                          key: const Key('btn_go_register'),
+                          onPressed: () => Navigator.pushNamed(context, AppRoutes.register),
+                          child: Text('Cadastre-se', style: TextStyle(color: brandGreen, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+
                   ],
                 ),
               ),
