@@ -15,6 +15,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../admin_chat/presentation/admin_chat_list_tab.dart';
 import '../../admin_chat/presentation/admin_chat_conversation_screen.dart';
+import 'admin_usuarios_tab.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -237,6 +238,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const _AdminHistoryTab(),
           const _FinancialTab(),
           const _CatalogTab(),
+          const AdminUsuariosTab(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -269,6 +271,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2, color: AppColors.brandGreen),
             label: 'Catálogo',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people, color: AppColors.brandGreen),
+            label: 'Usuários',
           ),
         ],
       ),

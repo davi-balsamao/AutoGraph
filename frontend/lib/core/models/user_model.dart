@@ -8,6 +8,7 @@ class UserModel {
   final String? fcmToken;
   final String? enderecoCompleto;
   final String? enderecoReferencia;
+  final bool atendimentoHumano;
 
   const UserModel({
     required this.id,
@@ -18,6 +19,7 @@ class UserModel {
     this.fcmToken,
     this.enderecoCompleto,
     this.enderecoReferencia,
+    this.atendimentoHumano = false,
   });
 
   bool get isAdmin => role == 'GERENTE';
@@ -33,6 +35,7 @@ class UserModel {
       fcmToken: json['fcmToken'] as String?,
       enderecoCompleto: json['enderecoCompleto'] as String?,
       enderecoReferencia: json['enderecoReferencia'] as String?,
+      atendimentoHumano: json['atendimentoHumano'] as bool? ?? false,
     );
   }
 
@@ -45,5 +48,6 @@ class UserModel {
         'fcmToken': fcmToken,
         'enderecoCompleto': enderecoCompleto,
         'enderecoReferencia': enderecoReferencia,
+        'atendimentoHumano': atendimentoHumano,
       };
 }

@@ -141,6 +141,79 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Busca todos os usuários do sistema (apenas Admin/Gerente).
+  Future<List<UserModel>> fetchUsers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/users'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => UserModel.fromJson(json)).toList();
+      } else {
+        throw AuthException('Falha ao buscar usuários do sistema.');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Erro ao buscar usuários da API (retornando mock): $e');
+      // Mock de desenvolvimento offline
+      return [
+        const UserModel(id: 'c1', nome: 'Cliente 1 (Mock)', telefone: '11999990001', email: 'cliente1@test.com', role: 'CLIENTE', atendimentoHumano: false),
+        const UserModel(id: 'c2', nome: 'Cliente 2 (Mock)', telefone: '11999990002', email: 'cliente2@test.com', role: 'CLIENTE', atendimentoHumano: true),
+        const UserModel(id: 'usr-admin-mock', nome: 'Gerente AutoGraph (Mock)', telefone: '11999990000', email: 'admin@autograph.com', role: 'GERENTE', atendimentoHumano: false),
+      ];
+    }
+  }
+
+  /// Atualiza os dados de um usuário pelo ID (apenas Admin/Gerente).
+  Future<UserModel> updateUser(String id, {
+    required String nome,
+    required String email,
+    required String telefone,
+    required String role,
+    required bool atendimentoHumano,
+    String? enderecoCompleto,
+    String? enderecoReferencia,
+    String? senha,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/auth/users/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'nome': nome,
+          'email': email,
+          'telefone': telefone,
+          'role': role,
+          'atendimentoHumano': atendimentoHumano,
+          'enderecoCompleto': enderecoCompleto,
+          'enderecoReferencia': enderecoReferencia,
+          if (senha != null && senha.isNotEmpty) 'senha': senha,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final updatedUser = UserModel.fromJson(data['user']);
+        
+        // Se o usuário editado for o próprio usuário logado, atualiza o _currentUser
+        if (_currentUser?.id == id) {
+          _currentUser = updatedUser;
+          await _persistSession(updatedUser);
+          notifyListeners();
+        }
+        return updatedUser;
+      } else {
+        final data = jsonDecode(response.body);
+        throw AuthException(data['error'] ?? 'Falha ao atualizar dados do usuário.');
+      }
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw AuthException('Erro de conexão ao atualizar usuário: $e');
+    }
+  }
+
   Future<void> _persistSession(UserModel user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('autograph_user', jsonEncode(user.toJson()));

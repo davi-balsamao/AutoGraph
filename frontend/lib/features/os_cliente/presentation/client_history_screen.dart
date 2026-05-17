@@ -266,10 +266,12 @@ class _HistoryTabState extends State<_HistoryTab> {
     setState(() => _isLoading = true);
     try {
       final ordens = await OsService().fetchOrdensServico();
+      final currentClient = AuthService().currentUser;
       if (mounted) {
         setState(() {
-          ordens.sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
-          _ordens = ordens;
+          final filtradas = ordens.where((os) => os.clienteId == currentClient?.id).toList();
+          filtradas.sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
+          _ordens = filtradas;
         });
       }
     } catch (e) {
