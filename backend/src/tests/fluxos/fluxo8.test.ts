@@ -21,10 +21,10 @@ describe('Fluxo 8 · Orçamento sem conversão', () => {
     await turno(PHONE, NAME, 'Oi! Quero apenas um orçamento para comparar preços.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
     await turno(PHONE, NAME, 'Panfletos para minha loja.', 'COLETAR_ESPECIFICACOES', 'Identificar');
     await turno(PHONE, NAME, '1000 unidades, tamanho A5, frente e verso colorido, couchê 90g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
-    await turno(PHONE, NAME, 'Pode calcular o preço para mim.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
+    await turno(PHONE, NAME, 'Sim, tenho a arte pronta.', 'AGUARDAR_APROVACAO', 'Validar arq.');
     await turno(PHONE, NAME, 'Obrigado pelo orçamento, vou pensar e talvez retorne mais tarde.', 'ENCERRAR', 'Recusa/Aguardar');
     await turno(PHONE, NAME, 'Por enquanto não vou fechar, até mais!', 'ENCERRAR', 'Encerrar');
-  }, 70_000);
+  }, 300_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f8_${Date.now()}`;

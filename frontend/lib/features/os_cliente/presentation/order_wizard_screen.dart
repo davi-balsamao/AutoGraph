@@ -115,7 +115,7 @@ class _OrderWizardScreenState extends State<OrderWizardScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: isDark ? cs.surfaceContainerHighest.withValues(alpha: 0.5) : const Color(0xFFF0F4F8),
+                      color: isDark ? cs.surfaceContainerHighest.withValues(alpha: 0.5) : AppColors.surfaceSoft,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
                     ),

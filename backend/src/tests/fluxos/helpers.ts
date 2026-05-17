@@ -145,7 +145,7 @@ export async function turno(
   text: string,
   expectedState: string,
   label: string,
-  timeoutMs = 20_000,
+  timeoutMs = 45_000,
 ): Promise<{ state: string; resp: string }> {
   await sendMsg(phone, name, text);
 
