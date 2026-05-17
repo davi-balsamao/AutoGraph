@@ -11,7 +11,7 @@ const NEGOCIACAO = /\b(caro|caro demais|desconto|mais barato|abaixa|concorrente|
 // via ESCLARECER_DUVIDA explicando que precisa de mais info antes de calcular
 // (alinhado com Regras 3 e 10 das regras-gerais.md).
 export const DUVIDA =
-  /\b(dúvida|duvida|como funciona|o que é|qual a diferença|qual.{0,20}diferen[çc]a|diferen[çc]a (entre|t[ée]cnica)|explica|não entendi|nao entendi|não sei se|nao sei se|pre[çc]o|quanto custa|quanto fica|qual o valor|qual valor|qual o or[çc]amento|or[çc]amento|preciso saber o pre[çc]o|preciso saber|qual o custo|qual custo|valor|custa)\b/i;
+  /\b(dúvida|duvida|como funciona|o que é|qual a diferença|qual.{0,20}diferen[çc]a|diferen[çc]a (entre|t[ée]cnica)|explica|não entendi|nao entendi|não sei se|nao sei se|pre[çc]o|quanto custa|quanto fica|qual o valor|qual valor|qual o or[çc]amento|or[çc]amento|preciso saber o pre[çc]o|preciso saber|qual o custo|qual custo)\b/i;
 const RECLAMACAO = /\b(reclamação|reclamacao|problema grave|processo|advogado|péssimo|pessimo)\b/i;
 const ARTE_OK = /\b(enviei|mandei|anexei|segue a arte|arquivo ok|está certo|esta certo|pode usar)\b/i;
 const ENTREGA = /\b(entrega|entregar|retirada|retirar|buscar|endereço|endereco|rua|avenida|av\.|cep)\b/i;

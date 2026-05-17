@@ -157,7 +157,15 @@ export async function turno(
     await wait(1_500);
     state = await getSessionState(phone);
     resp  = await getLastBotResponse(phone);
-    if (state === expectedState) break;
+    if (state === expectedState) {
+      // Estado salvo antes da mensagem BOT em webhook.service.ts — um poll
+      // extra garante que o registro já está visível no DB.
+      if (!resp) {
+        await wait(1_500);
+        resp = await getLastBotResponse(phone);
+      }
+      break;
+    }
   }
 
   console.log(`\n[${label}]`);

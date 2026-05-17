@@ -98,7 +98,8 @@ export class LlmEntityExtractor {
   constructor() {
     const apiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
     // Saída JSON é garantida via instrução no prompt + parser tolerante a
-    // markdown code-fences. Não dependemos de flag específica da SDK aqui.
+    // markdown code-fences (parseLlmResponse). Não usamos responseMimeType
+    // da SDK porque a flag não é suportada de forma estável pelo LangChain.
     this.llm = new ChatGoogleGenerativeAI({
       temperature: 0,
       model: process.env.LLM_MODEL || 'gemini-2.0-flash',

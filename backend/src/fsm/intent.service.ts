@@ -50,7 +50,13 @@ export async function detectSessionIntent(
     return { type: 'NOVO_ATENDIMENTO' };
   }
 
-  // Caminho principal: LLM via EntityExtractionService.
+  // Early-exit 3: estados iniciais — NOVO_ATENDIMENTO/TROCAR_PRODUTO não fazem
+  // sentido antes de um produto estar travado na sessão. Evita LLM desnecessário.
+  if (!ESTADOS_COM_FLUXO_AVANCADO.has(estadoAtual)) {
+    return { type: 'NONE' };
+  }
+
+  // Caminho principal: LLM via EntityExtractionService (só para estados avançados).
   const entities = await entityExtractionService.extract(conversationHistory, {
     produtoAtual: produtoAtual ?? null,
   });

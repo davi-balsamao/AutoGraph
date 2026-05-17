@@ -69,10 +69,18 @@ export interface PedidoEntities {
 const MAX_CACHE_ENTRIES = 100;
 const extractCache = new Map<string, PedidoEntities>();
 
+function canonicalizarHistorico(historico: string): string {
+  return historico
+    .split('\n')
+    .filter((l) => l.startsWith('Cliente:'))
+    .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+    .join('\n');
+}
+
 function cacheKey(historico: string, produtoAtual?: string | null): string {
   return crypto
     .createHash('sha256')
-    .update(`${historico}|||${produtoAtual ?? ''}`)
+    .update(`${canonicalizarHistorico(historico)}|||${produtoAtual ?? ''}`)
     .digest('hex');
 }
 
