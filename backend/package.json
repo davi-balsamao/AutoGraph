@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "start": "npx prisma migrate deploy && npm run seed:prod && node dist/src/server.js",
+    "start": "NODE_TLS_REJECT_UNAUTHORIZED=0 npx ts-node src/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:guardrails": "ts-node-dev src/scripts/test-guardrails.ts",
     "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",
