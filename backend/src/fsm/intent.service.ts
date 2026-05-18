@@ -20,6 +20,9 @@ const NOVO_ATENDIMENTO_OBVIO = /^(cancela tudo|esquece tudo|recome[çc]ar do zer
 
 const SAUDACAO_REINICIO = /^(oi|olá|ola|bom dia|boa tarde|boa noite|opa|e aí|eai)[\s,!.]*$/i;
 
+const MENSAGEM_PROCESSO_ARQUIVO = /\b(pdf|jpg|png|psd|ai|cdr|exportar|salvar|camadas|achatadas|aguarda|aguardar|esperar|espera|reenviei|enviei|anexei|segue)\b/i;
+const MENSAGEM_CURTA_CONFIRMACAO = /^(entendi|ok|beleza|fechado|perfeito|t[áa] bom|certo|sim|n[ãa]o|isso)[\s,!.]*$/i;
+
 const ESTADOS_COM_FLUXO_AVANCADO = new Set<ConversationState>([
   ConversationState.COLETAR_ESPECIFICACOES,
   ConversationState.VALIDAR_ARQUIVO,
@@ -53,6 +56,12 @@ export async function detectSessionIntent(
   // Early-exit 3: estados iniciais — NOVO_ATENDIMENTO/TROCAR_PRODUTO não fazem
   // sentido antes de um produto estar travado na sessão. Evita LLM desnecessário.
   if (!ESTADOS_COM_FLUXO_AVANCADO.has(estadoAtual)) {
+    return { type: 'NONE' };
+  }
+
+  // Early-exit 4: mensagens de andamento do processo (arquivos) ou curtas concordâncias
+  // claramente não são intenções de recomeçar ou trocar o produto.
+  if (MENSAGEM_PROCESSO_ARQUIVO.test(msg) || MENSAGEM_CURTA_CONFIRMACAO.test(msg)) {
     return { type: 'NONE' };
   }
 

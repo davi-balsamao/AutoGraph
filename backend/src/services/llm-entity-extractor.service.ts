@@ -50,7 +50,7 @@ export interface LlmExtractResult {
   resolveuReferencia: { texto: string; referenciaEncontrada: string } | null;
 }
 
-const DEFAULT_TIMEOUT_MS = 5_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 function buildPrompt(input: LlmExtractInput): string {
   const produtos = input.catalogoProdutos.join(', ');

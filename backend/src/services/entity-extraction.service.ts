@@ -128,6 +128,57 @@ function lookupSpecCaseInsensitive(
   }
   return null;
 }
+function postProcessRequirements(
+  requisitos: RequisitoStatus[],
+  produto: string
+): RequisitoStatus[] {
+  if (produto !== 'Cartão de Visita') {
+    return requisitos;
+  }
+
+  // Encontrar os requisitos do cartão de visita
+  const quantidadeReq = requisitos.find(r => r.pergunta.toLowerCase().includes('quantidade'));
+  const frenteVersoReq = requisitos.find(r => r.pergunta.toLowerCase().includes('frente') && r.pergunta.toLowerCase().includes('verso'));
+  const vernizTotalReq = requisitos.find(r => r.pergunta.toLowerCase().includes('verniz total'));
+  const laminacaoReq = requisitos.find(r => r.pergunta.toLowerCase().includes('laminação fosca'));
+
+  if (!frenteVersoReq || !frenteVersoReq.preenchido || !frenteVersoReq.resposta) {
+    return requisitos;
+  }
+
+  const lados = frenteVersoReq.resposta.toLowerCase();
+  const isSoFrente = lados.includes('só frente') || lados.includes('so frente') || lados.includes('4x0');
+
+  // Se for Só Frente, o acabamento padrão é apenas Refile (não tem verniz total nem laminação fosca)
+  if (isSoFrente) {
+    if (vernizTotalReq && !vernizTotalReq.preenchido) {
+      vernizTotalReq.resposta = 'Não';
+      vernizTotalReq.preenchido = true;
+    }
+    if (laminacaoReq && !laminacaoReq.preenchido) {
+      laminacaoReq.resposta = 'Não';
+      laminacaoReq.preenchido = true;
+    }
+  } else {
+    // Se for Frente e Verso
+    // Se o cliente já especificou laminação fosca, então não terá verniz total (são mutuamente exclusivos)
+    if (laminacaoReq && laminacaoReq.preenchido && laminacaoReq.resposta && !laminacaoReq.resposta.toLowerCase().includes('não') && !laminacaoReq.resposta.toLowerCase().includes('nao')) {
+      if (vernizTotalReq && !vernizTotalReq.preenchido) {
+        vernizTotalReq.resposta = 'Não';
+        vernizTotalReq.preenchido = true;
+      }
+    }
+    // Se o cliente já especificou verniz total, então não terá laminação fosca
+    if (vernizTotalReq && vernizTotalReq.preenchido && vernizTotalReq.resposta && !vernizTotalReq.resposta.toLowerCase().includes('não') && !vernizTotalReq.resposta.toLowerCase().includes('nao')) {
+      if (laminacaoReq && !laminacaoReq.preenchido) {
+        laminacaoReq.resposta = 'Não';
+        laminacaoReq.preenchido = true;
+      }
+    }
+  }
+
+  return requisitos;
+}
 
 // --- Classe ---
 
@@ -269,7 +320,7 @@ export class EntityExtractionService {
 
     const foraCatalogo = [
       'camiseta', 'caneca', 'placa', 'adesivo', 'plotagem', 'sublimação', 'sublimacao',
-      'brinde', 'crachá', 'cracha', 'uniforme',
+      'brinde', 'crachá', 'cracha', 'uniforme', 'copo', 'copos'
     ];
     return foraCatalogo.some((termo) => textoLower.includes(termo));
   }
@@ -369,9 +420,14 @@ export class EntityExtractionService {
 
       // Heurística: frente/verso
       if (perguntaLower.includes('frente') && perguntaLower.includes('verso')) {
-        if (textoLower.includes('frente e verso')) {
+        if (textoLower.includes('frente e verso') || (textoLower.includes('frente') && textoLower.includes('verso'))) {
           resposta = 'Frente e verso';
-        } else if (textoLower.includes('só frente') || textoLower.includes('so frente')) {
+        } else if (
+          textoLower.includes('só frente') ||
+          textoLower.includes('so frente') ||
+          textoLower.includes('frente colorida') ||
+          (textoLower.includes('frente') && !textoLower.includes('verso'))
+        ) {
           resposta = 'Só frente';
         }
       }
@@ -576,7 +632,7 @@ export class EntityExtractionService {
       };
     }
 
-    const requisitos: RequisitoStatus[] = produto.requisitos_orcamento.map((pergunta) => {
+    const rawRequisitos: RequisitoStatus[] = produto.requisitos_orcamento.map((pergunta) => {
       const resposta = lookupSpecCaseInsensitive(llm.specs, pergunta);
       return {
         pergunta,
@@ -584,6 +640,8 @@ export class EntityExtractionService {
         preenchido: resposta !== null && resposta !== '',
       };
     });
+
+    const requisitos = postProcessRequirements(rawRequisitos, produto.produto);
 
     const perguntasFaltantes = requisitos.filter((r) => !r.preenchido).map((r) => r.pergunta);
     return {
@@ -625,7 +683,8 @@ export class EntityExtractionService {
       };
     }
 
-    const requisitos = this.extrairRespostas(conversationHistory, produto.requisitos_orcamento);
+    const rawRequisitos = this.extrairRespostas(conversationHistory, produto.requisitos_orcamento);
+    const requisitos = postProcessRequirements(rawRequisitos, produto.produto);
 
     const perguntasFaltantes = requisitos
       .filter((r) => !r.preenchido)

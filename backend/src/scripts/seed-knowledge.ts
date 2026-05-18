@@ -11,8 +11,16 @@ dotenv.config();
 async function main() {
   console.log('🚀 Iniciando o seeding Otimizado da Base de Conhecimento...');
 
+  // Check if we already have knowledge documents to avoid slow API embedding calls
+  const countResult = await prisma.$queryRaw<Array<{ count: string | number | bigint }>>`SELECT COUNT(*) as count FROM "DocumentosConhecimento"`;
+  const docCount = Number(countResult[0]?.count || 0);
+  if (docCount > 0) {
+    console.log(`✅ Base de Conhecimento já possui ${docCount} documentos. Pulando seeding.`);
+    return;
+  }
+
   const embeddings = new GoogleGenerativeAIEmbeddings({
-    modelName: 'gemini-embedding-001',
+    modelName: 'gemini-embedding-2',
     apiKey: process.env.GOOGLE_API_KEY,
   });
 
@@ -54,12 +62,62 @@ async function main() {
   // Limpar tabela
   await prisma.$executeRaw`DELETE FROM "DocumentosConhecimento"`;
 
-  // 3. Gerar Embeddings em Lote (Evita Rate Limits e é 10x mais rápido)
+  // 3. Gerar Embeddings em Lote (Evita Rate Limits e falhas silenciosas de payload)
   const textos = rawDocuments.map(doc => doc.pageContent);
-  const vetores = await embeddings.embedDocuments(textos);
+  const vetores: number[][] = [];
+  
+  const BATCH_SIZE = 30;      // Aumentado de 3 para 30 para reduzir número de chamadas de API e acelerar o seed
+  const DELAY_MS = 5000;     // 5s entre lotes
+  const MAX_RETRIES = 3;     // Tentativas por lote
+
+  const totalBatches = Math.ceil(textos.length / BATCH_SIZE);
+
+  for (let i = 0; i < textos.length; i += BATCH_SIZE) {
+    const batch = textos.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    console.log(`⏳ Gerando vetores para lote ${batchNum}/${totalBatches} (${batch.length} docs)...`);
+
+    let success = false;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const batchVetores = await embeddings.embedDocuments(batch);
+
+        // Verificar se todos os vetores são válidos (não vazios)
+        const allValid = batchVetores.every(v => v && v.length > 0);
+        if (!allValid) {
+          throw new Error('API retornou vetores vazios — possível rate-limit silencioso');
+        }
+
+        vetores.push(...batchVetores);
+        success = true;
+        break;
+      } catch (err: any) {
+        console.warn(`⚠️ Tentativa ${attempt}/${MAX_RETRIES} falhou para lote ${batchNum}: ${err.message || err}`);
+        if (attempt < MAX_RETRIES) {
+          const backoff = DELAY_MS * attempt; // Backoff exponencial: 5s, 10s, 15s
+          console.log(`   ⏳ Aguardando ${backoff / 1000}s antes de tentar novamente...`);
+          await new Promise(resolve => setTimeout(resolve, backoff));
+        }
+      }
+    }
+
+    if (!success) {
+      console.error(`❌ Lote ${batchNum} falhou após ${MAX_RETRIES} tentativas. Preenchendo com vetores vazios.`);
+      vetores.push(...batch.map(() => []));
+    }
+
+    // Delay entre lotes para respeitar rate-limit
+    if (i + BATCH_SIZE < textos.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+    }
+  }
 
   // 4. Inserção no Banco
   for (let i = 0; i < rawDocuments.length; i++) {
+    if (!vetores[i] || vetores[i].length === 0) {
+      console.warn(`⚠️ Vetor vazio retornado para o documento: ${rawDocuments[i].pageContent.substring(0, 50)}... Pulando.`);
+      continue;
+    }
     const vectorString = `[${vetores[i].join(',')}]`;
 
     await prisma.$executeRaw`

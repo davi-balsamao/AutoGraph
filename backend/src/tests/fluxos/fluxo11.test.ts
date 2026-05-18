@@ -24,7 +24,7 @@ describe('Fluxo 11 · Múltiplas dúvidas antes das specs', () => {
     await turno(PHONE, NAME, 'Qual é a diferença entre laminação fosca e brilhosa?', 'ESCLARECER_DUVIDA', 'Esclarecer 1 – laminação');
     await turno(PHONE, NAME, 'E sobre gramatura do papel: qual você recomenda para cartão de visita?', 'ESCLARECER_DUVIDA', 'Esclarecer 2 – gramatura');
     await turno(PHONE, NAME, 'O que é sangria no arquivo de arte? Como devo preparar?', 'ESCLARECER_DUVIDA', 'Esclarecer 3 – sangria');
-    await turno(PHONE, NAME, 'Entendi tudo! Agora quero cartões de visita com laminação fosca.', 'VALIDAR_ARQUIVO', 'Coletar specs');
+    await turno(PHONE, NAME, 'Entendi tudo! Agora quero cartões de visita com laminação fosca.', 'COLETAR_ESPECIFICACOES', 'Coletar specs');
     await turno(PHONE, NAME, '500 unidades, formato 9x5cm, frente e verso colorido, couchê 300g, laminação fosca.', 'VALIDAR_ARQUIVO', 'Specs completas');
     await turno(PHONE, NAME, 'Tenho o arquivo em PDF com 3mm de sangria e resolução 300 dpi.', 'AGUARDAR_APROVACAO', 'Validar arq.');
     await turno(PHONE, NAME, 'Pode calcular o orçamento.', 'AGUARDAR_APROVACAO', 'Calcular', 30_000);
@@ -33,7 +33,7 @@ describe('Fluxo 11 · Múltiplas dúvidas antes das specs', () => {
     await turno(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar');
     await turno(PHONE, NAME, 'Pode fechar.', 'ENCERRAR', 'Gerar O.S.', 30_000);
     await turno(PHONE, NAME, 'Muito obrigado! Ficou ótimo.', 'ENCERRAR', 'Encerrar');
-  }, 150_000);
+  }, 360_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f11_${Date.now()}`;

@@ -80,7 +80,12 @@ export class TransitionService {
         if (RECUSA.test(msg)) return ConversationState.ENCERRAR;
         if (APROVACAO.test(msg)) return ConversationState.COLETAR_DADOS_ENTREGA;
         if (NEGOCIACAO.test(msg)) return ConversationState.NEGOCIAR;
-        if (DUVIDA.test(msg)) return ConversationState.ESCLARECER_DUVIDA;
+        if (DUVIDA.test(msg)) {
+          if (context.orcamento && (msg.includes('calcular') || msg.includes('calcula') || msg.includes('faz o') || msg.includes('pode fazer') || msg.includes('gera o'))) {
+            return current;
+          }
+          return ConversationState.ESCLARECER_DUVIDA;
+        }
         return current;
 
       case ConversationState.NEGOCIAR:

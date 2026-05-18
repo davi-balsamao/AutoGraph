@@ -20,6 +20,7 @@ export class GuardrailsService {
     'produto', 'preço', 'prazo', 'material', 'gráfica', 'impressão', 'banner',
     'cartão', 'panfleto', 'adesivo', 'arte', 'design', 'milheiro', 'cento', 'gramatura',
     'verniz', 'fosco', 'brilho', 'tamanho', 'cores', 'orçamento', 'pix', 'desconto',
+    'laminação', 'acabamento', 'sangria', 'papel', 'couché', 'offset', 'lona', 'vinil',
   ];
 
   private outOfScopeMessage =

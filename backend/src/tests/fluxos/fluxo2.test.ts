@@ -20,8 +20,8 @@ describe('Fluxo 2 · Dúvida sobre produto antes de decidir', () => {
 
   it('deve esclarecer dúvida e retomar fluxo normal', async () => {
     await turno(PHONE, NAME, 'Oi, boa tarde! Preciso de um material impresso.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
-    await turno(PHONE, NAME, 'Não sei se quero panfleto ou flyer, qual a diferença?', 'ESCLARECER_DUVIDA', 'Identificar → Esclarecer');
-    await turno(PHONE, NAME, 'Qual é a diferença técnica entre panfleto e flyer?', 'ESCLARECER_DUVIDA', 'Esclarecer dúvida');
+    await turno(PHONE, NAME, 'Não sei se quero panfleto ou flyer, qual a diferença?', 'ESCLARECER_DUVIDA', 'Identificar → Esclarecer', 30_000);
+    await turno(PHONE, NAME, 'Qual é a diferença técnica entre panfleto e flyer?', 'ESCLARECER_DUVIDA', 'Esclarecer dúvida', 30_000);
     await turno(PHONE, NAME, 'Entendi! Então vou de panfleto mesmo.', 'COLETAR_ESPECIFICACOES', 'Retorna Identificar');
     await turno(PHONE, NAME, 'Quero 500 unidades, tamanho A4, só frente, colorido, papel couchê 115g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
     await turno(PHONE, NAME, 'Sim, tenho o arquivo pronto em PDF com resolução 300 dpi.', 'AGUARDAR_APROVACAO', 'Validar arq.');

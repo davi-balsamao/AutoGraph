@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { prisma } from '../config/prisma';
 import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 import { createChatLlm, nextEmbeddingApiKey } from './llm-factory';
@@ -12,9 +15,6 @@ import { Document } from '@langchain/core/documents';
 import { buildSystemPrompt, RAG_HUMAN_PROMPT, RAG_SYSTEM_PROMPT } from './rag-template';
 import { ConversationContext, ConversationState } from '../fsm/states';
 import { guardrailsService } from './guardrails.service';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 interface RetrievedDocument {
   id: string;

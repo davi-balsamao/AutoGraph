@@ -16,7 +16,7 @@ const IS_QUESTION =
  * Inclui formas curtas ("ok", "vou de X") e longas ("então prefiro").
  */
 const MOVING_FORWARD =
-  /\b(então|entendi|obrigad|ok|beleza|certo|perfeito|combinado|fechado|vou de|vou com|vou nos|fico com|prefiro|escolho|gosto de|pode fazer)\b/i;
+  /\b(então|entendi|obrigad|ok|beleza|certo|perfeito|combinado|fechado|vou de|vou com|vou nos|fico com|prefiro|escolho|gosto de|pode fazer|enviei|reenviei|mandei|anexei|segue|pronto|pronta|sim)\b/i;
 
 /**
  * Handler do estado ESCLARECER_DUVIDA — o estado mais maleável da FSM.
@@ -62,7 +62,11 @@ export class EsclarecerDuvidaHandler implements StateHandler {
     );
 
     const isQuestion = IS_QUESTION.test(message);
-    const movingForward = MOVING_FORWARD.test(message);
+    const PAUSA_OU_FORMATO = /\b(exportar|pdf|jpg|png|tiff|formato|extensão|extensao|aguardar|esperar|salvar)\b/i;
+    const SUBMISSION_RE = /\b(enviei|reenviei|mandei|anexei|segue)\b/i;
+    const movingForward =
+      MOVING_FORWARD.test(message) &&
+      (SUBMISSION_RE.test(message) || !PAUSA_OU_FORMATO.test(message));
 
     // SAÍDA: progresso explícito sem nova pergunta.
     if (movingForward && !isQuestion) {
@@ -81,7 +85,7 @@ export class EsclarecerDuvidaHandler implements StateHandler {
       // Chain pra que o handler de destino processe a mesma mensagem
       // (ex.: "Sim, tenho a arte" em VALIDAR_ARQUIVO encadeia CALCULAR → APRESENTAR).
       return {
-        response: ragResult.answer,
+        response: '',
         nextState,
         updatedContext: context,
         chainNext: nextState,

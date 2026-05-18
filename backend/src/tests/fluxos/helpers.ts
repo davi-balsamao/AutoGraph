@@ -199,6 +199,7 @@ export async function turno(
   }
 
   console.log(`\n[${label}]`);
+  console.log(`  Cliente: "${text}"`);
   console.log(`  Estado : ${state}  (esperado: ${expectedState})`);
   console.log(`  Bot    : ${resp}${expectNewResponse && !respIsNew ? '  ⚠️ (resposta NÃO renovada)' : ''}`);
 
