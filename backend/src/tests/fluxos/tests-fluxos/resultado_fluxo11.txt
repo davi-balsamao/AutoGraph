@@ -1,0 +1,316 @@
+  console.log
+    
+    [Boas-vindas]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Olá! Tenho bastante dúvida antes de fazer o pedido."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : IDENTIFICAR_NECESSIDADE  (esperado: IDENTIFICAR_NECESSIDADE)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Boa noite, A AutoGraph agradece o seu contato! Como posso te ajudar?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Identificar]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Quero cartões de visita, mas preciso entender as opções primeiro."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : COLETAR_ESPECIFICACOES  (esperado: COLETAR_ESPECIFICACOES)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Qual quantidade deseja?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Esclarecer 1 – laminação]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Qual é a diferença entre laminação fosca e brilhosa?"
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ESCLARECER_DUVIDA  (esperado: ESCLARECER_DUVIDA)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Não tenho essa informação no momento.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Esclarecer 2 – gramatura]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "E sobre gramatura do papel: qual você recomenda para cartão de visita?"
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ESCLARECER_DUVIDA  (esperado: ESCLARECER_DUVIDA)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Não tenho essa informação no momento.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Esclarecer 3 – sangria]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "O que é sangria no arquivo de arte? Como devo preparar?"
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ESCLARECER_DUVIDA  (esperado: ESCLARECER_DUVIDA)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Não tenho essa informação no momento.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Coletar specs]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Entendi tudo! Agora quero cartões de visita com laminação fosca."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : COLETAR_ESPECIFICACOES  (esperado: COLETAR_ESPECIFICACOES)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Qual quantidade deseja?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Specs completas]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "500 unidades, formato 9x5cm, frente e verso colorido, couchê 300g, laminação fosca."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : VALIDAR_ARQUIVO  (esperado: VALIDAR_ARQUIVO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Você já tem o arquivo de arte pronto para enviar? Aceitamos PDF, JPG, PNG ou TIFF.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Validar arq.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Tenho o arquivo em PDF com 3mm de sangria e resolução 300 dpi."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : AGUARDAR_APROVACAO  (esperado: AGUARDAR_APROVACAO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Orçamento aprovado! O valor total para Cartão de Visita fica em R$ 275,00. Prazo de produção: 3 dias úteis. Validade: 3 dias úteis. O pagamento pode ser feito via Pix ou Cartão em até 3x.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Calcular]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Pode calcular o orçamento."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : AGUARDAR_APROVACAO  (esperado: AGUARDAR_APROVACAO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Não tenho essa informação no momento.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Aguardar aprov.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Aprovado! Exatamente o que esperava."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : COLETAR_DADOS_ENTREGA  (esperado: COLETAR_DADOS_ENTREGA)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Você prefere retirar na loja ou receber por entrega?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Dados entrega]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Vou retirar na loja."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : CONFIRMAR_PEDIDO  (esperado: CONFIRMAR_PEDIDO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Vamos confirmar seu pedido:
+    📦 *Produto*: Cartão de Visita
+    📋 *Especificações*:
+       • Terá verniz total: Não
+       • Qual quantidade deseja: 500 unidades
+       • A impressão será só frente ou frente e verso: Frente e verso
+       • Terá laminação fosca e verniz localizado? Se sim, só frente ou frente e verso: Com laminação fosca
+    💰 *Valor total*: R$ 275,00
+    ⏱️ *Prazo de produção*: 3 dias úteis
+    🚚 *Entrega*: Retirada na loja
+    
+    Confirma este pedido?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Confirmar]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Confirmo o pedido."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ENCERRAR  (esperado: ENCERRAR)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Pedido registrado! Sua Ordem de Serviço é a número F99BF029. Nossa equipe entrará em contato para combinar o pagamento e os próximos passos. Obrigada pela preferência!
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Gerar O.S.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Pode fechar."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ENCERRAR  (esperado: ENCERRAR)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Obrigada pelo contato, Kleber! Sua O.S. F99BF029 já está registrada. Qualquer dúvida, é só chamar por aqui. Até logo!
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Encerrar]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Muito obrigado! Ficou ótimo."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ENCERRAR  (esperado: ENCERRAR)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Obrigada pelo contato, Kleber! Sua O.S. F99BF029 já está registrada. Qualquer dúvida, é só chamar por aqui. Até logo!
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+PASS src/tests/fluxos/fluxo11.test.ts (212.026 s)
+  Fluxo 11 · Múltiplas dúvidas antes das specs
+    ✓ deve responder múltiplas dúvidas técnicas e retomar coleta de specs (199004 ms)
+    ✓ deve ignorar mensagem duplicada (retry da Meta) (8022 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        212.207 s
+Ran all test suites matching src/tests/fluxos/fluxo11.test.ts.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

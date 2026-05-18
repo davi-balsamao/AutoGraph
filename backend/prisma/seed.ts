@@ -4,14 +4,20 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL is not defined in your environment variables.');
+}
+
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+// Usamos 'as any' temporariamente se o npx prisma generate não tiver sido lido pelo TS ainda
+const prisma = new PrismaClient({ adapter }) as any;
 
 async function main() {
-  console.log('Start seeding...');
+  console.log('🚀 Start seeding...');
 
-  // Upsert Cliente Mock Flutter (usr-client-001)
+  // 1. Upsert Cliente Mock Flutter (usr-client-001)
   const cliente = await prisma.usuario.upsert({
     where: { email: 'cliente@exemplo.com' },
     update: {},
@@ -24,9 +30,9 @@ async function main() {
       role: 'CLIENTE',
     },
   });
-  console.log(`Created/Updated cliente: ${cliente.nome}`);
+  console.log(`✅ Created/Updated cliente: ${cliente.nome}`);
 
-  // Upsert Cliente Fallback Flutter (c1)
+  // 2. Upsert Cliente Fallback Flutter (c1)
   const clienteC1 = await prisma.usuario.upsert({
     where: { email: 'c1@exemplo.com' },
     update: {},
@@ -39,9 +45,9 @@ async function main() {
       role: 'CLIENTE',
     },
   });
-  console.log(`Created/Updated cliente fallback: ${clienteC1.nome}`);
+  console.log(`✅ Created/Updated cliente fallback: ${clienteC1.nome}`);
 
-  // Upsert Gerente Mock Flutter (usr-admin-001)
+  // 3. Upsert Gerente Mock Flutter (usr-admin-001)
   const gerente = await prisma.usuario.upsert({
     where: { email: 'admin@autograph.com' },
     update: {},
@@ -54,9 +60,9 @@ async function main() {
       role: 'GERENTE',
     },
   });
-  console.log(`Created/Updated gerente: ${gerente.nome}`);
+  console.log(`✅ Created/Updated gerente: ${gerente.nome}`);
 
-  // Upsert Produtos do Catálogo
+  // 4. Upsert Produtos do Catálogo
   const produtos = [
     {
       nome: 'Cartão de Visita',
@@ -100,17 +106,18 @@ async function main() {
       },
       create: prod,
     });
-    console.log(`Created/Updated produto: ${upsertedProd.nome}`);
+    console.log(`📦 Created/Updated produto: ${upsertedProd.nome}`);
   }
 
-  console.log('Seeding finished.');
+  console.log('⭐ Seeding finished successfully.');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Error during seeding:', e);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end(); // Importante fechar o pool do pg para o processo encerrar
   });

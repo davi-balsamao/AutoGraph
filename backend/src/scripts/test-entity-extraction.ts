@@ -86,9 +86,10 @@ console.log(`📦 Produtos disponíveis: ${entityExtractionService.getAvailableP
 let acertos = 0;
 let total = testCases.length;
 
+(async () => {
 for (const tc of testCases) {
   console.log(`--- ${tc.nome} ---`);
-  const resultado = entityExtractionService.extract(tc.historico);
+  const resultado = await entityExtractionService.extract(tc.historico);
 
   // Verificar produto
   const produtoCorreto = resultado.produtoIdentificado === tc.produtoEsperado;
@@ -120,3 +121,4 @@ for (const tc of testCases) {
 console.log('============================================');
 console.log(`  Resultado: ${acertos}/${total} produtos identificados corretamente`);
 console.log('============================================\n');
+})();

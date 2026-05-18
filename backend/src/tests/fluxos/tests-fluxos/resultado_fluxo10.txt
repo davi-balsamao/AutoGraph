@@ -1,0 +1,107 @@
+  console.log
+    
+    [Boas-vindas + produto indisp.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Oi! Quero copos personalizados com o logo da minha empresa."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : IDENTIFICAR_NECESSIDADE  (esperado: IDENTIFICAR_NECESSIDADE)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Boa tarde, A AutoGraph agradece o seu contato! Como posso te ajudar?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Identificar → Prod. indisp.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Preciso de 100 copos com meu logo impresso."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : PRODUTO_INDISPONIVEL  (esperado: PRODUTO_INDISPONIVEL)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Esse item não está no nosso catálogo. O que oferecemos é:
+    • Panfletos
+    • Cartão de Visita
+    • Blocos
+    • Banner ou Lona
+    • Apostila
+    Algum desses te interessa?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Alternativa]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Entendido, vocês não fazem copos. Tem alguma alternativa impressa?"
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : PRODUTO_INDISPONIVEL  (esperado: PRODUTO_INDISPONIVEL)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Esse item não está no nosso catálogo. O que oferecemos é:
+    • Panfletos
+    • Cartão de Visita
+    • Blocos
+    • Banner ou Lona
+    • Apostila
+    Algum desses te interessa?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Encerrar]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Tudo bem, por enquanto não preciso de mais nada. Obrigado!"
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ENCERRAR  (esperado: ENCERRAR)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Tudo bem! Se precisar de algo do nosso catálogo, é só chamar. Bom dia!
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+PASS src/tests/fluxos/fluxo10.test.ts (106.498 s)
+  Fluxo 10 · Produto fora do catálogo
+    ✓ deve informar produto indisponível e encerrar com educação (95094 ms)
+    ✓ deve ignorar mensagem duplicada (retry da Meta) (8021 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        106.573 s
+Ran all test suites matching src/tests/fluxos/fluxo10.test.ts.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

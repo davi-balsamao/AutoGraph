@@ -1,66 +1,88 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/chat_message.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
   factory ChatService() => _instance;
-  ChatService._internal();
 
-  final List<ChatMessage> _mockMessages = [
-    ChatMessage(
-      id: '1',
-      senderId: 'client1',
-      receiverId: 'admin',
-      text: 'Olá, gostaria de saber o status do meu pedido de panfletos.',
-      type: MessageType.text,
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      isFromRAG: true,
-    ),
-    ChatMessage(
-      id: '2',
-      senderId: 'admin',
-      receiverId: 'client1',
-      text: 'Olá! Seu pedido está em fase de impressão.',
-      type: MessageType.text,
-      timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 50)),
-      isFromRAG: true,
-    ),
-    ChatMessage(
-      id: '3',
-      senderId: 'client1',
-      receiverId: 'admin',
-      text: 'Perfeito. Posso enviar a logo atualizada?',
-      type: MessageType.text,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
-      isFromRAG: false,
-    ),
-    ChatMessage(
-      id: '4',
-      senderId: 'client1',
-      receiverId: 'admin',
-      mediaUrl: 'https://example.com/logo.png',
-      fileName: 'logo_v2.png',
-      type: MessageType.image,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 44)),
-      isFromRAG: false,
-    ),
-  ];
+  late io.Socket _socket;
+  final StreamController<ChatMessage> _messageStreamController = StreamController<ChatMessage>.broadcast();
+  final List<ChatMessage> _messages = [];
 
+  ChatService._internal() {
+    _initSocket();
+  }
+
+  void _initSocket() {
+    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+
+    _socket = io.io(serverUrl, io.OptionBuilder()
+      .setTransports(['websocket'])
+      .enableAutoConnect()
+      .build());
+
+    _socket.onConnect((_) {
+      debugPrint('✅ [SOCKET FRONTEND] Conectado ao Backend Node.js com sucesso!');
+    });
+
+    _socket.onDisconnect((_) {
+      debugPrint('❌ [SOCKET FRONTEND] Conexão com o servidor perdida.');
+    });
+
+    _socket.on('message', (data) {
+      debugPrint('📩 [SOCKET FRONTEND] Dado bruto recebido do Node.js: $data');
+      try {
+        final message = ChatMessage(
+          id: data['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          senderId: data['senderId']?.toString() ?? '',
+          receiverId: data['receiverId']?.toString() ?? '',
+          text: data['text']?.toString() ?? '',
+          type: data['type'] == 'image' ? MessageType.image : MessageType.text,
+          timestamp: data['timestamp'] != null 
+              ? DateTime.parse(data['timestamp']) 
+              : DateTime.now(),
+          isFromRAG: data['isFromRAG'] ?? false,
+          mediaUrl: data['mediaUrl']?.toString(),
+          fileName: data['fileName']?.toString(),
+        );
+
+        _messages.add(message);
+        _messageStreamController.add(message);
+        debugPrint('✅ [SOCKET FRONTEND] Mensagem adicionada ao fluxo com sucesso!');
+      } catch (e) {
+        debugPrint('❌ [SOCKET FRONTEND] Erro ao converter JSON: $e');
+      }
+    });
+  }
+
+  // 🎯 FILTRO RESTAURADO: Só retorna as mensagens do cliente específico
   Future<List<ChatMessage>> getMessages(String clientId) async {
-    // Simulating API call
-    await Future.delayed(const Duration(milliseconds: 500));
-    return _mockMessages.where((m) => m.senderId == clientId || m.receiverId == clientId).toList()
+    return _messages.where((m) => m.senderId == clientId || m.receiverId == clientId).toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
   Future<void> sendMessage(ChatMessage message) async {
-    // Simulating API call
-    await Future.delayed(const Duration(milliseconds: 300));
-    _mockMessages.add(message);
+    _messages.add(message);
+    _messageStreamController.add(message);
+
+    _socket.emit('message', {
+      'senderId': message.senderId,
+      'receiverId': message.receiverId,
+      'text': message.text,
+      'type': message.type == MessageType.image ? 'image' : 'text',
+      'timestamp': message.timestamp.toIso8601String(),
+      'isFromRAG': message.isFromRAG,
+      'mediaUrl': message.mediaUrl,
+      'fileName': message.fileName,
+    });
   }
 
-  Stream<ChatMessage> get messageStream {
-    // In a real app, this would be a WebSocket or SSE stream
-    return StreamController<ChatMessage>().stream;
+  Stream<ChatMessage> get messageStream => _messageStreamController.stream;
+
+  void dispose() {
+    _messageStreamController.close();
+    _socket.dispose();
   }
 }
