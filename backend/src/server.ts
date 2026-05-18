@@ -67,10 +67,30 @@ io.on('connection', (socket) => {
         await whatsappService.sendMessage(data.receiverId, data.text);
         
         // 2. SILENCIADOR DA IA: Atualiza o banco de dados para avisar que o humano assumiu!
-        await prisma.usuario.updateMany({
-          where: { telefone: data.receiverId },
-          data: { atendimentoHumano: true }
-        });
+        const cliente = await prisma.usuario.findFirst({ where: { telefone: data.receiverId } });
+        if (cliente) {
+          await prisma.usuario.update({
+            where: { id: cliente.id },
+            data: { atendimentoHumano: true }
+          });
+
+          // Salva o estado atual na sessão para restaurar corretamente depois!
+          const sessao = await prisma.sessaoAtendimento.findFirst({
+            where: { clienteId: cliente.id, ativa: true },
+            orderBy: { criadoEm: 'desc' },
+          });
+
+          if (sessao) {
+            const ctx = sessao.contexto as Record<string, any> || {};
+            if (!ctx.estadoSalvoTakeover) {
+              ctx.estadoSalvoTakeover = sessao.estadoAtual;
+              await prisma.sessaoAtendimento.update({
+                where: { id: sessao.id },
+                data: { contexto: ctx },
+              });
+            }
+          }
+        }
         console.log(`🤫 IA desativada para o cliente ${data.receiverId} (Humano assumiu a conversa)`);
         
         console.log(`✅ [WPP] Mensagem do Admin entregue com sucesso!`);

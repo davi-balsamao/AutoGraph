@@ -43,7 +43,14 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
     _carregarStatusConversa();
     _listenToIncomingMessages();
     _conversaSubscription = _chatService.conversaEventStream.listen((event) {
-      if (!mounted || event.clienteId != widget.clientId) return;
+      if (!mounted) return;
+      bool matchesId = event.clienteId == widget.clientId;
+      bool matchesPhone = (event.telefone != null && event.telefone == widget.clientPhone) || 
+                          (event.telefone != null && event.telefone == widget.clientId) || 
+                          (widget.clientPhone.isNotEmpty && event.clienteId == widget.clientPhone);
+      
+      if (!matchesId && !matchesPhone) return;
+
       setState(() {
         _humanoAssumiu = event.tipo == ConversaEventTipo.assumida;
       });

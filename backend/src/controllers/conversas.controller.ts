@@ -13,12 +13,15 @@ export class ConversasController {
   // POST /api/conversas/:userId/assumir
   async assumir(req: Request, res: Response) {
     try {
-      const userId = req.params.userId as string;
-      const cliente = await clienteRepo.findById(userId);
+      const paramId = req.params.userId as string;
+      let cliente = await clienteRepo.findById(paramId);
+      if (!cliente) {
+        cliente = await clienteRepo.findByPhone(paramId);
+      }
       if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
       const sessao = await prisma.sessaoAtendimento.findFirst({
-        where: { clienteId: userId, ativa: true },
+        where: { clienteId: cliente.id, ativa: true },
         orderBy: { criadoEm: 'desc' },
       });
 
@@ -35,9 +38,9 @@ export class ConversasController {
         });
       }
 
-      await clienteRepo.updateAtendimentoStatus(userId, true);
-      io.emit('conversa-assumida', { clienteId: userId });
-      return res.json({ clienteId: userId, atendimentoHumano: true });
+      await clienteRepo.updateAtendimentoStatus(cliente.id, true);
+      io.emit('conversa-assumida', { clienteId: cliente.id, telefone: cliente.telefone });
+      return res.json({ clienteId: cliente.id, telefone: cliente.telefone, atendimentoHumano: true });
     } catch (error) {
       console.error('❌ Erro ao assumir conversa:', error);
       return res.status(500).json({ error: 'Erro ao assumir conversa.' });
@@ -47,12 +50,15 @@ export class ConversasController {
   // POST /api/conversas/:userId/devolver-ia
   async devolverIa(req: Request, res: Response) {
     try {
-      const userId = req.params.userId as string;
-      const cliente = await clienteRepo.findById(userId);
+      const paramId = req.params.userId as string;
+      let cliente = await clienteRepo.findById(paramId);
+      if (!cliente) {
+        cliente = await clienteRepo.findByPhone(paramId);
+      }
       if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
       const sessao = await prisma.sessaoAtendimento.findFirst({
-        where: { clienteId: userId, ativa: true },
+        where: { clienteId: cliente.id, ativa: true },
         orderBy: { criadoEm: 'desc' },
       });
 
@@ -74,9 +80,9 @@ export class ConversasController {
         estadoRestaurado = alvo;
       }
 
-      await clienteRepo.updateAtendimentoStatus(userId, false);
-      io.emit('conversa-devolvida', { clienteId: userId, estadoRestaurado });
-      return res.json({ clienteId: userId, atendimentoHumano: false, estadoRestaurado });
+      await clienteRepo.updateAtendimentoStatus(cliente.id, false);
+      io.emit('conversa-devolvida', { clienteId: cliente.id, telefone: cliente.telefone, estadoRestaurado });
+      return res.json({ clienteId: cliente.id, telefone: cliente.telefone, atendimentoHumano: false, estadoRestaurado });
     } catch (error) {
       console.error('❌ Erro ao devolver conversa para IA:', error);
       return res.status(500).json({ error: 'Erro ao devolver conversa.' });
@@ -86,17 +92,20 @@ export class ConversasController {
   // GET /api/conversas/:userId/status — utilidade para o front
   async status(req: Request, res: Response) {
     try {
-      const userId = req.params.userId as string;
-      const cliente = await clienteRepo.findById(userId);
+      const paramId = req.params.userId as string;
+      let cliente = await clienteRepo.findById(paramId);
+      if (!cliente) {
+        cliente = await clienteRepo.findByPhone(paramId);
+      }
       if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
       const sessao = await prisma.sessaoAtendimento.findFirst({
-        where: { clienteId: userId, ativa: true },
+        where: { clienteId: cliente.id, ativa: true },
         orderBy: { criadoEm: 'desc' },
       });
 
       return res.json({
-        clienteId: userId,
+        clienteId: cliente.id,
         atendimentoHumano: cliente.atendimentoHumano,
         estadoAtual: sessao?.estadoAtual ?? null,
       });

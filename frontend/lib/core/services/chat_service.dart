@@ -17,8 +17,9 @@ enum ConversaEventTipo { assumida, devolvida }
 class ConversaEvent {
   final ConversaEventTipo tipo;
   final String clienteId;
+  final String? telefone;
   final String? estadoRestaurado;
-  ConversaEvent(this.tipo, this.clienteId, {this.estadoRestaurado});
+  ConversaEvent(this.tipo, this.clienteId, {this.telefone, this.estadoRestaurado});
 }
 
 enum OsEventTipo { nova }
@@ -106,7 +107,7 @@ class ChatService {
       try {
         final map = Map<String, dynamic>.from(data as Map);
         _conversaStreamController.add(
-          ConversaEvent(ConversaEventTipo.assumida, map['clienteId']?.toString() ?? ''),
+          ConversaEvent(ConversaEventTipo.assumida, map['clienteId']?.toString() ?? '', telefone: map['telefone']?.toString()),
         );
       } catch (_) {}
     });
@@ -116,6 +117,7 @@ class ChatService {
         _conversaStreamController.add(ConversaEvent(
           ConversaEventTipo.devolvida,
           map['clienteId']?.toString() ?? '',
+          telefone: map['telefone']?.toString(),
           estadoRestaurado: map['estadoRestaurado']?.toString(),
         ));
       } catch (_) {}

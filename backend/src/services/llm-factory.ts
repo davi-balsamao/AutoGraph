@@ -126,6 +126,7 @@ export function createChatLlm(role: LlmRole): BaseChatModel {
       model,
       apiKey,
       temperature: cfg.temperature,
+      maxRetries: 0,
     });
   }
 
@@ -133,6 +134,7 @@ export function createChatLlm(role: LlmRole): BaseChatModel {
     model,
     apiKey,
     temperature: cfg.temperature,
+    maxRetries: 0,
   });
 }
 
