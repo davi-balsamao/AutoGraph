@@ -97,10 +97,14 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'OS #${widget.os.id.split('-').last.toUpperCase()}',
-                  style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: cs.onSurface),
+                Expanded(
+                  child: Text(
+                    'OS #${widget.os.id.split('-').last.toUpperCase()}',
+                    style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: cs.onSurface),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
