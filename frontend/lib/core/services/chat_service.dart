@@ -21,6 +21,15 @@ class ConversaEvent {
   ConversaEvent(this.tipo, this.clienteId, {this.estadoRestaurado});
 }
 
+enum OsEventTipo { nova }
+
+class OsEvent {
+  final OsEventTipo tipo;
+  final String osId;
+  final Map<String, dynamic> raw;
+  OsEvent(this.tipo, this.osId, this.raw);
+}
+
 class ChatService {
   static final ChatService _instance = ChatService._internal();
   factory ChatService() => _instance;
@@ -29,6 +38,7 @@ class ChatService {
   final StreamController<ChatMessage> _messageStreamController = StreamController<ChatMessage>.broadcast();
   final StreamController<PropostaEvent> _propostaStreamController = StreamController<PropostaEvent>.broadcast();
   final StreamController<ConversaEvent> _conversaStreamController = StreamController<ConversaEvent>.broadcast();
+  final StreamController<OsEvent> _osStreamController = StreamController<OsEvent>.broadcast();
   final List<ChatMessage> _messages = [];
 
   ChatService._internal() {
@@ -110,10 +120,21 @@ class ChatService {
         ));
       } catch (_) {}
     });
+
+    _socket.on('nova-os', (data) {
+      try {
+        final map = Map<String, dynamic>.from(data as Map);
+        final osId = map['id']?.toString() ?? '';
+        _osStreamController.add(OsEvent(OsEventTipo.nova, osId, map));
+      } catch (e) {
+        debugPrint('❌ [SOCKET FRONTEND] nova-os parse: $e');
+      }
+    });
   }
 
   Stream<PropostaEvent> get propostaEventStream => _propostaStreamController.stream;
   Stream<ConversaEvent> get conversaEventStream => _conversaStreamController.stream;
+  Stream<OsEvent> get osEventStream => _osStreamController.stream;
 
   // 🎯 FILTRO RESTAURADO: Só retorna as mensagens do cliente específico
   Future<List<ChatMessage>> getMessages(String clientId) async {
@@ -143,6 +164,7 @@ class ChatService {
     _messageStreamController.close();
     _propostaStreamController.close();
     _conversaStreamController.close();
+    _osStreamController.close();
     _socket.dispose();
   }
 }

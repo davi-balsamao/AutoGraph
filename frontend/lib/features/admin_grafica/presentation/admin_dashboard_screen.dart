@@ -34,6 +34,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _propostasPendentes = 0;
   StreamSubscription? _propostaSub;
   StreamSubscription? _pushTapSub;
+  StreamSubscription? _osSub;
 
   @override
   void initState() {
@@ -49,12 +50,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         setState(() => _currentIndex = 1);
       }
     });
+    _osSub = ChatService().osEventStream.listen((_) {
+      if (!mounted) return;
+      _kanbanKey.currentState?.refresh();
+      // Opcional: mostrar um snackbar informando que uma nova OS chegou.
+    });
   }
 
   @override
   void dispose() {
     _propostaSub?.cancel();
     _pushTapSub?.cancel();
+    _osSub?.cancel();
     super.dispose();
   }
 
