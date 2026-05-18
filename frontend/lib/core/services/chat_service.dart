@@ -16,7 +16,7 @@ class ChatService {
   }
 
   void _initSocket() {
-    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+    const String serverUrl = kIsWeb ? 'http://10.10.0.139:3000' : 'http://10.10.0.139:3000';
 
     _socket = io.io(serverUrl, io.OptionBuilder()
       .setTransports(['websocket'])
