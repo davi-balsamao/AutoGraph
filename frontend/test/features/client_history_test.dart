@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:autograph/core/models/ordem_servico.dart';
 import 'package:autograph/core/services/os_service.dart';
+import 'package:autograph/core/services/auth_service.dart';
 import 'package:autograph/features/os_cliente/presentation/client_history_screen.dart';
 
 class MockHistoryOsService implements OsService {
@@ -15,7 +17,7 @@ class MockHistoryOsService implements OsService {
     return [
       OrdemServico(
         id: 'os-001',
-        clienteId: 'c1',
+        clienteId: 'usr-client-mock',
         status: StatusOS.emProducao,
         especificacoes: {
           'produto': 'Cartão de Visita Premium',
@@ -30,7 +32,7 @@ class MockHistoryOsService implements OsService {
       ),
       OrdemServico(
         id: 'os-002',
-        clienteId: 'c1',
+        clienteId: 'usr-client-mock',
         status: StatusOS.entregue,
         especificacoes: {
           'produto': 'Panfleto de Ofertas',
@@ -68,9 +70,11 @@ void main() {
   group('ClientHistoryScreen — Testes do Histórico de Pedidos', () {
     late MockHistoryOsService mockOsService;
 
-    setUp(() {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
       mockOsService = MockHistoryOsService();
       OsService.setMockInstance(mockOsService);
+      await AuthService().login('client@test.com', 'client123');
     });
 
     testWidgets('renderiza ordens da API com layout preservado e botões de reorder', (tester) async {

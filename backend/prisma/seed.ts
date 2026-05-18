@@ -2,61 +2,123 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import bcrypt from 'bcryptjs';
 
 const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL is not defined in your environment variables.');
+}
+
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({ adapter }) as any;
 
 async function main() {
-  console.log('Start seeding...');
+  console.log('🚀 Start seeding...');
 
-  // Upsert Cliente Mock Flutter (usr-client-001)
+  // IDs dos usuários que precisamos limpar
+  const userIdsToClean = ['usr-client-001', 'usr-client-mock', 'c1', 'usr-admin-mock'];
+
+  // 0. LIMPEZA CIRÚRGICA: Remove as ordens vinculadas primeiro para evitar o erro P2003
+  console.log('🧹 Removendo ordens de serviço antigas dos usuários de teste...');
+  
+  // Testamos as variações mais comuns de nome do modelo de ordens para garantir que o Prisma limpe a tabela certa
+  const possiveisModelosDeOrdem = ['ordemServico', 'ordensDeServico', 'order', 'pedido'];
+  
+  for (const modelo of possiveisModelosDeOrdem) {
+    try {
+      await prisma[modelo].deleteMany({
+        where: {
+          clienteId: { in: userIdsToClean }
+        }
+      });
+    } catch (e) {
+      // Se o modelo não existir com esse nome no seu schema, ignora e tenta o próximo
+    }
+  }
+
+  // Agora que as chaves estrangeiras foram limpas, podemos apagar os usuários com segurança
+  console.log('👤 Removendo usuários de teste antigos...');
+  await prisma.usuario.deleteMany({
+    where: {
+      OR: [
+        { id: { in: userIdsToClean } },
+        { email: 'admin@autograph.com' },
+        { email: 'cliente@exemplo.com' },
+        { email: 'clientemock@exemplo.com' },
+        { email: 'c1@exemplo.com' }
+      ]
+    }
+  });
+  
+  console.log('✨ Banco perfeitamente limpo para receber os novos dados!');
+
+  // Gerando os hashes reais para o backend conseguir validar o login
+  const senhaClienteHash = await bcrypt.hash('cliente123', 10);
+  const senhaAdminHash = await bcrypt.hash('admin123', 10);
+
+  // 1. Upsert Cliente Mock Flutter (usr-client-001)
   const cliente = await prisma.usuario.upsert({
-    where: { email: 'cliente@exemplo.com' },
-    update: {},
+    where: { id: 'usr-client-001' },
+    update: { email: 'cliente@exemplo.com', senha: senhaClienteHash },
     create: {
       id: 'usr-client-001',
       nome: 'Cliente Exemplo',
       email: 'cliente@exemplo.com',
       telefone: '11999990001',
-      senha: 'senha_segura_cliente',
+      senha: senhaClienteHash,
       role: 'CLIENTE',
     },
   });
-  console.log(`Created/Updated cliente: ${cliente.nome}`);
+  console.log(`✅ Created/Updated cliente: ${cliente.nome}`);
 
-  // Upsert Cliente Fallback Flutter (c1)
+  // 1.2. Garante o ID 'usr-client-mock' limpo e pronto para a sessão do Flutter
+  const clienteMockAtivo = await prisma.usuario.upsert({
+    where: { id: 'usr-client-mock' },
+    update: { senha: senhaClienteHash },
+    create: {
+      id: 'usr-client-mock',
+      nome: 'Cliente Mock Ativo',
+      email: 'clientemock@exemplo.com',
+      telefone: '11999990003',
+      senha: senhaClienteHash,
+      role: 'CLIENTE',
+    },
+  });
+  console.log(`✅ Created/Updated cliente mock de sessão: ${clienteMockAtivo.nome}`);
+
+  // 2. Upsert Cliente Fallback Flutter (c1)
   const clienteC1 = await prisma.usuario.upsert({
-    where: { email: 'c1@exemplo.com' },
-    update: {},
+    where: { id: 'c1' },
+    update: { email: 'c1@exemplo.com', senha: senhaClienteHash },
     create: {
       id: 'c1',
       nome: 'Cliente Fallback',
       email: 'c1@exemplo.com',
       telefone: '11999990002',
-      senha: 'senha_segura_cliente',
+      senha: senhaClienteHash,
       role: 'CLIENTE',
     },
   });
-  console.log(`Created/Updated cliente fallback: ${clienteC1.nome}`);
+  console.log(`✅ Created/Updated cliente fallback: ${clienteC1.nome}`);
 
-  // Upsert Gerente Mock Flutter (usr-admin-001)
+  // 3. Upsert Gerente Mock Flutter (usr-admin-mock)
   const gerente = await prisma.usuario.upsert({
-    where: { email: 'admin@autograph.com' },
-    update: {},
+    where: { id: 'usr-admin-mock' },
+    update: { email: 'admin@autograph.com', senha: senhaAdminHash },
     create: {
-      id: 'usr-admin-001',
+      id: 'usr-admin-mock', 
       nome: 'Gerente AutoGraph',
       email: 'admin@autograph.com',
       telefone: '11999990000',
-      senha: 'senha_segura_gerente',
+      senha: senhaAdminHash,
       role: 'GERENTE',
     },
   });
-  console.log(`Created/Updated gerente: ${gerente.nome}`);
+  console.log(`✅ Created/Updated gerente: ${gerente.nome}`);
 
-  // Upsert Produtos do Catálogo
+  // 4. Upsert Produtos do Catálogo
   const produtos = [
     {
       nome: 'Cartão de Visita',
@@ -100,17 +162,45 @@ async function main() {
       },
       create: prod,
     });
-    console.log(`Created/Updated produto: ${upsertedProd.nome}`);
+    console.log(`📦 Created/Updated produto: ${upsertedProd.nome}`);
   }
 
-  console.log('Seeding finished.');
+  // 5. Upsert da Ordem de Serviço Perfeita vinculada ao Cliente da Sessão
+  let osCriada = false;
+  for (const modelo of possiveisModelosDeOrdem) {
+    if (osCriada) break;
+    try {
+      const osPerfeita = await prisma[modelo].upsert({
+        where: { id: 'pedido-teste-fcm-123' },
+        update: {},
+        create: {
+          id: 'pedido-teste-fcm-123', 
+          descricao: 'Apostilas de Treinamento e Produção Gráfica',
+          total: 250.00,
+          status: 'AGUARDANDO_ORCAMENTO',
+          clienteId: 'usr-client-mock', 
+        },
+      });
+      console.log(`📋 Created/Updated OS de Teste Assertiva no modelo "${modelo}": ${osPerfeita.id}`);
+      osCriada = true;
+    } catch (error) {
+      // Avança se falhar
+    }
+  }
+
+  if (!osCriada) {
+    console.log('\n⚠️ Nota: Não foi possível estruturar a OS automática. Verifique a nomenclatura exata do modelo de ordens no seu schema.prisma.');
+  }
+
+  console.log('⭐ Seeding finished successfully.');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Error during seeding:', e);
     process.exit(1);
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });

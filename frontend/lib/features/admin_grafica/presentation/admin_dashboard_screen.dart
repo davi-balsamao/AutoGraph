@@ -15,6 +15,11 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../admin_chat/presentation/admin_chat_list_tab.dart';
 import '../../admin_chat/presentation/admin_chat_conversation_screen.dart';
+import 'admin_usuarios_tab.dart';
+import 'aprovacoes_tab.dart';
+import '../../../core/services/chat_service.dart';
+import '../../../core/services/proposta_service.dart';
+import '../../../core/services/push_notification_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -26,6 +31,66 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
   final GlobalKey<_KanbanTabState> _kanbanKey = GlobalKey<_KanbanTabState>();
+  final GlobalKey<AdminChatListTabState> _chatKey = GlobalKey<AdminChatListTabState>();
+  int _propostasPendentes = 0;
+  int _conversasEscaladas = 0;
+  StreamSubscription? _propostaSub;
+  StreamSubscription? _pushTapSub;
+  StreamSubscription? _osSub;
+  StreamSubscription? _conversaSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarContadorPropostas();
+    _propostaSub = ChatService().propostaEventStream.listen((_) {
+      _carregarContadorPropostas();
+    });
+    _pushTapSub = PushNotificationService().onNotificationTap.listen((data) {
+      if (!mounted) return;
+      // Toda notificação de proposta abre a tab Aprovações (índice 1).
+      if (data['type'] == 'PROPOSTA_PENDENTE') {
+        setState(() => _currentIndex = 1);
+      }
+      // Notificação de escalação abre a tab Chat (índice 2).
+      if (data['type'] == 'escalation') {
+        setState(() => _currentIndex = 2);
+      }
+    });
+    _osSub = ChatService().osEventStream.listen((_) {
+      if (!mounted) return;
+      _kanbanKey.currentState?.refresh();
+    });
+    _conversaSub = ChatService().conversaEventStream.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        if (event.tipo == ConversaEventTipo.assumida) {
+          _conversasEscaladas++;
+        } else if (event.tipo == ConversaEventTipo.devolvida && _conversasEscaladas > 0) {
+          _conversasEscaladas--;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _propostaSub?.cancel();
+    _pushTapSub?.cancel();
+    _osSub?.cancel();
+    _conversaSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _carregarContadorPropostas() async {
+    try {
+      final lista = await PropostaService().listarPendentes();
+      if (!mounted) return;
+      setState(() => _propostasPendentes = lista.length);
+    } catch (_) {
+      // Silencioso — contador é cosmético.
+    }
+  }
 
   Future<void> _addOsManual() async {
     final clienteIdController = TextEditingController(text: 'c1');
@@ -233,10 +298,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         index: _currentIndex,
         children: [
           _KanbanTab(key: _kanbanKey),
-          const AdminChatListTab(),
+          const AprovacoesTab(),
+          AdminChatListTab(key: _chatKey),
           const _AdminHistoryTab(),
           const _FinancialTab(),
           const _CatalogTab(),
+          const AdminUsuariosTab(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -244,31 +311,53 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         elevation: 0,
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.view_kanban_outlined),
             selectedIcon: Icon(Icons.view_kanban, color: AppColors.brandGreen),
             label: 'Kanban',
           ),
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble, color: AppColors.brandGreen),
-            label: 'Chat',
+            icon: _propostasPendentes > 0
+                ? Badge.count(
+                    count: _propostasPendentes,
+                    backgroundColor: Colors.amber.shade700,
+                    child: const Icon(Icons.pending_actions_outlined),
+                  )
+                : const Icon(Icons.pending_actions_outlined),
+            selectedIcon: const Icon(Icons.pending_actions, color: AppColors.brandGreen),
+            label: 'Aprovações',
           ),
           NavigationDestination(
+            icon: _conversasEscaladas > 0
+                ? Badge.count(
+                    count: _conversasEscaladas,
+                    backgroundColor: Colors.amber.shade700,
+                    child: const Icon(Icons.chat_bubble_outline),
+                  )
+                : const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble, color: AppColors.brandGreen),
+            label: 'Chat',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history, color: AppColors.brandGreen),
             label: 'Histórico',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart, color: AppColors.brandGreen),
             label: 'Financeiro',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2, color: AppColors.brandGreen),
             label: 'Catálogo',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people, color: AppColors.brandGreen),
+            label: 'Usuários',
           ),
         ],
       ),
@@ -315,9 +404,33 @@ class _KanbanTabState extends State<_KanbanTab> {
     try {
       final ordens = await OsService().fetchOrdensServico();
       if (!mounted) return;
+
+      // Limpar timers anteriores
+      for (final t in _timers.values) {
+        t?.cancel();
+      }
+      _timers.clear();
+      _elapsed.clear();
+
       _columns.clear();
       for (final s in StatusOS.values) {
         _columns[s] = ordens.where((o) => o.status == s).toList();
+      }
+
+      // Inicializa os timers para qualquer OS que esteja rodando o timer no backend
+      for (final o in ordens) {
+        if (o.timerStartedAt != null) {
+          final now = DateTime.now();
+          final elapsedSoFar = now.difference(o.timerStartedAt!).inSeconds + o.durationSeconds;
+          _elapsed[o.id] = elapsedSoFar;
+          _timers[o.id] = Timer.periodic(const Duration(seconds: 1), (_) {
+            if (mounted) {
+              setState(() => _elapsed[o.id] = (_elapsed[o.id] ?? 0) + 1);
+            }
+          });
+        } else {
+          _elapsed[o.id] = o.durationSeconds;
+        }
       }
     } catch (e) {
       _error = e.toString();
@@ -341,6 +454,23 @@ class _KanbanTabState extends State<_KanbanTab> {
       final updated = os.copyWith(status: newStatus);
       _columns[newStatus] ??= [];
       _columns[newStatus]!.add(updated);
+
+      // Controle automático de timers locais ao mover status
+      if (newStatus == StatusOS.emProducao) {
+        if (_timers[os.id] == null) {
+          _elapsed.putIfAbsent(os.id, () => os.durationSeconds);
+          _timers[os.id] = Timer.periodic(const Duration(seconds: 1), (_) {
+            if (mounted) {
+              setState(() => _elapsed[os.id] = (_elapsed[os.id] ?? 0) + 1);
+            }
+          });
+        }
+      } else {
+        if (_timers[os.id] != null) {
+          _timers[os.id]?.cancel();
+          _timers[os.id] = null;
+        }
+      }
     });
     
     try {
@@ -355,6 +485,22 @@ class _KanbanTabState extends State<_KanbanTab> {
           _columns[newStatus]?.removeWhere((item) => item.id == os.id);
           _columns[oldStatus] ??= [];
           _columns[oldStatus]!.add(os);
+
+          // Restaura timer anterior em caso de falha
+          if (oldStatus == StatusOS.emProducao) {
+            if (_timers[os.id] == null) {
+              _timers[os.id] = Timer.periodic(const Duration(seconds: 1), (_) {
+                if (mounted) {
+                  setState(() => _elapsed[os.id] = (_elapsed[os.id] ?? 0) + 1);
+                }
+              });
+            }
+          } else {
+            if (_timers[os.id] != null) {
+              _timers[os.id]?.cancel();
+              _timers[os.id] = null;
+            }
+          }
         });
         SnackbarUtil.showError(context, 'Erro ao atualizar status na API: $e');
       }
@@ -397,17 +543,30 @@ class _KanbanTabState extends State<_KanbanTab> {
     }
   }
 
-  void _toggleTimer(String osId) {
-    if (_timers[osId] != null) {
-      _timers[osId]?.cancel();
-      _timers[osId] = null;
-    } else {
-      _elapsed.putIfAbsent(osId, () => 0);
-      _timers[osId] = Timer.periodic(const Duration(seconds: 1), (_) {
-        setState(() => _elapsed[osId] = (_elapsed[osId] ?? 0) + 1);
-      });
+  Future<void> _toggleTimer(String osId) async {
+    final currentlyRunning = _timers[osId] != null;
+    try {
+      if (currentlyRunning) {
+        _timers[osId]?.cancel();
+        _timers[osId] = null;
+        setState(() {});
+        await OsService().stopTimer(osId);
+      } else {
+        _elapsed.putIfAbsent(osId, () => 0);
+        _timers[osId] = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (mounted) {
+            setState(() => _elapsed[osId] = (_elapsed[osId] ?? 0) + 1);
+          }
+        });
+        setState(() {});
+        await OsService().startTimer(osId);
+      }
+    } catch (e) {
+      if (mounted) {
+        SnackbarUtil.showError(context, 'Erro ao alternar timer: $e');
+        _fetchData();
+      }
     }
-    setState(() {});
   }
 
   String _formatDuration(int secs) {
@@ -708,6 +867,64 @@ class _OSCard extends StatelessWidget {
                         Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).colorScheme.onSurface)),
                         const SizedBox(height: 4),
                         Text(os.clienteNome ?? 'Cliente não informado', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55))),
+                        if (os.especificacoes['opcaoEntrega'] == 'entrega') ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.brandGreen.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.delivery_dining, size: 12, color: AppColors.brandGreen),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'ENTREGA',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).brightness == Brightness.dark ? AppColors.brandGreen : AppColors.brandGreenDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.home, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  os.especificacoes['enderecoEntrega'] ?? os.clienteEnderecoCompleto ?? 'Endereço não informado',
+                                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if ((os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia) != null &&
+                              (os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia).toString().isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(Icons.pin_drop, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Ref: ${os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia}',
+                                    style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ],
                     ),
                   ),

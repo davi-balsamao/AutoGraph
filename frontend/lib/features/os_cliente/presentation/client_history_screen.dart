@@ -266,10 +266,12 @@ class _HistoryTabState extends State<_HistoryTab> {
     setState(() => _isLoading = true);
     try {
       final ordens = await OsService().fetchOrdensServico();
+      final currentClient = AuthService().currentUser;
       if (mounted) {
         setState(() {
-          ordens.sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
-          _ordens = ordens;
+          final filtradas = ordens.where((os) => os.clienteId == currentClient?.id).toList();
+          filtradas.sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
+          _ordens = filtradas;
         });
       }
     } catch (e) {
@@ -450,6 +452,26 @@ class _HistoryTabState extends State<_HistoryTab> {
               _DetailRow(label: 'Tamanho', value: tamanho),
               const Divider(height: 24),
               _DetailRow(label: 'Quantidade', value: quantidade),
+              const Divider(height: 24),
+              _DetailRow(
+                label: 'Recebimento',
+                value: os.especificacoes['opcaoEntrega'] == 'entrega' ? 'Entrega em Casa' : 'Retirada na Loja',
+              ),
+              if (os.especificacoes['opcaoEntrega'] == 'entrega') ...[
+                const Divider(height: 24),
+                _DetailRow(
+                  label: 'Endereço',
+                  value: os.especificacoes['enderecoEntrega'] ?? os.clienteEnderecoCompleto ?? 'Não informado',
+                ),
+                if ((os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia) != null &&
+                    (os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia).toString().isNotEmpty) ...[
+                  const Divider(height: 24),
+                  _DetailRow(
+                    label: 'Referência',
+                    value: os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia!,
+                  ),
+                ],
+              ],
               const Divider(height: 24),
               _DetailRow(
                 label: 'Solicitado em',

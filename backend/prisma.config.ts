@@ -1,18 +1,20 @@
-import "dotenv/config";
-import { defineConfig } from "@prisma/config"; 
+import 'dotenv/config';
+import { defineConfig } from '@prisma/config';
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
+  schema: 'prisma/schema.prisma',
+  
   // @ts-ignore
   datasource: {
-    url: process.env.DATABASE_URL || "postgresql://user_grafica:password_segura@db:5432/printflow_db",
+    url: process.env.DATABASE_URL,
   },
+  
   // @ts-ignore
   migrate: {
-    url: process.env.DATABASE_URL || "postgresql://user_grafica:password_segura@db:5432/printflow_db",
+    url: process.env.DATABASE_URL,
   },
+
   migrations: {
-    path: "prisma/migrations",
+    seed: 'ts-node --transpile-only prisma/seed.ts',
   },
-  seed: "ts-node-dev prisma/seed.ts"
 });

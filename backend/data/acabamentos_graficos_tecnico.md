@@ -13,6 +13,11 @@ Estes acabamentos alteram a textura da superfície do papel, agregando valor per
 *   **Efeito Visual e Tátil:** Elimina o reflexo da luz, resultando em cores mais sóbrias e um toque aveludado/suave. Reduz levemente o contraste, mas aumenta significativamente a sofisticação.
 *   **Produtos Comuns:** Cartões de visita premium, capas de livros, pastas institucionais, embalagens de alto padrão.
 
+### **Laminação Brilhosa (BOPP Brilho)**
+*   **O que é:** Aplicação de uma fina película plástica transparente e de alto brilho sobre o papel impresso.
+*   **Efeito Visual e Tátil:** Intensifica e satura as cores, tornando-as mais vivas. Protege contra umidade e sujeira, sendo fácil de limpar. O toque é liso e plastificado, mas pode apresentar reflexos de luz que atrapalham a leitura sob luz direta.
+*   **Diferença principal:** A laminação fosca é sofisticada e elimina reflexos; a laminação brilhosa (ou papel brilhante) destaca imagens e satura cores, mas chama mais atenção para marcas de dedo.
+
 ### **Verniz Localizado (UV Localizado)**
 *   **O que é:** Aplicação de uma camada de verniz brilhante (curado por radiação ultravioleta) apenas em áreas específicas e delimitadas do layout, utilizando uma máscara de impressão.
 *   **Efeito Visual e Tátil:** Cria um ponto de alto brilho e leve relevo tátil que contrasta diretamente com o fundo. **Regra de Ouro:** O verniz localizado só atinge seu potencial máximo quando aplicado *sobre* a Laminação Fosca. 
@@ -29,6 +34,10 @@ Estes acabamentos alteram a textura da superfície do papel, agregando valor per
 ## 2. Estrutura e Formato (Corte)
 
 Definem as dimensões finais e a silhueta do material.
+
+### **Sangria e Margem de Segurança no Arquivo de Arte**
+*   **O que é:** Sangria é uma margem de segurança (geralmente de 3mm a 5mm) adicionada ao redor do tamanho final da arte. A imagem de fundo ou cor deve preencher essa área extra.
+*   **Por que fazer e como preparar:** Quando a guilhotina corta o papel, pode haver uma variação de 1mm a 2mm. Se não houver sangria, o corte pode deixar uma "bordinha branca" indesejada no papel. Para preparar, basta estender o fundo da arte alguns milímetros além do tamanho final. A margem de segurança é o recuo interno para que textos não sejam cortados.
 
 ### **Refile**
 *   **O que é:** É o corte reto padrão feito por guilhotinas industriais. Ele apara as bordas do papel impresso para atingir o formato final desejado e remover as "marcas de sangria" (excesso de arte deixado como margem de segurança).

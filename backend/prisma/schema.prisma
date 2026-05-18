@@ -4,8 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider   = "postgresql"
-  extensions = [vector]
+  provider = "postgresql"
 }
 
 enum Role {
@@ -37,11 +36,29 @@ model Usuario {
   role             Role       @default(CLIENTE)
   atendimentoHumano Boolean    @default(false) // <- CEREJA DO BOLO: Controla se a IA responde
   fcmToken         String?
+  enderecoCompleto  String?
+  enderecoReferencia String?
   criadoEm         DateTime   @default(now())
   atualizadoEm     DateTime   @updatedAt
 
   ordensDeServico OrdensDeServico[]
   mensagens        Mensagens[]
+  sessoes          SessaoAtendimento[]
+}
+
+model SessaoAtendimento {
+  id              String   @id @default(uuid())
+  clienteId       String
+  cliente         Usuario  @relation(fields: [clienteId], references: [id])
+  estadoAtual     String   @default("BOAS_VINDAS")
+  estadoAnterior  String?
+  contexto        Json     @default("{}")
+  ativa           Boolean  @default(true)
+  lembreteEnviado Boolean  @default(false)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@index([clienteId, ativa])
 }
 
 model OrdensDeServico {

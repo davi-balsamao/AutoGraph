@@ -164,6 +164,21 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                   _InfoRow(label: 'Customer', value: widget.os.clienteNome ?? 'Not provided'),
                   _InfoRow(label: 'Phone', value: widget.os.clienteTelefone ?? 'Not provided'),
                   const Divider(height: 24),
+                  _InfoRow(
+                    label: 'Delivery Type',
+                    value: widget.os.especificacoes['opcaoEntrega'] == 'entrega' ? 'Delivery (Entrega em Casa)' : 'Store Pickup (Retirada na Loja)',
+                  ),
+                  if (widget.os.especificacoes['opcaoEntrega'] == 'entrega') ...[
+                    _InfoRow(
+                      label: 'Delivery Address',
+                      value: widget.os.especificacoes['enderecoEntrega'] ?? widget.os.clienteEnderecoCompleto ?? 'Not provided',
+                    ),
+                    _InfoRow(
+                      label: 'Reference Point',
+                      value: widget.os.especificacoes['referenciaEntrega'] ?? widget.os.clienteEnderecoReferencia ?? 'Not provided',
+                    ),
+                  ],
+                  const Divider(height: 24),
                   _InfoRow(label: 'Created', value: dateFormat.format(widget.os.criadoEm)),
                   _InfoRow(label: 'Last Update', value: dateFormat.format(widget.os.atualizadoEm)),
                   if (widget.os.durationSeconds > 0) ...[

@@ -1,19 +1,23 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/services/chat_service.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/services/proposta_service.dart';
+import '../../../core/utils/snackbar_util.dart';
 
 class AdminChatConversationScreen extends StatefulWidget {
   final String clientId;
   final String clientName;
+  final String clientPhone;
 
   const AdminChatConversationScreen({
     super.key,
     required this.clientId,
     required this.clientName,
+    this.clientPhone = '', // 🔥 SOLUÇÃO DOS ERROS: Tiramos o 'required' e definimos vazio por padrão
   });
 
   @override
@@ -26,15 +30,94 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
   final ChatService _chatService = ChatService();
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
+  bool _humanoAssumiu = false;
+  bool _togglingTakeover = false;
+
+  StreamSubscription<ChatMessage>? _messageSubscription;
+  StreamSubscription<ConversaEvent>? _conversaSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
+    _carregarStatusConversa();
+    _listenToIncomingMessages();
+    _conversaSubscription = _chatService.conversaEventStream.listen((event) {
+      if (!mounted) return;
+      bool matchesId = event.clienteId == widget.clientId;
+      bool matchesPhone = (event.telefone != null && event.telefone == widget.clientPhone) || 
+                          (event.telefone != null && event.telefone == widget.clientId) || 
+                          (widget.clientPhone.isNotEmpty && event.clienteId == widget.clientPhone);
+      
+      if (!matchesId && !matchesPhone) return;
+
+      setState(() {
+        _humanoAssumiu = event.tipo == ConversaEventTipo.assumida;
+      });
+    });
+  }
+
+  Future<void> _carregarStatusConversa() async {
+    try {
+      final status = await ConversaService().status(widget.clientId);
+      if (!mounted) return;
+      setState(() => _humanoAssumiu = status['atendimentoHumano'] == true);
+    } catch (_) {
+      // Tela ainda funciona sem status — só não pinta o banner.
+    }
+  }
+
+  Future<void> _toggleTakeover() async {
+    setState(() => _togglingTakeover = true);
+    try {
+      if (_humanoAssumiu) {
+        await ConversaService().devolverIa(widget.clientId);
+        if (!mounted) return;
+        SnackbarUtil.showSuccess(context, 'IA retomou a conversa.');
+        setState(() => _humanoAssumiu = false);
+      } else {
+        await ConversaService().assumir(widget.clientId);
+        if (!mounted) return;
+        SnackbarUtil.showSuccess(context, 'Você assumiu a conversa. IA pausada.');
+        setState(() => _humanoAssumiu = true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      SnackbarUtil.showError(context, 'Falha: $e');
+    } finally {
+      if (mounted) setState(() => _togglingTakeover = false);
+    }
+  }
+
+  void _listenToIncomingMessages() {
+    _messageSubscription = _chatService.messageStream.listen((message) {
+      if (mounted) {
+        bool matchesId = message.senderId == widget.clientId || message.receiverId == widget.clientId;
+        bool matchesPhone = widget.clientPhone.isNotEmpty && (message.senderId == widget.clientPhone || message.receiverId == widget.clientPhone);
+        bool matchesDbId = message.clienteDbId != null && (message.clienteDbId == widget.clientId || message.clienteDbId == widget.clientPhone);
+
+        if (matchesId || matchesPhone || matchesDbId) {
+          final bool alreadyExists = _messages.any((m) => m.id == message.id);
+          if (!alreadyExists) {
+            setState(() {
+              _messages.add(message);
+            });
+            _scrollToBottom();
+          }
+        }
+      }
+    });
   }
 
   Future<void> _loadMessages() async {
-    final msgs = await _chatService.getMessages(widget.clientId);
+    // Tenta buscar pelo clientId (pode ser UUID ou telefone)
+    var msgs = await _chatService.getMessages(widget.clientId);
+    
+    // Se não achou e temos o telefone, tenta por ele também
+    if (msgs.isEmpty && widget.clientPhone.isNotEmpty && widget.clientPhone != widget.clientId) {
+      msgs = await _chatService.getMessages(widget.clientPhone);
+    }
+    
     if (mounted) {
       setState(() {
         _messages = msgs;
@@ -62,7 +145,8 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
     final newMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       senderId: 'admin',
-      receiverId: widget.clientId,
+      // 🔥 ROTA DE FUGA: Se o telefone estiver na tela, envia pra ele. Se não, tenta usar o ID.
+      receiverId: widget.clientPhone.isNotEmpty ? widget.clientPhone : widget.clientId, 
       text: text,
       mediaUrl: mediaUrl,
       fileName: fileName,
@@ -91,13 +175,21 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
     );
 
     if (result != null && result.files.single.path != null) {
-      // In a real app, upload the file first and get a URL
       _sendMessage(
         mediaUrl: 'file://${result.files.single.path}',
         fileName: result.files.single.name,
         type: type,
       );
     }
+  }
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    _conversaSubscription?.cancel();
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -108,27 +200,59 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.clientName, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold)),
-            Text('WhatsApp Connection Active', style: TextStyle(fontSize: 10, color: AppColors.brandGreen)),
+            Text(
+              widget.clientPhone.isNotEmpty ? 'WhatsApp: ${widget.clientPhone}' : 'Conexão via ID',
+              style: const TextStyle(fontSize: 10, color: Colors.green)
+            ),
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+          IconButton(
+            tooltip: _humanoAssumiu ? 'Devolver para IA' : 'Assumir conversa',
+            icon: _togglingTakeover
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_humanoAssumiu ? Icons.smart_toy_outlined : Icons.headset_mic),
+            onPressed: _togglingTakeover ? null : _toggleTakeover,
+          ),
         ],
       ),
       body: Column(
         children: [
+          if (_humanoAssumiu)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.amber.shade100,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Colors.amber.shade900),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Você está respondendo direto (IA pausada).',
+                      style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      return _ChatBubble(message: message);
-                    },
-                  ),
+                : _messages.isEmpty
+                    ? const Center(child: Text("Nenhuma mensagem ainda."))
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          return _ChatBubble(message: _messages[index]);
+                        },
+                      ),
           ),
           _buildInputArea(),
         ],
@@ -137,26 +261,23 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
   }
 
   Widget _buildInputArea() {
-    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: cs.surface,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5)),
-        ],
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -5))],
       ),
       child: SafeArea(
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: AppColors.brandGreen),
+              icon: const Icon(Icons.add_circle_outline, color: Colors.green),
               onPressed: () => _showMediaOptions(),
             ),
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
+                  color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
@@ -165,40 +286,20 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
                     Expanded(
                       child: TextField(
                         controller: _messageController,
-                        decoration: const InputDecoration(
-                          hintText: 'Type a message...',
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
+                        decoration: const InputDecoration(hintText: 'Digite uma mensagem...', border: InputBorder.none, isDense: true),
                         maxLines: null,
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.emoji_emotions_outlined, size: 20),
-                      onPressed: () {
-                        // Placeholder for emoji picker
-                      },
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
-              onLongPress: () {
-                // Simulate recording
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recording audio...')));
-              },
-              onLongPressEnd: (_) {
-                // Simulate sending audio
-                _sendMessage(text: 'Voice message', type: MessageType.audio);
-              },
-              child: CircleAvatar(
-                backgroundColor: AppColors.brandGreen,
-                child: IconButton(
-                  icon: const Icon(Icons.send, color: AppColors.brandTealDeep),
-                  onPressed: () => _sendMessage(text: _messageController.text),
-                ),
+            CircleAvatar(
+              backgroundColor: Colors.green,
+              child: IconButton(
+                icon: const Icon(Icons.send, color: Colors.white),
+                onPressed: () => _sendMessage(text: _messageController.text),
               ),
             ),
           ],
@@ -214,31 +315,7 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.image, color: Colors.blue),
-              title: const Text('Image'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickFile(MessageType.image);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-              title: const Text('PDF Document'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickFile(MessageType.pdf);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.mic, color: Colors.green),
-              title: const Text('Audio'),
-              onTap: () {
-                Navigator.pop(context);
-                // In real implementation, this would open a recorder
-                _sendMessage(text: 'Voice message', type: MessageType.audio);
-              },
-            ),
+            ListTile(leading: const Icon(Icons.image, color: Colors.blue), title: const Text('Image'), onTap: () { Navigator.pop(context); _pickFile(MessageType.image); }),
           ],
         ),
       ),
@@ -254,7 +331,6 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMe = message.isFromAdmin;
-    final cs = Theme.of(context).colorScheme;
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -263,82 +339,29 @@ class _ChatBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.brandGreen : (message.isFromRAG ? cs.surfaceContainerHighest : cs.surfaceContainer),
+          color: isMe ? Colors.green.shade100 : Colors.grey.shade200,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
             bottomLeft: Radius.circular(isMe ? 16 : 0),
             bottomRight: Radius.circular(isMe ? 0 : 16),
           ),
-          border: message.isFromRAG ? Border.all(color: AppColors.brandGreen.withValues(alpha: 0.3)) : null,
+          border: message.isFromRAG ? Border.all(color: Colors.green) : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (message.isFromRAG && !isMe)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.auto_awesome, size: 10, color: AppColors.brandGreenDark),
-                    const SizedBox(width: 4),
-                    Text('RAG Response', style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.brandGreenDark)),
-                  ],
-                ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text('Assistente Virtual', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.green)),
               ),
-            _buildMessageContent(context),
+            Text(message.text ?? '', style: const TextStyle(color: Colors.black87)),
             const SizedBox(height: 4),
-            Text(
-              DateFormat('HH:mm').format(message.timestamp),
-              style: TextStyle(fontSize: 10, color: isMe ? Colors.black54 : Colors.grey),
-            ),
+            Text(DateFormat('HH:mm').format(message.timestamp.toLocal()), style: const TextStyle(fontSize: 10, color: Colors.grey)),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildMessageContent(BuildContext context) {
-    switch (message.type) {
-      case MessageType.text:
-        return Text(
-          message.text ?? '',
-          style: TextStyle(color: message.isFromAdmin ? Colors.black87 : Theme.of(context).colorScheme.onSurface),
-        );
-      case MessageType.image:
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.image, size: 40, color: Colors.grey),
-            if (message.fileName != null)
-              Text(message.fileName!, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
-          ],
-        );
-      case MessageType.audio:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.play_arrow),
-            const SizedBox(width: 8),
-            Container(
-              width: 100,
-              height: 2,
-              color: Colors.grey.withValues(alpha: 0.5),
-            ),
-            const SizedBox(width: 8),
-            const Text('0:15', style: TextStyle(fontSize: 12)),
-          ],
-        );
-      case MessageType.pdf:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.picture_as_pdf, color: Colors.red),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message.fileName ?? 'Document.pdf', overflow: TextOverflow.ellipsis)),
-          ],
-        );
-    }
   }
 }

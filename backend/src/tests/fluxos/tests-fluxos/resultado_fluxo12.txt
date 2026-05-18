@@ -1,0 +1,273 @@
+  console.log
+    
+    [Boas-vindas]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Oi! Tenho uma dúvida sobre pagamento antes de fazer o pedido."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : IDENTIFICAR_NECESSIDADE  (esperado: IDENTIFICAR_NECESSIDADE)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Boa noite, A AutoGraph agradece o seu contato! Como posso te ajudar?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Identificar + Esclarecer pag.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Quero panfletos, mas primeiro preciso saber se posso parcelar."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ESCLARECER_DUVIDA  (esperado: ESCLARECER_DUVIDA)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Não tenho essa informação no momento.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Esclarecer pagamento]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Vocês aceitam parcelamento no cartão? Em quantas vezes?"
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ESCLARECER_DUVIDA  (esperado: ESCLARECER_DUVIDA)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Não tenho essa informação no momento.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Coletar specs]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Ótimo, então posso parcelar. Quero fazer panfletos."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : COLETAR_ESPECIFICACOES  (esperado: COLETAR_ESPECIFICACOES)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Qual quantidade deseja?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Specs completas]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : VALIDAR_ARQUIVO  (esperado: VALIDAR_ARQUIVO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Você já tem o arquivo de arte pronto para enviar? Aceitamos PDF, JPG, PNG ou TIFF.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Validar arq.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Sim, tenho o arquivo de arte em PDF."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : AGUARDAR_APROVACAO  (esperado: AGUARDAR_APROVACAO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Orçamento aprovado! O valor total para Panfletos fica em R$ 300,00. Prazo de produção: 3 dias úteis. Validade: 3 dias úteis. O pagamento pode ser feito via Pix ou Cartão em até 3x.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Calcular]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Pode calcular o orçamento."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : AGUARDAR_APROVACAO  (esperado: AGUARDAR_APROVACAO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Não tenho essa informação no momento.
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Aguardar aprov.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Aprovado! Vou parcelar em 3x."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : COLETAR_DADOS_ENTREGA  (esperado: COLETAR_DADOS_ENTREGA)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Você prefere retirar na loja ou receber por entrega?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Dados entrega]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Entrega no endereço: Rua XV de Novembro, 50, Curitiba – PR."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : CONFIRMAR_PEDIDO  (esperado: CONFIRMAR_PEDIDO)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Vamos confirmar seu pedido:
+    📦 *Produto*: Panfletos
+    📋 *Especificações*:
+       • Qual quantidade deseja: 1000 unidades
+       • Qual será o tamanho (ex: 10x14cm, 15x21cm): A5
+       • A impressão será só frente ou frente e verso: Frente e verso
+    💰 *Valor total*: R$ 300,00
+    ⏱️ *Prazo de produção*: 3 dias úteis
+    🚚 *Entrega*: Entrega em: Entrega no endereço: Rua XV de Novembro, 50, Curitiba – PR.
+    
+    Confirma este pedido?
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Confirmar]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Confirmo o pedido."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ENCERRAR  (esperado: ENCERRAR)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Pedido registrado! Sua Ordem de Serviço é a número AFF65EFB. Nossa equipe entrará em contato para combinar o pagamento e os próximos passos. Obrigada pela preferência!
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Gerar O.S.]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Pode fechar."
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ENCERRAR  (esperado: ENCERRAR)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Obrigada pelo contato, Luana! Sua O.S. AFF65EFB já está registrada. Qualquer dúvida, é só chamar por aqui. Até logo!
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+  console.log
+    
+    [Encerrar]
+
+      at turno (src/tests/fluxos/helpers.ts:190:11)
+
+  console.log
+      Cliente: "Obrigada!"
+
+      at turno (src/tests/fluxos/helpers.ts:191:11)
+
+  console.log
+      Estado : ENCERRAR  (esperado: ENCERRAR)
+
+      at turno (src/tests/fluxos/helpers.ts:192:11)
+
+  console.log
+      Bot    : Obrigada pelo contato, Luana! Sua O.S. AFF65EFB já está registrada. Qualquer dúvida, é só chamar por aqui. Até logo!
+
+      at turno (src/tests/fluxos/helpers.ts:193:11)
+
+PASS src/tests/fluxos/fluxo12.test.ts (405.258 s)
+  Fluxo 12 · Dúvida sobre pagamento antes de decidir
+    ✓ deve informar formas de pagamento e fechar o pedido (391088 ms)
+    ✓ deve ignorar mensagem duplicada (retry da Meta) (8020 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        405.399 s
+Ran all test suites matching src/tests/fluxos/fluxo12.test.ts.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
