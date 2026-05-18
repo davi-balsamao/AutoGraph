@@ -182,13 +182,30 @@ class PushNotificationService {
     }
   }
 
+  /// VAPID key do Firebase Web Push, exigida pelo navegador para emitir um
+  /// token FCM válido. Sem ela, getToken() em web retorna null e o backend
+  /// não consegue enviar push para o admin (Socket cobre em tempo real).
+  ///
+  /// Como obter:
+  ///   Console Firebase → projeto autograph-83959
+  ///   → Project settings → Cloud Messaging → Web push certificates
+  ///   → "Generate key pair" → copiar a chave pública e colar abaixo.
+  ///
+  /// Quando deixada vazia, a chamada simplesmente omite o parâmetro e o
+  /// comportamento atual (sem push web funcional) é preservado.
+  static const String _webVapidKey = ''; // TODO: colar VAPID key do autograph-83959
+
   /// Sincroniza o token atual do dispositivo com o backend caso o usuário esteja logado
   Future<void> syncTokenWithBackend() async {
     try {
-      final String? token = await FirebaseMessaging.instance.getToken();
+      final String? token = await FirebaseMessaging.instance.getToken(
+        vapidKey: (kIsWeb && _webVapidKey.isNotEmpty) ? _webVapidKey : null,
+      );
       if (token != null) {
         debugPrint('🔑 [FCM] Token FCM Atual: $token');
         await _sendTokenToBackend(token);
+      } else if (kIsWeb && _webVapidKey.isEmpty) {
+        debugPrint('ℹ️ [FCM] Token FCM web indisponível: VAPID key não configurada (ver _webVapidKey).');
       }
     } catch (e) {
       debugPrint('❌ [PushNotificationService] Falha ao sincronizar token: $e');

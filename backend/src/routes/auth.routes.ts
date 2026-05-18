@@ -1,7 +1,15 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../config/prisma';
 
 const authRoutes = Router();
+
+const SALT_ROUNDS = 10;
+
+/** bcrypt sempre prefixa o hash com $2a$, $2b$ ou $2y$. */
+function looksLikeBcryptHash(senha: string): boolean {
+  return /^\$2[aby]\$/.test(senha);
+}
 
 /**
  * POST /api/auth/login
@@ -20,12 +28,21 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
 
     const usuario = await prisma.usuario.findUnique({ where: { email } });
 
-    if (!usuario) {
+    if (!usuario || !usuario.senha) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Em produção, usaria bcrypt.compare. Aqui compara direto para simplificar.
-    if (usuario.senha !== senha) {
+    // Comparação dupla:
+    //  · senhas geradas pela seed/registro novo são bcrypt → compara via bcrypt;
+    //  · senhas legadas plain-text (cadastradas antes do bcrypt) caem no fallback.
+    // Mantemos os dois caminhos durante a transição para não invalidar usuários
+    // que já estão no banco com senha em texto puro.
+    const senhaArmazenada = usuario.senha;
+    const senhaConfere = looksLikeBcryptHash(senhaArmazenada)
+      ? await bcrypt.compare(senha, senhaArmazenada)
+      : senhaArmazenada === senha;
+
+    if (!senhaConfere) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
@@ -68,11 +85,13 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Telefone já cadastrado.' });
     }
 
+    const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
+
     const newUser = await prisma.usuario.create({
       data: {
         nome,
         email,
-        senha, // Em produção, usar bcrypt
+        senha: senhaHash,
         telefone,
         role: 'CLIENTE',
         enderecoCompleto: enderecoCompleto || null,
@@ -143,6 +162,15 @@ authRoutes.put('/users/:id', async (req: Request, res: Response) => {
       }
     }
 
+    // Quando admin altera a senha, hasheia antes de gravar. Se já vier hash
+    // (improvável vindo da UI, mas defensivo), passa adiante intacto.
+    const senhaParaGravar =
+      senha === undefined
+        ? existingUser.senha
+        : looksLikeBcryptHash(senha)
+          ? senha
+          : await bcrypt.hash(senha, SALT_ROUNDS);
+
     const updatedUser = await prisma.usuario.update({
       where: { id },
       data: {
@@ -153,7 +181,7 @@ authRoutes.put('/users/:id', async (req: Request, res: Response) => {
         atendimentoHumano: atendimentoHumano !== undefined ? atendimentoHumano : existingUser.atendimentoHumano,
         enderecoCompleto: enderecoCompleto !== undefined ? enderecoCompleto : existingUser.enderecoCompleto,
         enderecoReferencia: enderecoReferencia !== undefined ? enderecoReferencia : existingUser.enderecoReferencia,
-        senha: senha !== undefined ? senha : existingUser.senha,
+        senha: senhaParaGravar,
       },
     });
 
