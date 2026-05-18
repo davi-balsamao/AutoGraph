@@ -1,4 +1,5 @@
 import { ClienteRepository } from '../repositories/cliente.repository';
+import { OsRepository } from '../repositories/os.repository';
 import { conversationService } from '../services/conversation.service';
 import { entityExtractionService } from '../services/entity-extraction.service';
 import { ragService } from '../services/rag.service';
@@ -23,6 +24,37 @@ import {
 import { io } from '../server';
 
 const clienteRepo = new ClienteRepository();
+const osRepo = new OsRepository();
+
+const STATUS_LABEL: Record<string, string> = {
+  CRIADA: 'em análise',
+  AGUARDANDO_ORCAMENTO: 'aguardando orçamento',
+  EM_PRODUCAO: 'em produção',
+  PRONTA_PARA_RETIRADA: 'pronta para retirada',
+  ENTREGUE: 'entregue',
+  CANCELADA: 'cancelada',
+};
+
+function formatarPedidosCliente(clienteNome: string, pedidos: Awaited<ReturnType<OsRepository['findByCliente']>>): string {
+  if (!pedidos.length) {
+    return `Não encontrei pedidos no seu histórico, ${clienteNome.split(' ')[0]}. Quer fazer um novo orçamento agora?`;
+  }
+
+  const linhas = pedidos.map((p) => {
+    const especs = (p.especificacoes ?? {}) as Record<string, any>;
+    const produto = especs?.produto || 'Pedido';
+    const numero = p.id.slice(0, 8).toUpperCase();
+    const status = STATUS_LABEL[p.status] ?? p.status.toLowerCase();
+    const data = p.criadoEm.toLocaleDateString('pt-BR');
+    return `• #${numero} — ${produto} (${status}, aberto em ${data})`;
+  });
+
+  const cabecalho = pedidos.length === 1
+    ? `Encontrei 1 pedido no seu histórico:`
+    : `Aqui estão seus últimos ${pedidos.length} pedidos:`;
+
+  return `${cabecalho}\n${linhas.join('\n')}\n\nQuer saber mais detalhes de algum deles ou abrir um novo orçamento?`;
+}
 
 /**
  * Estados onde o middleware DUVIDA NÃO desvia para ESCLARECER_DUVIDA:
@@ -270,6 +302,26 @@ export class StateRouter {
       clienteNome,
       clienteTelefone,
     };
+
+    // Cross-cutting LISTAR_PEDIDOS — cliente pergunta sobre o próprio histórico.
+    // Consulta direta no banco, sem passar pelo RAG (que respondia "não consigo
+    // acessar seu histórico"). Mantém o estado atual da sessão intacto.
+    if (crossCutting === 'LISTAR_PEDIDOS') {
+      console.log(`📦 [FSM] Cliente pediu histórico de pedidos em ${currentState}.`);
+      try {
+        const pedidos = await osRepo.findByCliente(sessao.clienteId, 5);
+        return {
+          response: formatarPedidosCliente(clienteNome, pedidos),
+          sessao,
+        };
+      } catch (err) {
+        console.error('❌ Falha ao listar pedidos do cliente:', err);
+        return {
+          response: 'Tive um problema pra consultar seu histórico agora. Pode tentar de novo em um instante?',
+          sessao,
+        };
+      }
+    }
 
     // Cross-cutting DUVIDA — pergunta aberta (catálogo, recomendação,
     // esclarecimento técnico) pode aparecer em qualquer estado avançado. Em vez
