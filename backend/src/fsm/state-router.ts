@@ -23,6 +23,22 @@ import { io } from '../server';
 
 const clienteRepo = new ClienteRepository();
 
+/**
+ * Estados onde o middleware DUVIDA NÃO desvia para ESCLARECER_DUVIDA:
+ *  · BOAS_VINDAS: ainda não há produto/contexto; handler chama RAG por conta.
+ *  · ESCLARECER_DUVIDA: já é o destino, não faz sentido re-transitar.
+ *  · ESCALAR_HUMANO: gerente assumiu, IA não deve agir.
+ *  · ENCERRAR: o intent service já reabre nova sessão automaticamente.
+ *  · AGUARDAR_RETORNO: sessão pausada, IA não responde.
+ */
+const ESTADOS_SEM_DESVIO_DUVIDA = new Set<ConversationState>([
+  ConversationState.BOAS_VINDAS,
+  ConversationState.ESCLARECER_DUVIDA,
+  ConversationState.ESCALAR_HUMANO,
+  ConversationState.ENCERRAR,
+  ConversationState.AGUARDAR_RETORNO,
+]);
+
 export interface RouteResult {
   response: string;
   sessao: SessaoRecord;
@@ -235,6 +251,34 @@ export class StateRouter {
       clienteNome,
       clienteTelefone,
     };
+
+    // Cross-cutting DUVIDA — pergunta aberta (catálogo, recomendação,
+    // esclarecimento técnico) pode aparecer em qualquer estado avançado. Em vez
+    // de cada handler tratar isso, o router intercepta e transita para
+    // ESCLARECER_DUVIDA com previousState = currentState. O próprio
+    // EsclarecerDuvidaHandler restaura o estado quando o cliente sinaliza
+    // MOVING_FORWARD ("ok, vou de X", "entendi, prefiro Y").
+    if (
+      crossCutting === 'DUVIDA' &&
+      !ESTADOS_SEM_DESVIO_DUVIDA.has(currentState)
+    ) {
+      console.log(`❓ [FSM] Dúvida detectada em ${currentState} — desviando para ESCLARECER_DUVIDA.`);
+      sessao = await stateService.transition(
+        sessao.id,
+        ConversationState.ESCLARECER_DUVIDA,
+        context,
+        { previousState: currentState }
+      );
+
+      const chainDuvida = await runHandlerChain(sessao, message, deps);
+      return {
+        response: chainDuvida.responseParts.join('\n') || 'Um momento, por favor.',
+        sessao: chainDuvida.sessao,
+        gerouOs: chainDuvida.gerouOs,
+        osMeta: chainDuvida.osMeta,
+        escalarHumano: chainDuvida.escalarHumano,
+      };
+    }
 
     const chain = await runHandlerChain(sessao, message, deps);
 
