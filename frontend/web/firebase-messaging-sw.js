@@ -1,29 +1,29 @@
-// Firebase Messaging Service Worker
-// Necessário para que FirebaseMessaging.getToken() funcione no Flutter Web.
-// Use a versão "compat" — única suportada em service workers nativos.
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+// Importa os scripts do Firebase para o Service Worker (versão de compatibilidade)
+importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js");
 
-// As mesmas credenciais que estão em lib/firebase_options.dart (web).
-firebase.initializeApp({
-  apiKey: 'AIzaSyBVFL1hrKpdrUmCTXvOAXeM8QLE4iWrQ_U',
-  appId: '1:740185525778:web:0ae925873bb709cbe8d2cb',
-  messagingSenderId: '740185525778',
-  projectId: 'autograph-5',
-  authDomain: 'autograph-5.firebaseapp.com',
-  storageBucket: 'autograph-5.firebasestorage.app',
-});
+const firebaseConfig = {
+  apiKey: "AIzaSyAMAihqtz6yF_M974Erhx6x7yzZnffnXrs",
+  authDomain: "autograph-83959.firebaseapp.com",
+  projectId: "autograph-83959",
+  storageBucket: "autograph-83959.firebasestorage.app",
+  messagingSenderId: "858603345303",
+  appId: "1:858603345303:web:e5c45f0262646f856ae0d2"
+};
 
+// Inicializa o Firebase no Service Worker usando o objeto global
+firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// Mensagens em background (aba fechada / app não focado).
+// Lida com as notificações quando a aba do navegador estiver em segundo plano ou fechada
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Background message:', payload);
-  const title = payload.notification?.title || 'AutoGraph';
-  const options = {
-    body: payload.notification?.body || '',
-    icon: '/icons/Icon-192.png',
-    data: payload.data || {},
+  console.log('[firebase-messaging-sw.js] Notificação recebida em background: ', payload);
+
+  const notificationTitle = payload.notification.title;
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: '/icons/Icon-192.png'
   };
-  self.registration.showNotification(title, options);
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });

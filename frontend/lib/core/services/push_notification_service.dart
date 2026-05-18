@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:js' as js; // 👇 Importado para permitir chamadas nativas de JavaScript na Web sem quebrar o Mobile
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -94,25 +95,49 @@ class PushNotificationService {
         final RemoteNotification? notification = message.notification;
         final AndroidNotification? android = message.notification?.android;
 
-        if (notification != null && !kIsWeb) {
-          _localNotifications.show(
-            id: notification.hashCode,
-            title: notification.title,
-            body: notification.body,
-            notificationDetails: NotificationDetails(
-              android: AndroidNotificationDetails(
-                _channel.id,
-                _channel.name,
-                channelDescription: _channel.description,
-                icon: android?.smallIcon ?? '@mipmap/ic_launcher',
-                importance: Importance.max,
-                priority: Priority.high,
-                playSound: true,
-                enableVibration: true,
+        if (notification != null) {
+          if (!kIsWeb) {
+            // 📱 FLUXO MOBILE (Android/iOS)
+            _localNotifications.show(
+              id: notification.hashCode,
+              title: notification.title,
+              body: notification.body,
+              notificationDetails: NotificationDetails(
+                android: AndroidNotificationDetails(
+                  _channel.id,
+                  _channel.name,
+                  channelDescription: _channel.description,
+                  icon: android?.smallIcon ?? '@mipmap/ic_launcher',
+                  importance: Importance.max,
+                  priority: Priority.high,
+                  playSound: true,
+                  enableVibration: true,
+                ),
               ),
-            ),
-            payload: jsonEncode(message.data),
-          );
+              payload: jsonEncode(message.data),
+            );
+          } else {
+            // 👇 🌐 FLUXO WEB EM PRIMEIRO PLANO (FOREGROUND)
+            // Força o navegador a criar uma notificação nativa HTML5 via JS Interop
+            try {
+              // Limpa quebras de linhas e aspas para evitar quebra do script JS
+              final String cleanTitle = notification.title?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
+              final String cleanBody = notification.body?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
+              
+              js.context.callMethod('eval', [
+                '''
+                if (Notification.permission === "granted") {
+                  new Notification("$cleanTitle", {
+                    body: "$cleanBody",
+                    icon: "/icons/Icon-192.png"
+                  });
+                }
+                '''
+              ]);
+            } catch (e) {
+              debugPrint('⚠️ Erro ao disparar notificação nativa na Web (Foreground): $e');
+            }
+          }
         }
       });
 

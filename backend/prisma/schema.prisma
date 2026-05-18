@@ -4,8 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider   = "postgresql"
-  extensions = [vector]
+  provider = "postgresql"
 }
 
 enum Role {

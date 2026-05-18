@@ -5,15 +5,6 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -47,13 +38,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBVFL1hrKpdrUmCTXvOAXeM8QLE4iWrQ_U',
-    appId: '1:740185525778:web:0ae925873bb709cbe8d2cb',
-    messagingSenderId: '740185525778',
-    projectId: 'autograph-5',
-    authDomain: 'autograph-5.firebaseapp.com',
-    storageBucket: 'autograph-5.firebasestorage.app',
-    measurementId: 'G-SD8VW3MVP0',
+    apiKey: 'AIzaSyAMAihqtz6yF_M974Erhx6x7yzZnffnXrs',
+    appId: '1:858603345303:web:e5c45f0262646f856ae0d2',
+    messagingSenderId: '858603345303',
+    projectId: 'autograph-83959',
+    authDomain: 'autograph-83959.firebaseapp.com',
+    storageBucket: 'autograph-83959.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
