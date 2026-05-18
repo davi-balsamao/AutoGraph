@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -32,6 +33,18 @@ class PushNotificationService {
 
   bool _isInitialized = false;
 
+  /// Broadcast de cliques em notificação. Telas interessadas (ex: dashboard)
+  /// se inscrevem e navegam quando vem `type=PROPOSTA_PENDENTE`, etc.
+  final StreamController<Map<String, dynamic>> _notificationTapController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onNotificationTap =>
+      _notificationTapController.stream;
+
+  void _emitTap(Map<String, dynamic>? data) {
+    if (data == null || data.isEmpty) return;
+    _notificationTapController.add(Map<String, dynamic>.from(data));
+  }
+
   /// Inicializa as configurações de Push Notifications
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -55,6 +68,12 @@ class PushNotificationService {
         settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           debugPrint("📱 [FCM] Usuário clicou na notificação em primeiro plano: ${response.payload}");
+          if (response.payload != null && response.payload!.isNotEmpty) {
+            try {
+              final data = jsonDecode(response.payload!);
+              if (data is Map) _emitTap(Map<String, dynamic>.from(data));
+            } catch (_) {}
+          }
         },
       );
 
@@ -100,7 +119,14 @@ class PushNotificationService {
       // App Aberto a partir de Notificação (Segundo plano)
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('🎯 [FCM] O aplicativo foi aberto a partir de uma notificação!');
+        _emitTap(message.data);
       });
+
+      // App aberto por notificação a partir do estado "fechado".
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (initial != null) {
+        _emitTap(initial.data);
+      }
 
       // 5. Atualizar Token e escutar novos tokens gerados
       await syncTokenWithBackend();

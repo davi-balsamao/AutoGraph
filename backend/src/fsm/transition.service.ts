@@ -71,7 +71,16 @@ export class TransitionService {
         return current;
 
       case ConversationState.CALCULAR_ORCAMENTO:
+        // Quando aprovação admin é exigida, o chain do handler manda para
+        // AGUARDAR_APROVACAO_ADMIN; caso contrário segue direto para
+        // APRESENTAR_ORCAMENTO. A FSM aqui só cobre a transição síncrona —
+        // o handler decide o nextState efetivo.
         return ConversationState.APRESENTAR_ORCAMENTO;
+
+      case ConversationState.AGUARDAR_APROVACAO_ADMIN:
+        // Preso até admin agir via API. Mensagens do cliente são tratadas
+        // pelo handler (envia "estou revisando" 1x e depois silencia).
+        return current;
 
       case ConversationState.APRESENTAR_ORCAMENTO:
         return ConversationState.AGUARDAR_APROVACAO;

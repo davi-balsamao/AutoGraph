@@ -3,12 +3,32 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/chat_message.dart';
 
+enum PropostaEventTipo { pendente, atualizada, aprovada, rejeitada, cancelada }
+
+class PropostaEvent {
+  final PropostaEventTipo tipo;
+  final String sessaoId;
+  final Map<String, dynamic> raw;
+  PropostaEvent(this.tipo, this.sessaoId, this.raw);
+}
+
+enum ConversaEventTipo { assumida, devolvida }
+
+class ConversaEvent {
+  final ConversaEventTipo tipo;
+  final String clienteId;
+  final String? estadoRestaurado;
+  ConversaEvent(this.tipo, this.clienteId, {this.estadoRestaurado});
+}
+
 class ChatService {
   static final ChatService _instance = ChatService._internal();
   factory ChatService() => _instance;
 
   late io.Socket _socket;
   final StreamController<ChatMessage> _messageStreamController = StreamController<ChatMessage>.broadcast();
+  final StreamController<PropostaEvent> _propostaStreamController = StreamController<PropostaEvent>.broadcast();
+  final StreamController<ConversaEvent> _conversaStreamController = StreamController<ConversaEvent>.broadcast();
   final List<ChatMessage> _messages = [];
 
   ChatService._internal() {
@@ -40,8 +60,8 @@ class ChatService {
           receiverId: data['receiverId']?.toString() ?? '',
           text: data['text']?.toString() ?? '',
           type: data['type'] == 'image' ? MessageType.image : MessageType.text,
-          timestamp: data['timestamp'] != null 
-              ? DateTime.parse(data['timestamp']) 
+          timestamp: data['timestamp'] != null
+              ? DateTime.parse(data['timestamp'])
               : DateTime.now(),
           isFromRAG: data['isFromRAG'] ?? false,
           mediaUrl: data['mediaUrl']?.toString(),
@@ -55,7 +75,45 @@ class ChatService {
         debugPrint('❌ [SOCKET FRONTEND] Erro ao converter JSON: $e');
       }
     });
+
+    void emitirProposta(PropostaEventTipo tipo, dynamic data) {
+      try {
+        final map = Map<String, dynamic>.from(data as Map);
+        final sessaoId = map['sessaoId']?.toString() ?? '';
+        _propostaStreamController.add(PropostaEvent(tipo, sessaoId, map));
+      } catch (e) {
+        debugPrint('❌ [SOCKET FRONTEND] proposta event parse: $e');
+      }
+    }
+
+    _socket.on('proposta-pendente', (d) => emitirProposta(PropostaEventTipo.pendente, d));
+    _socket.on('proposta-atualizada', (d) => emitirProposta(PropostaEventTipo.atualizada, d));
+    _socket.on('proposta-aprovada', (d) => emitirProposta(PropostaEventTipo.aprovada, d));
+    _socket.on('proposta-rejeitada', (d) => emitirProposta(PropostaEventTipo.rejeitada, d));
+    _socket.on('proposta-cancelada', (d) => emitirProposta(PropostaEventTipo.cancelada, d));
+
+    _socket.on('conversa-assumida', (data) {
+      try {
+        final map = Map<String, dynamic>.from(data as Map);
+        _conversaStreamController.add(
+          ConversaEvent(ConversaEventTipo.assumida, map['clienteId']?.toString() ?? ''),
+        );
+      } catch (_) {}
+    });
+    _socket.on('conversa-devolvida', (data) {
+      try {
+        final map = Map<String, dynamic>.from(data as Map);
+        _conversaStreamController.add(ConversaEvent(
+          ConversaEventTipo.devolvida,
+          map['clienteId']?.toString() ?? '',
+          estadoRestaurado: map['estadoRestaurado']?.toString(),
+        ));
+      } catch (_) {}
+    });
   }
+
+  Stream<PropostaEvent> get propostaEventStream => _propostaStreamController.stream;
+  Stream<ConversaEvent> get conversaEventStream => _conversaStreamController.stream;
 
   // 🎯 FILTRO RESTAURADO: Só retorna as mensagens do cliente específico
   Future<List<ChatMessage>> getMessages(String clientId) async {
@@ -83,6 +141,8 @@ class ChatService {
 
   void dispose() {
     _messageStreamController.close();
+    _propostaStreamController.close();
+    _conversaStreamController.close();
     _socket.dispose();
   }
 }

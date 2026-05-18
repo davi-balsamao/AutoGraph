@@ -12,7 +12,7 @@ import {
 } from './intent.service';
 import { getHandlerForState } from './handlers';
 import { detectCrossCuttingIntent, enrichForLeigo } from './handlers/base.handler';
-import { HandlerDeps, HandlerResult } from './handler.types';
+import { HandlerDeps } from './handler.types';
 import {
   ConversationState,
   isConversationState,
@@ -29,6 +29,104 @@ export interface RouteResult {
   gerouOs?: boolean;
   osMeta?: { id: string; produto: string };
   escalarHumano?: boolean;
+}
+
+export interface ChainResult {
+  responseParts: string[];
+  sessao: SessaoRecord;
+  gerouOs: boolean;
+  osMeta?: { id: string; produto: string };
+  escalarHumano: boolean;
+}
+
+/**
+ * Executa o ciclo handler→handler (até `maxChain` saltos) a partir do estado
+ * atual da sessão. Usado pelo router (entrada via webhook) e pelos endpoints
+ * de aprovação admin, que precisam reentrar no FSM sem passar por detecção
+ * de intent / histórico de cliente.
+ */
+export async function runHandlerChain(
+  initialSessao: SessaoRecord,
+  message: string,
+  deps: HandlerDeps,
+  maxChain: number = 4
+): Promise<ChainResult> {
+  let sessao = initialSessao;
+  let currentState = isConversationState(sessao.estadoAtual)
+    ? sessao.estadoAtual
+    : ConversationState.BOAS_VINDAS;
+  let context = parseContext(sessao.contexto);
+
+  const responseParts: string[] = [];
+  let gerouOs = false;
+  let osMeta: { id: string; produto: string } | undefined;
+  let escalarHumano = false;
+
+  for (let step = 0; step < maxChain; step++) {
+    const handler = getHandlerForState(currentState);
+    const result = await handler.handle(
+      message,
+      { ...sessao, contexto: context, estadoAtual: currentState },
+      deps
+    );
+
+    if (result.response?.trim()) {
+      const texto = enrichForLeigo(result.response.trim(), deps.conversationHistory);
+      responseParts.push(texto);
+      console.log(
+        `🤖 Handler [${currentState}]: "${texto.substring(0, 500)}${texto.length > 500 ? '...' : ''}"`
+      );
+    }
+    context = result.updatedContext;
+    escalarHumano = escalarHumano || !!result.escalarHumano;
+
+    let nextState = result.nextState;
+    let estadoAnterior: string | null | undefined = sessao.estadoAnterior;
+
+    if (transitionService.shouldPushPreviousState(currentState, nextState)) {
+      estadoAnterior = currentState;
+    }
+
+    if (
+      nextState === ConversationState.ESCLARECER_DUVIDA &&
+      currentState !== ConversationState.ESCLARECER_DUVIDA &&
+      /\b(obrigad|entendi)\b/i.test(message) &&
+      !result.chainNext
+    ) {
+      nextState = transitionService.restorePreviousState(estadoAnterior || null);
+      estadoAnterior = null;
+    }
+
+    const updatedSessao = await stateService.transition(sessao.id, nextState, context, {
+      previousState: estadoAnterior ?? undefined,
+    });
+
+    sessao = updatedSessao;
+    currentState = nextState;
+
+    if (result.gerarOs && context.osId) {
+      gerouOs = true;
+      osMeta = { id: context.osId, produto: context.produto || 'Pedido' };
+      io.emit('nova-os', {
+        id: context.osId,
+        cliente: deps.clienteNome,
+        produto: context.produto,
+      });
+    }
+
+    if (escalarHumano) {
+      await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
+    }
+
+    if (result.chainNext) {
+      currentState = result.chainNext;
+      continue;
+    }
+
+    break;
+  }
+
+  return { responseParts, sessao, gerouOs, osMeta, escalarHumano };
 }
 
 export class StateRouter {
@@ -61,6 +159,10 @@ export class StateRouter {
     );
     if (intent.type === 'NOVO_ATENDIMENTO' && currentState !== ConversationState.BOAS_VINDAS) {
       console.log('🔄 [FSM] Cliente pediu novo atendimento — sessão reiniciada.');
+      // Se havia proposta pendente, avisa o dashboard pra remover o card.
+      if (context.propostaPendente) {
+        io.emit('proposta-cancelada', { sessaoId: sessao.id, motivo: 'NOVO_ATENDIMENTO' });
+      }
       sessao = await stateService.reiniciarSessao(sessao.clienteId);
       const resposta = mensagemNovoAtendimento();
       sessao = await stateService.transition(
@@ -81,6 +183,9 @@ export class StateRouter {
       console.log(
         `🔄 [FSM] Troca de produto${intent.produtoIdentificado ? `: ${intent.produtoIdentificado}` : ''}`
       );
+      if (context.propostaPendente) {
+        io.emit('proposta-cancelada', { sessaoId: sessao.id, motivo: 'TROCAR_PRODUTO' });
+      }
       sessao = await stateService.reiniciarContextoPedido(
         sessao.id,
         intent.produtoIdentificado || undefined
@@ -124,11 +229,6 @@ export class StateRouter {
       };
     }
 
-    const responseParts: string[] = [];
-    let gerouOs = false;
-    let osMeta: { id: string; produto: string } | undefined;
-    let escalarHumano = false;
-
     const deps: HandlerDeps = {
       ragService,
       conversationHistory,
@@ -136,74 +236,22 @@ export class StateRouter {
       clienteTelefone,
     };
 
-    const maxChain = 4;
-    for (let step = 0; step < maxChain; step++) {
-      const handler = getHandlerForState(currentState);
-      const result: HandlerResult = await handler.handle(message, { ...sessao, contexto: context, estadoAtual: currentState }, deps);
+    const chain = await runHandlerChain(sessao, message, deps);
 
-      if (result.response?.trim()) {
-        // Middleware Regra 9 — enriquece termos técnicos para o leigo.
-        // Idempotente e contexto-sensível: se cliente já usou os termos no
-        // histórico, não adiciona explicação.
-        const texto = enrichForLeigo(result.response.trim(), conversationHistory);
-        responseParts.push(texto);
-        console.log(`🤖 Handler [${currentState}]: "${texto.substring(0, 500)}${texto.length > 500 ? '...' : ''}"`);
-      }
-      context = result.updatedContext;
-      escalarHumano = escalarHumano || !!result.escalarHumano;
-
-      let nextState = result.nextState;
-      let estadoAnterior: string | null | undefined = sessao.estadoAnterior;
-
-      if (transitionService.shouldPushPreviousState(currentState, nextState)) {
-        estadoAnterior = currentState;
-      }
-
-      if (
-        nextState === ConversationState.ESCLARECER_DUVIDA &&
-        currentState !== ConversationState.ESCLARECER_DUVIDA &&
-        /\b(obrigad|entendi)\b/i.test(message) &&
-        !result.chainNext
-      ) {
-        nextState = transitionService.restorePreviousState(estadoAnterior || null);
-        estadoAnterior = null;
-      }
-
-      const updatedSessao = await stateService.transition(sessao.id, nextState, context, {
-        previousState: estadoAnterior ?? undefined,
-      });
-
-      sessao = updatedSessao;
-      currentState = nextState;
-
-      if (result.gerarOs && context.osId) {
-        gerouOs = true;
-        osMeta = { id: context.osId, produto: context.produto || 'Pedido' };
-        io.emit('nova-os', {
-          id: context.osId,
-          cliente: clienteNome,
-          produto: context.produto,
-        });
-      }
-
-      if (escalarHumano) {
-        await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
-      }
-
-      if (result.chainNext) {
-        currentState = result.chainNext;
-        continue;
-      }
-
-      break;
-    }
+    // Se o chain terminou em AGUARDAR_APROVACAO_ADMIN sem produzir resposta,
+    // sinaliza silêncio total (não manda fallback pro WhatsApp).
+    const silencioAdmin =
+      chain.responseParts.length === 0 &&
+      chain.sessao.estadoAtual === ConversationState.AGUARDAR_APROVACAO_ADMIN;
 
     return {
-      response: responseParts.join('\n') || 'Um momento, por favor.',
-      sessao,
-      gerouOs,
-      osMeta,
-      escalarHumano,
+      response: silencioAdmin
+        ? ''
+        : chain.responseParts.join('\n') || 'Um momento, por favor.',
+      sessao: chain.sessao,
+      gerouOs: chain.gerouOs,
+      osMeta: chain.osMeta,
+      escalarHumano: chain.escalarHumano,
     };
   }
 }

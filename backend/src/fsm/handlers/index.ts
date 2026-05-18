@@ -1,6 +1,7 @@
 import { ConversationState } from '../states';
 import { StateHandler } from '../handler.types';
 import { aguardarAprovacaoHandler } from './aguardar-aprovacao.handler';
+import { aguardarAprovacaoAdminHandler } from './aguardar-aprovacao-admin.handler';
 import { aguardarRetornoHandler } from './aguardar-retorno.handler';
 import { apresentarOrcamentoHandler } from './apresentar-orcamento.handler';
 import { boasVindasHandler } from './boas-vindas.handler';
@@ -29,6 +30,8 @@ export function getHandlerForState(state: ConversationState): StateHandler {
       return validarArquivoHandler;
     case ConversationState.CALCULAR_ORCAMENTO:
       return calcularOrcamentoHandler;
+    case ConversationState.AGUARDAR_APROVACAO_ADMIN:
+      return aguardarAprovacaoAdminHandler;
     case ConversationState.APRESENTAR_ORCAMENTO:
       return apresentarOrcamentoHandler;
     case ConversationState.AGUARDAR_APROVACAO:

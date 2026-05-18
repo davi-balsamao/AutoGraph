@@ -4,6 +4,7 @@ export enum ConversationState {
   COLETAR_ESPECIFICACOES = 'COLETAR_ESPECIFICACOES',
   VALIDAR_ARQUIVO = 'VALIDAR_ARQUIVO',
   CALCULAR_ORCAMENTO = 'CALCULAR_ORCAMENTO',
+  AGUARDAR_APROVACAO_ADMIN = 'AGUARDAR_APROVACAO_ADMIN',
   APRESENTAR_ORCAMENTO = 'APRESENTAR_ORCAMENTO',
   AGUARDAR_APROVACAO = 'AGUARDAR_APROVACAO',
   NEGOCIAR = 'NEGOCIAR',
@@ -24,6 +25,16 @@ export interface OrcamentoContext {
   detalhes?: string;
 }
 
+export interface PropostaPendente {
+  especificacoes: {
+    produto: string;
+    requisitos: Array<{ pergunta: string; resposta: string }>;
+    orcamento: OrcamentoContext;
+  };
+  orcamento: OrcamentoContext;
+  criadoEm: string;
+}
+
 export interface ConversationContext {
   produto?: string;
   specs?: Record<string, string>;
@@ -36,6 +47,12 @@ export interface ConversationContext {
   validacaoArteOk?: boolean;
   /** Fluxo 20: número de mensagens off-topic já recebidas na sessão. */
   offTopicCount?: number;
+  /** Proposta calculada pela IA aguardando revisão do admin. */
+  propostaPendente?: PropostaPendente;
+  /** Evita repetir "estou revisando seu orçamento" a cada msg do cliente. */
+  aguardandoFollowupEnviado?: boolean;
+  /** Estado da FSM no momento em que o admin assumiu a conversa. */
+  estadoSalvoTakeover?: string;
 }
 
 export interface SessaoRecord {

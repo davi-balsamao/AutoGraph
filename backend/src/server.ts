@@ -10,6 +10,8 @@ import osRoutes from './routes/os.routes';
 import authRoutes from './routes/auth.routes';
 import produtoRoutes from './routes/produto.routes';
 import notificationRoutes from './routes/notification.routes';
+import propostasRoutes from './routes/propostas.routes';
+import conversasRoutes from './routes/conversas.routes';
 import { prisma } from './config/prisma';
 import { cronService } from './services/cron.service';
 import { whatsappService } from './services/whatsapp.service'; 
@@ -89,9 +91,11 @@ app.get('/', (req, res) => {
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../data/uploads')));
 app.use(webhookRoutes);
-app.use('/api/os', osRoutes); 
+app.use('/api/os', osRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/propostas', propostasRoutes);
+app.use('/api/conversas', conversasRoutes);
 
 // Rotas de Produtos
 app.use('/api/produtos', produtoRoutes);

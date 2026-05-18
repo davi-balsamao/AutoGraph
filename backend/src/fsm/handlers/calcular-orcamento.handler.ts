@@ -38,6 +38,10 @@ function calcularTotalLocal(context: ConversationContext): number {
   return Math.max(base.minimo, 200);
 }
 
+function isAdminApprovalRequired(): boolean {
+  return process.env.ADMIN_APPROVAL_REQUIRED === 'true';
+}
+
 export class CalcularOrcamentoHandler implements StateHandler {
   async handle(
     _message: string,
@@ -54,11 +58,19 @@ export class CalcularOrcamentoHandler implements StateHandler {
       detalhes: `Estimativa para ${context.produto || 'pedido'}: R$ ${total.toFixed(2)}`,
     };
 
+    // Quando ADMIN_APPROVAL_REQUIRED=true, o orçamento pausa em
+    // AGUARDAR_APROVACAO_ADMIN até o admin revisar. Caso contrário, segue o
+    // fluxo legado (chain direto pra APRESENTAR_ORCAMENTO) — mantém os testes
+    // E2E existentes funcionando sem mudanças.
+    const proximo = isAdminApprovalRequired()
+      ? ConversationState.AGUARDAR_APROVACAO_ADMIN
+      : ConversationState.APRESENTAR_ORCAMENTO;
+
     return {
       response: '',
-      nextState: ConversationState.APRESENTAR_ORCAMENTO,
+      nextState: proximo,
       updatedContext: context,
-      chainNext: ConversationState.APRESENTAR_ORCAMENTO,
+      chainNext: proximo,
     };
   }
 }
