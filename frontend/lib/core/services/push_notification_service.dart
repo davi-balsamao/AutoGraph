@@ -123,13 +123,28 @@ class PushNotificationService {
       });
 
       // App aberto por notificação a partir do estado "fechado".
-      final initial = await FirebaseMessaging.instance.getInitialMessage();
-      if (initial != null) {
-        _emitTap(initial.data);
+      // Em web, getInitialMessage depende do service worker estar registrado —
+      // se ele falhar, esse await pode travar a inicialização. Em web fazemos
+      // fire-and-forget; em mobile mantemos o await porque é instantâneo.
+      if (kIsWeb) {
+        // ignore: discarded_futures
+        FirebaseMessaging.instance.getInitialMessage().then((initial) {
+          if (initial != null) _emitTap(initial.data);
+        }).catchError((e) {
+          debugPrint('⚠️ [FCM] getInitialMessage falhou (web): $e');
+        });
+      } else {
+        final initial = await FirebaseMessaging.instance.getInitialMessage();
+        if (initial != null) {
+          _emitTap(initial.data);
+        }
       }
 
-      // 5. Atualizar Token e escutar novos tokens gerados
-      await syncTokenWithBackend();
+      // 5. Atualizar Token e escutar novos tokens gerados.
+      // Em web sem VAPID key, getToken() pode pendurar — fire-and-forget para
+      // não bloquear o boot do app.
+      // ignore: discarded_futures
+      syncTokenWithBackend();
       FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) async {
         debugPrint('🔄 [FCM] Novo token FCM gerado: $newToken');
         await _sendTokenToBackend(newToken);
