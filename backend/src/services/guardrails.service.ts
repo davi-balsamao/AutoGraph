@@ -17,10 +17,19 @@ const HALLUCINATION_PRICE_MESSAGE =
 
 export class GuardrailsService {
   private allowedTopics = [
+    // Produtos e termos comerciais
     'produto', 'preço', 'prazo', 'material', 'gráfica', 'impressão', 'banner',
     'cartão', 'panfleto', 'adesivo', 'arte', 'design', 'milheiro', 'cento', 'gramatura',
     'verniz', 'fosco', 'brilho', 'tamanho', 'cores', 'orçamento', 'pix', 'desconto',
     'laminação', 'acabamento', 'sangria', 'papel', 'couché', 'offset', 'lona', 'vinil',
+    // Sinônimos de produto
+    'flyer', 'folheto', 'visita', 'bloco', 'apostila',
+    // Arquivos / formatos (Fluxo 9: cliente discute PSD→PDF e o RAG orienta)
+    'arquivo', 'formato', 'exportar', 'exporta', 'exportação', 'salvar', 'salve',
+    'pdf', 'jpg', 'jpeg', 'png', 'tiff', 'psd', 'cdr', 'indd', 'corel', 'photoshop', 'illustrator',
+    'camada', 'camadas', 'resolução', 'dpi', 'cmyk', 'rgb',
+    // Atendimento / fluxo
+    'atendimento', 'atendente', 'pedido', 'entrega', 'retirada', 'pagamento',
   ];
 
   private outOfScopeMessage =
