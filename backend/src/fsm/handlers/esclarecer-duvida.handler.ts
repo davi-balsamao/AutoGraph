@@ -42,12 +42,15 @@ export class EsclarecerDuvidaHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
-    const context: ConversationContext = parseContext(sessao.contexto);
+    const baseContext: ConversationContext = parseContext(sessao.contexto);
     const entities = entityExtractionService.extractRegex(
       deps.conversationHistory || `Cliente: ${message}`,
       { produtoAtual: sessao.contexto.produto }
     );
-    syncContextFromEntities(context, entities);
+    // Preserva o produto/specs inferidos pela regex no contexto que será
+    // propagado adiante — sem isso, o chain para COLETAR_ESPECIFICACOES
+    // recebe contexto vazio e a FSM acaba pulando para CALCULAR_ORCAMENTO.
+    const context: ConversationContext = syncContextFromEntities(baseContext, entities);
 
     // Resposta vem SEMPRE da knowledge base — guardrails filtram off-scope
     // e bloqueiam preços não autorizados.

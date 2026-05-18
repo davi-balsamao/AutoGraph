@@ -16,12 +16,13 @@ import { ConversationState, SessaoRecord } from '../states';
 import { transitionService } from '../transition.service';
 import { prepareContext } from './base.handler';
 
-// "Pode calcular / fazer / preparar / gerar / montar / tirar" o orçamento depois
-// que o orçamento já foi apresentado é uma instrução redundante — o cliente está
-// ecoando o pedido inicial sem perceber que já recebeu o valor. Tratamos de forma
-// determinística para evitar uma rodada cara de RAG.
+// "Pode calcular / calcula / calcule" (com ou sem complemento — "o orçamento",
+// "com 100 unidades", "o valor pra mim", ".") depois que o orçamento já foi
+// apresentado é instrução redundante. O cliente está ecoando o pedido inicial
+// sem perceber que já recebeu o valor. Tratamos de forma determinística para
+// evitar uma rodada cara de RAG (que pode estourar o timeout do turno).
 const PEDIDO_CALCULO_REDUNDANTE =
-  /\b(pode|podem|podia|podiam|poderia|poderiam|d[áa])\s+(calcular?|fazer|tirar|preparar|gerar|montar|enviar|me passar|me mandar|prepararem)\b.*\bor[çc]amento\b/i;
+  /\b(pode|podem|podia|podiam|poderia|poderiam|d[áa])\s+calcul(ar|a|e)\b/i;
 
 export class AguardarAprovacaoHandler implements StateHandler {
   async handle(

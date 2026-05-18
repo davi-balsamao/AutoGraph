@@ -54,6 +54,10 @@ export class TransitionService {
 
       case ConversationState.COLETAR_ESPECIFICACOES:
         if (DUVIDA.test(msg)) return ConversationState.ESCLARECER_DUVIDA;
+        // Sem produto no contexto, fica coletando — nunca avança para
+        // CALCULAR_ORCAMENTO sem ter o que orçar. Protege contra chains que
+        // entram aqui com contexto vazio (ex: vindo de ESCLARECER_DUVIDA).
+        if (!context.produto) return current;
         if (!specsCompletas(context)) return current;
         if (produtoExigeValidacaoArte(context)) {
           return ConversationState.VALIDAR_ARQUIVO;
