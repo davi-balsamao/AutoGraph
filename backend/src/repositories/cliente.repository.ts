@@ -18,6 +18,13 @@ export class ClienteRepository {
     });
   }
 
+  async updateNome(id: string, nome: string) {
+    return prisma.usuario.update({
+      where: { id },
+      data: { nome },
+    });
+  }
+
   async create(data: { nome: string; telefone: string }) {
     return prisma.usuario.create({
       data: {

@@ -8,6 +8,8 @@ enum MessageType {
 class ChatMessage {
   final String id;
   final String senderId;
+  final String? senderName;
+  final String? clienteDbId;
   final String receiverId;
   final String? text;
   final String? mediaUrl;
@@ -19,6 +21,8 @@ class ChatMessage {
   const ChatMessage({
     required this.id,
     required this.senderId,
+    this.senderName,
+    this.clienteDbId,
     required this.receiverId,
     this.text,
     this.mediaUrl,
@@ -34,6 +38,8 @@ class ChatMessage {
     return ChatMessage(
       id: json['id'] as String,
       senderId: json['senderId'] as String,
+      senderName: json['senderName'] as String?,
+      clienteDbId: json['clienteDbId'] as String?,
       receiverId: json['receiverId'] as String,
       text: json['text'] as String?,
       mediaUrl: json['mediaUrl'] as String?,
@@ -51,6 +57,8 @@ class ChatMessage {
     return {
       'id': id,
       'senderId': senderId,
+      'senderName': senderName,
+      'clienteDbId': clienteDbId,
       'receiverId': receiverId,
       'text': text,
       'mediaUrl': mediaUrl,

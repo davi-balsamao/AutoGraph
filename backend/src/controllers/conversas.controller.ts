@@ -39,7 +39,7 @@ export class ConversasController {
       }
 
       await clienteRepo.updateAtendimentoStatus(cliente.id, true);
-      io.emit('conversa-assumida', { clienteId: cliente.id, telefone: cliente.telefone });
+      io.emit('conversa-assumida', { clienteId: cliente.id, telefone: cliente.telefone, clienteNome: cliente.nome });
       return res.json({ clienteId: cliente.id, telefone: cliente.telefone, atendimentoHumano: true });
     } catch (error) {
       console.error('❌ Erro ao assumir conversa:', error);
@@ -111,6 +111,75 @@ export class ConversasController {
       });
     } catch (error) {
       console.error('❌ Erro ao buscar status da conversa:', error);
+      return res.status(500).json({ error: 'Erro interno.' });
+    }
+  }
+
+  // GET /api/conversas/:userId/mensagens — histórico completo de mensagens
+  async mensagens(req: Request, res: Response) {
+    try {
+      const paramId = req.params.userId as string;
+      let cliente = await clienteRepo.findById(paramId);
+      if (!cliente) {
+        cliente = await clienteRepo.findByPhone(paramId);
+      }
+      if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
+
+      const limit = parseInt(req.query.limit as string) || 100;
+
+      const mensagens = await prisma.mensagens.findMany({
+        where: { usuarioId: cliente.id },
+        orderBy: { criadoEm: 'asc' },
+        take: limit,
+      });
+
+      // Formata para o contrato do Flutter
+      const formatted = mensagens.map((m) => {
+        const payload = m.payload as Record<string, any>;
+        // Mensagem do CLIENTE: payload é o rawPayload do WhatsApp ({text: {body: "..."}} ou formato direto)
+        // Mensagem do BOT/GERENTE: payload é {text: "..."}
+        let text = '';
+        if (m.origem === 'CLIENTE') {
+          text = payload?.text?.body || payload?.text || '';
+        } else {
+          text = payload?.text || '';
+        }
+
+        let senderId: string;
+        let receiverId: string;
+        let isFromRAG: boolean;
+
+        if (m.origem === 'CLIENTE') {
+          senderId = cliente!.telefone;
+          receiverId = 'admin';
+          isFromRAG = false;
+        } else if (m.origem === 'BOT') {
+          senderId = 'bot';
+          receiverId = cliente!.telefone;
+          isFromRAG = true;
+        } else {
+          // GERENTE
+          senderId = 'admin';
+          receiverId = cliente!.telefone;
+          isFromRAG = false;
+        }
+
+        return {
+          id: m.id,
+          senderId,
+          senderName: m.origem === 'CLIENTE' ? cliente!.nome : undefined,
+          clienteDbId: cliente!.id,
+          receiverId,
+          text,
+          type: 'text',
+          timestamp: m.criadoEm.toISOString(),
+          isFromRAG,
+        };
+      });
+
+      return res.json(formatted);
+    } catch (error) {
+      console.error('❌ Erro ao buscar mensagens:', error);
       return res.status(500).json({ error: 'Erro interno.' });
     }
   }

@@ -3,6 +3,7 @@ import { conversationService } from '../services/conversation.service';
 import { entityExtractionService } from '../services/entity-extraction.service';
 import { ragService } from '../services/rag.service';
 import { stateService } from '../services/state.service';
+import { notificationService } from '../services/notification.service';
 import { formatarPerguntaCatalogo } from './catalog.util';
 import { transitionService } from './transition.service';
 import {
@@ -132,6 +133,24 @@ export async function runHandlerChain(
 
     if (escalarHumano) {
       await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
+      
+      // Envia notificação push para os gerentes pelo Firebase FCM
+      await notificationService.sendToAdmins(
+        'Atendimento Escalado',
+        `O cliente ${deps.clienteNome} precisa falar com um especialista.`,
+        { 
+          type: 'escalation',
+          clienteId: sessao.clienteId,
+          telefone: deps.clienteTelefone
+        }
+      );
+
+      // Informa ao front-end em tempo real para atualizar o ícone do chat
+      io.emit('conversa-assumida', { 
+        clienteId: sessao.clienteId, 
+        telefone: deps.clienteTelefone,
+        clienteNome: deps.clienteNome,
+      });
     }
 
     if (result.chainNext) {

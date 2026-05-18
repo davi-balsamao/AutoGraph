@@ -31,10 +31,13 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
   final GlobalKey<_KanbanTabState> _kanbanKey = GlobalKey<_KanbanTabState>();
+  final GlobalKey<AdminChatListTabState> _chatKey = GlobalKey<AdminChatListTabState>();
   int _propostasPendentes = 0;
+  int _conversasEscaladas = 0;
   StreamSubscription? _propostaSub;
   StreamSubscription? _pushTapSub;
   StreamSubscription? _osSub;
+  StreamSubscription? _conversaSub;
 
   @override
   void initState() {
@@ -49,11 +52,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (data['type'] == 'PROPOSTA_PENDENTE') {
         setState(() => _currentIndex = 1);
       }
+      // Notificação de escalação abre a tab Chat (índice 2).
+      if (data['type'] == 'escalation') {
+        setState(() => _currentIndex = 2);
+      }
     });
     _osSub = ChatService().osEventStream.listen((_) {
       if (!mounted) return;
       _kanbanKey.currentState?.refresh();
-      // Opcional: mostrar um snackbar informando que uma nova OS chegou.
+    });
+    _conversaSub = ChatService().conversaEventStream.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        if (event.tipo == ConversaEventTipo.assumida) {
+          _conversasEscaladas++;
+        } else if (event.tipo == ConversaEventTipo.devolvida && _conversasEscaladas > 0) {
+          _conversasEscaladas--;
+        }
+      });
     });
   }
 
@@ -62,6 +78,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _propostaSub?.cancel();
     _pushTapSub?.cancel();
     _osSub?.cancel();
+    _conversaSub?.cancel();
     super.dispose();
   }
 
@@ -282,7 +299,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           _KanbanTab(key: _kanbanKey),
           const AprovacoesTab(),
-          const AdminChatListTab(),
+          AdminChatListTab(key: _chatKey),
           const _AdminHistoryTab(),
           const _FinancialTab(),
           const _CatalogTab(),
@@ -311,9 +328,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             selectedIcon: const Icon(Icons.pending_actions, color: AppColors.brandGreen),
             label: 'Aprovações',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble, color: AppColors.brandGreen),
+          NavigationDestination(
+            icon: _conversasEscaladas > 0
+                ? Badge.count(
+                    count: _conversasEscaladas,
+                    backgroundColor: Colors.amber.shade700,
+                    child: const Icon(Icons.chat_bubble_outline),
+                  )
+                : const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble, color: AppColors.brandGreen),
             label: 'Chat',
           ),
           const NavigationDestination(

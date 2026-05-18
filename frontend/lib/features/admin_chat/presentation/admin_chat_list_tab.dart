@@ -11,22 +11,30 @@ class AdminChatListTab extends StatefulWidget {
   const AdminChatListTab({super.key});
 
   @override
-  State<AdminChatListTab> createState() => _AdminChatListTabState();
+  State<AdminChatListTab> createState() => AdminChatListTabState();
 }
 
-class _AdminChatListTabState extends State<AdminChatListTab> {
+class AdminChatListTabState extends State<AdminChatListTab> {
   bool _isLoading = true;
   List<OrdemServico> _ordens = [];
   
   // Lista de contatos ao vivo capturados pelo Socket (antes mesmo de virarem OS)
   final List<Map<String, String>> _liveChats = [];
+  
+  // Conjunto de telefones/clienteIds que foram escalados (aguardando atendimento humano)
+  final Set<String> _escalados = {};
+  
+  int get escaladosCount => _escalados.length;
+  
   StreamSubscription? _chatSubscription;
+  StreamSubscription? _conversaSubscription;
 
   @override
   void initState() {
     super.initState();
     _fetchConversations();
     _listenToLiveChats(); // 👈 Começa a ouvir mensagens sem OS
+    _listenToEscalacoes(); // 👈 Ouve escalações para badge amarelo
   }
 
   void _listenToLiveChats() {
@@ -35,15 +43,78 @@ class _AdminChatListTabState extends State<AdminChatListTab> {
       if (message.senderId != 'bot' && message.senderId != 'admin') {
         final alreadyExists = _liveChats.any((c) => c['id'] == message.senderId);
         
-        if (!alreadyExists && mounted) {
+        // Se já existe, atualiza o nome caso tenhamos recebido um senderName novo
+        if (alreadyExists) {
+          if (message.senderName != null && message.senderName!.isNotEmpty && mounted) {
+            setState(() {
+              final idx = _liveChats.indexWhere((c) => c['id'] == message.senderId);
+              if (idx != -1) {
+                final current = _liveChats[idx];
+                // Só atualiza se ainda era "Novo Chat (telefone)"
+                if (current['nome']?.startsWith('Novo Chat') == true) {
+                  _liveChats[idx] = {
+                    ...current,
+                    'nome': message.senderName!,
+                    if (message.clienteDbId != null) 'dbId': message.clienteDbId!,
+                  };
+                }
+              }
+            });
+          }
+          return;
+        }
+        
+        if (mounted) {
+          final nome = (message.senderName != null && message.senderName!.isNotEmpty)
+              ? message.senderName!
+              : 'Novo Chat (${message.senderId})';
           setState(() {
             _liveChats.insert(0, {
               'id': message.senderId,
-              'nome': 'Novo Chat (${message.senderId})',
+              'nome': nome,
               'telefone': message.senderId,
+              if (message.clienteDbId != null) 'dbId': message.clienteDbId!,
             });
           });
         }
+      }
+    });
+  }
+
+  void _listenToEscalacoes() {
+    _conversaSubscription = ChatService().conversaEventStream.listen((event) {
+      if (!mounted) return;
+      
+      if (event.tipo == ConversaEventTipo.assumida) {
+        setState(() {
+          // Marca esse cliente como escalado
+          _escalados.add(event.telefone ?? event.clienteId);
+          
+          // Se o chat já existe na lista, atualiza o nome se necessário
+          final idx = _liveChats.indexWhere((c) => 
+            c['id'] == event.clienteId || 
+            c['telefone'] == event.telefone ||
+            c['id'] == event.telefone
+          );
+          if (idx != -1 && event.clienteNome != null && event.clienteNome!.isNotEmpty) {
+            final current = _liveChats[idx];
+            if (current['nome']?.startsWith('Novo Chat') == true) {
+              _liveChats[idx] = {...current, 'nome': event.clienteNome!};
+            }
+          }
+          // Se o chat não existe ainda, cria (caso o agente tenha escalado antes de qualquer emissão)
+          if (idx == -1) {
+            _liveChats.insert(0, {
+              'id': event.telefone ?? event.clienteId,
+              'nome': event.clienteNome ?? 'Cliente Escalado',
+              'telefone': event.telefone ?? event.clienteId,
+            });
+          }
+        });
+      } else if (event.tipo == ConversaEventTipo.devolvida) {
+        setState(() {
+          _escalados.remove(event.telefone ?? event.clienteId);
+        });
       }
     });
   }
@@ -66,7 +137,13 @@ class _AdminChatListTabState extends State<AdminChatListTab> {
   @override
   void dispose() {
     _chatSubscription?.cancel();
+    _conversaSubscription?.cancel();
     super.dispose();
+  }
+
+  bool _isEscalado(Map<String, String> client) {
+    return _escalados.contains(client['id']) || 
+           _escalados.contains(client['telefone']);
   }
 
   @override
@@ -116,25 +193,88 @@ class _AdminChatListTabState extends State<AdminChatListTab> {
         separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final client = combinedClients[index];
+          final escalado = _isEscalado(client);
           
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            leading: CircleAvatar(
-              backgroundColor: AppColors.brandGreen.withValues(alpha: 0.2),
-              child: Text(
-                (client['nome'] ?? 'C')[0].toUpperCase(),
-                style: const TextStyle(color: AppColors.brandGreen, fontWeight: FontWeight.bold),
-              ),
+            leading: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  backgroundColor: escalado 
+                      ? Colors.amber.shade700.withValues(alpha: 0.2)
+                      : AppColors.brandGreen.withValues(alpha: 0.2),
+                  child: Text(
+                    (client['nome'] ?? 'C')[0].toUpperCase(),
+                    style: TextStyle(
+                      color: escalado ? Colors.amber.shade700 : AppColors.brandGreen, 
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (escalado)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade700,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.priority_high,
+                        size: 10,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            title: Text(client['nome']!, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(client['nome']!, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+                if (escalado)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade700,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'ESCALADO',
+                      style: GoogleFonts.outfit(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             subtitle: Text('WhatsApp: ${client['telefone']}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
+              // Ao abrir o chat, remove da lista de escalados (o gerente está vendo)
+              if (escalado) {
+                setState(() {
+                  _escalados.remove(client['id']);
+                  _escalados.remove(client['telefone']);
+                });
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => AdminChatConversationScreen(
-                    clientId: client['id']!,
+                    clientId: client['dbId'] ?? client['id']!,
                     clientName: client['nome']!,  
                     clientPhone: client['telefone']!,
                   ),

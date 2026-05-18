@@ -94,8 +94,9 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
       if (mounted) {
         bool matchesId = message.senderId == widget.clientId || message.receiverId == widget.clientId;
         bool matchesPhone = widget.clientPhone.isNotEmpty && (message.senderId == widget.clientPhone || message.receiverId == widget.clientPhone);
+        bool matchesDbId = message.clienteDbId != null && (message.clienteDbId == widget.clientId || message.clienteDbId == widget.clientPhone);
 
-        if (matchesId || matchesPhone) {
+        if (matchesId || matchesPhone || matchesDbId) {
           final bool alreadyExists = _messages.any((m) => m.id == message.id);
           if (!alreadyExists) {
             setState(() {
@@ -109,7 +110,14 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
   }
 
   Future<void> _loadMessages() async {
-    final msgs = await _chatService.getMessages(widget.clientId);
+    // Tenta buscar pelo clientId (pode ser UUID ou telefone)
+    var msgs = await _chatService.getMessages(widget.clientId);
+    
+    // Se não achou e temos o telefone, tenta por ele também
+    if (msgs.isEmpty && widget.clientPhone.isNotEmpty && widget.clientPhone != widget.clientId) {
+      msgs = await _chatService.getMessages(widget.clientPhone);
+    }
+    
     if (mounted) {
       setState(() {
         _messages = msgs;
