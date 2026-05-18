@@ -1,10 +1,13 @@
-import "dotenv/config";
-import { defineConfig } from "@prisma/config";
-
-declare const process: any;
+import 'dotenv/config';
+import { defineConfig } from '@prisma/config';
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
+  schema: 'prisma/schema.prisma',
+  
+  // @ts-ignore
+  datasource: {
+    url: process.env.DATABASE_URL,
+  },
   
   // @ts-ignore
   migrate: {
@@ -12,8 +15,6 @@ export default defineConfig({
   },
 
   migrations: {
-    path: "prisma/migrations",
-    // ESSA É A LINHA QUE VOCÊ TENTOU RODAR NO TERMINAL:
-    seed: "ts-node --transpile-only prisma/seed.ts" 
+    seed: 'ts-node --transpile-only prisma/seed.ts',
   },
 });
