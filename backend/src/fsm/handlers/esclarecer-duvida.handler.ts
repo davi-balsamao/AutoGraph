@@ -2,21 +2,21 @@ import { entityExtractionService } from '../../services/entity-extraction.servic
 import { syncContextFromEntities } from '../context.util';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationContext, ConversationState, parseContext, SessaoRecord } from '../states';
-import { transitionService } from '../transition.service';
+import { transitionService, DUVIDA } from '../transition.service';
 
 /**
  * Detecta se a mensagem ainda contém uma pergunta — '?' ou palavras
  * interrogativas. Enquanto cliente perguntar, fica no estado.
  */
 const IS_QUESTION =
-  /\?|(\b(qual|quais|como|o que|por que|pra que|quando|quanto|tem|existe|há|vocês fazem|dá pra|pode ser)\b)/i;
+  /\?|(\b(qual|quais|como|o que|por que|pra que|quando|quanto|existe|há|vocês fazem|dá pra|vocês têm|vocês tem|voces tem)\b)/i;
 
 /**
  * Detecta sinal de progresso: cliente quer prosseguir, sem fazer nova pergunta.
  * Inclui formas curtas ("ok", "vou de X") e longas ("então prefiro").
  */
 const MOVING_FORWARD =
-  /\b(então|entendi|obrigad|ok|beleza|certo|perfeito|combinado|fechado|vou de|vou com|vou nos|fico com|prefiro|escolho|gosto de|pode fazer|enviei|reenviei|mandei|anexei|segue|pronto|pronta|sim)\b/i;
+  /\b(então|entendi|obrigad|ok|beleza|certo|perfeito|combinado|fechado|vou de|vou com|vou nos|fico com|prefiro|escolho|gosto de|pode fazer|enviei|reenviei|mandei|anexei|segue|pronto|pronta|sim|pode ser)\b/i;
 
 /**
  * Handler do estado ESCLARECER_DUVIDA — o estado mais maleável da FSM.
@@ -61,15 +61,16 @@ export class EsclarecerDuvidaHandler implements StateHandler {
       deps.conversationHistory || undefined
     );
 
-    const isQuestion = IS_QUESTION.test(message);
+    const isQuestion = IS_QUESTION.test(message) || DUVIDA.test(message);
     const PAUSA_OU_FORMATO = /\b(exportar|pdf|jpg|png|tiff|formato|extensão|extensao|aguardar|esperar|salvar)\b/i;
     const SUBMISSION_RE = /\b(enviei|reenviei|mandei|anexei|segue)\b/i;
     const movingForward =
       MOVING_FORWARD.test(message) &&
       (SUBMISSION_RE.test(message) || !PAUSA_OU_FORMATO.test(message));
 
-    // SAÍDA: progresso explícito sem nova pergunta.
-    if (movingForward && !isQuestion) {
+    // SAÍDA: progresso explícito, ou mensagem não é uma pergunta.
+    // Isso evita prender o usuário se ele responder uma especificação (ex: "frente e verso", "100 paginas")
+    if (movingForward || !isQuestion) {
       const estadoRetomar = transitionService.restorePreviousState(
         sessao.estadoAnterior
       );

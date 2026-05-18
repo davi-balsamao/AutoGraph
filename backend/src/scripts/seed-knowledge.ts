@@ -4,6 +4,7 @@ import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 import { Document } from '@langchain/core/documents';
 import * as fs from 'fs';
 import * as path from 'path';
+import { nextEmbeddingApiKey } from '../services/llm-factory';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -15,13 +16,12 @@ async function main() {
   const countResult = await prisma.$queryRaw<Array<{ count: string | number | bigint }>>`SELECT COUNT(*) as count FROM "DocumentosConhecimento"`;
   const docCount = Number(countResult[0]?.count || 0);
   if (docCount > 0) {
-    console.log(`✅ Base de Conhecimento já possui ${docCount} documentos. Pulando seeding.`);
-    return;
+    console.log(`✅ Base de Conhecimento já possui ${docCount} documentos antigos. Eles serão recriados.`);
   }
 
   const embeddings = new GoogleGenerativeAIEmbeddings({
-    modelName: 'gemini-embedding-2',
-    apiKey: process.env.GOOGLE_API_KEY,
+    modelName: 'gemini-embedding-001',
+    apiKey: nextEmbeddingApiKey(),
   });
 
   const dataDir = path.join(__dirname, '../../data');
