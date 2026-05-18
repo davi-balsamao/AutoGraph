@@ -31,15 +31,26 @@ export class ConversationService {
    * @param usuarioId ID do cliente no banco
    * @returns Histórico formatado como string para injeção no prompt
    */
+  async getFormattedHistorySince(usuarioId: string, since: Date): Promise<string> {
+    const mensagens = await mensagemRepo.findByUsuarioId(usuarioId, this.historyLimit);
+    const filtradas = mensagens.filter((m) => m.criadoEm >= since);
+    return this.formatMessages(filtradas);
+  }
+
   async getFormattedHistory(usuarioId: string): Promise<string> {
     const mensagens = await mensagemRepo.findByUsuarioId(usuarioId, this.historyLimit);
+    return this.formatMessages(mensagens);
+  }
+
+  private formatMessages(
+    mensagens: Awaited<ReturnType<typeof mensagemRepo.findByUsuarioId>>
+  ): string {
 
     if (mensagens.length === 0) {
       return '';
     }
 
-    // As mensagens vêm em ordem DESC (mais recente primeiro), inverter para ordem cronológica
-    const cronologico = mensagens.reverse();
+    const cronologico = [...mensagens].reverse();
 
     const linhas = cronologico.map((msg) => {
       const role = msg.origem === 'CLIENTE' ? 'Cliente' : 'Assistente';

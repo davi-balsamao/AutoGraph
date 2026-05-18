@@ -1,24 +1,31 @@
 import dotenv from 'dotenv';
+import axios from 'axios';
+
 dotenv.config();
 
-const API_KEY = process.env.GOOGLE_API_KEY;
+async function main() {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    console.error('GOOGLE_API_KEY is missing in .env!');
+    return;
+  }
 
-const MODEL = 'gemini-flash-lite-latest';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+  console.log('Sending direct HTTP GET request to list models...');
 
-async function testApi() {
-  console.log(`Testing model: ${MODEL}`);
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: "Oi" }] }]
-    })
-  });
-
-  const data = await response.json();
-  console.log('Status:', response.status);
+  try {
+    const res = await axios.get(url);
+    const models = res.data.models;
+    console.log(`\nFound ${models?.length || 0} models:`);
+    if (models) {
+      for (const m of models) {
+        console.log(`- ${m.name} (${m.displayName})`);
+        console.log(`  Supported Methods: ${m.supportedGenerationMethods?.join(', ')}`);
+      }
+    }
+  } catch (err: any) {
+    console.error('Failed to list models via HTTP GET:', err.response?.data || err.message || err);
+  }
 }
 
-testApi().catch(console.error);
+main().catch(console.error);

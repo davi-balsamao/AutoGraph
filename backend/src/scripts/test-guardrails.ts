@@ -55,6 +55,23 @@ async function runTests() {
   const result7 = guardrailsService.validateResponse(response7, mockDocs);
   console.log('Resultado Cenário 7:', result7.isValid ? 'PASSOU' : 'FALHOU', result7.reason || '');
 
+  console.log('\n✅ Cenário 8: Desconto de 5% dentro da margem (pedido R$ 280 na tabela mock)');
+  const response8 =
+    'Consigo fechar em R$ 266,00 no Pix para você agora. O panfleto couché 115g fica nesse valor com a parceria.';
+  const mockDocsPanfleto: Document[] = [
+    new Document({
+      pageContent: 'Panfleto Couché 115g 14x20cm 4x4 — 1000 un: R$ 280,00.',
+      metadata: { source: 'tabela_precos_grafica.md' },
+    }),
+  ];
+  const result8 = guardrailsService.validateResponse(response8, mockDocsPanfleto);
+  console.log('Resultado Cenário 8:', result8.isValid ? 'PASSOU' : 'FALHOU', result8.reason || '');
+
+  console.log('\n❌ Cenário 9: Desconto acima da margem permitida');
+  const response9 = 'Fechado em R$ 200,00 no Pix para os panfletos.';
+  const result9 = guardrailsService.validateResponse(response9, mockDocsPanfleto);
+  console.log('Resultado Cenário 9:', !result9.isValid ? 'PASSOU (Bloqueado)' : 'FALHOU', result9.reason || '');
+
   console.log('\n--- Testes Finalizados ---');
 }
 
