@@ -80,49 +80,13 @@ export class WebhookService {
         return;
       }
 
-      // Roteamento de arquitetura (Branch fix/rag-tests)
+      // 🔀 Roteamento de Arquitetura Limpo
       let aiResponse: string;
-      try {
-        const result = await ragService.query(messageData.text, conversationHistory || undefined);
-        aiResponse = result.answer;
-      } catch (aiError) {
-        aiResponse = FALLBACK_MESSAGE;
-      }
-
-      const fullHistory = conversationHistory
-        ? `${conversationHistory}\nCliente: ${messageData.text}\nAssistente: ${aiResponse}`
-        : `Cliente: ${messageData.text}\nAssistente: ${aiResponse}`;
-
-      const entities = entityExtractionService.extract(fullHistory);
-
-      if (entities.completo && entities.produtoIdentificado) {
-        const especificacoes = {
-          produto: entities.produtoIdentificado,
-          requisitos: entities.requisitos.map((r) => ({ pergunta: r.pergunta, resposta: r.resposta })),
-        };
-
-        const mensagemSugerida = await ragService.generateSuggestedMessage(cliente.nome, especificacoes, fullHistory);
-
-        const os = await osRepo.create({
-          clienteId: cliente.id,
-          especificacoes,
-          mensagem_sugerida: mensagemSugerida,
-        } as any);
-
-        io.emit('nova-os', { id: os.id, cliente: cliente.nome, produto: entities.produtoIdentificado });
-        
-        // Notificar administradores por push (FCM)
-        notificationService.sendToAdmins(
-          'Novo Pedido Automático 📋',
-          `Cliente ${cliente.nome} solicitou "${entities.produtoIdentificado}" via assistente virtual.`,
-          { osId: os.id, type: 'new_os' }
-        ).catch(err => console.error('❌ Erro ao enviar push de OS automática:', err));
-
-        aiResponse = TRANSBORDO_MESSAGE;
       if (FSM_ENABLED) {
         aiResponse = await this.processWithFsm(cliente.id, cliente.nome, messageData);
       } else {
-        aiResponse = await this.processLegacy(cliente.id, messageData.text);
+        // Passei o nome do cliente para o legacy conseguir emitir notificações personalizadas
+        aiResponse = await this.processLegacy(cliente.id, cliente.nome, messageData.text);
       }
 
       const msgBot = await mensagemRepo.create({
@@ -144,7 +108,7 @@ export class WebhookService {
 
       console.log(`📤 Enviando resposta para o WhatsApp: ${messageData.from}`);
       await whatsappService.sendMessage(messageData.from, aiResponse);
-      
+
     } catch (error) {
       console.error('❌ Erro no webhook:', error);
     }
@@ -163,45 +127,69 @@ export class WebhookService {
       return result.response;
     } catch (error) {
       console.error('❌ Erro na FSM. Ativando Fallback local:', error);
-      return obterRespostaSimulada(messageData.text); // Integração da contingência na FSM
+      return obterRespostaSimulada(messageData.text);
     }
   }
 
-  private async processLegacy(clienteId: string, text: string): Promise<string> {
-    const TRANSBORDO_MESSAGE = 'Tudo anotado! Vou repassar suas informações para a nossa recepcionista. 😊';
+  private async processLegacy(clienteId: string, clienteNome: string, text: string): Promise<string> {
+    const TRANSBORDO_MESSAGE = 'Tudo anotado! Vou repassar suas informações para a nossa equipe. 😊';
     const conversationHistory = await conversationService.getFormattedHistory(clienteId);
     let aiResponse: string;
 
+    // Etapa 1: Resposta via RAG
     try {
       const result = await ragService.query(text, conversationHistory || undefined);
       aiResponse = result.answer;
       console.log(`✅ Resposta da IA gerada com sucesso.`);
     } catch (error) {
       console.warn('⚠️ Cota da API esgotada ou erro no RAG. Ativando assistente local de contingência...');
-      aiResponse = obterRespostaSimulada(text); // Integração da contingência no Legacy
+      aiResponse = obterRespostaSimulada(text);
     }
 
+    // Etapa 2: Extração de Entidades e Criação de OS
     const linhasCliente = (conversationHistory || '').split('\n').filter((linha) => linha.startsWith('Cliente:')).join('\n');
     const textoParaExtracao = `${linhasCliente}\nCliente: ${text}`;
-    const entities = await entityExtractionService.extract(textoParaExtracao);
 
-    // Lógica de OS (Combinada das duas branches)
-    if (entities.completo && entities.produtoIdentificado) {
-      const cliente = await clienteRepo.findById(clienteId);
-      const especificacoes = {
-        produto: entities.produtoIdentificado,
-        requisitos: entities.requisitos.map((r) => ({ pergunta: r.pergunta, resposta: r.resposta || r.response })),
-      };
+    try {
+      const entities = await entityExtractionService.extract(textoParaExtracao);
 
-      const osRepo = new OsRepository();
-      const os = await osRepo.create({
-        clienteId,
-        especificacoes,
-        mensagem_sugerida: "Orçamento solicitado via assistente virtual.",
-      } as any);
+      if (entities.completo && entities.produtoIdentificado) {
+        const especificacoes = {
+          produto: entities.produtoIdentificado,
+          requisitos: entities.requisitos.map((r: any) => ({ pergunta: r.pergunta, resposta: r.resposta || r.response })),
+        };
 
-      io.emit('nova-os', { id: os.id, cliente: cliente?.nome, produto: entities.produtoIdentificado });
-      aiResponse = TRANSBORDO_MESSAGE;
+        // Conciliação: Tenta gerar a 'mensagemSugerida' (Da branch fix/rag-tests)
+        let mensagemSugerida = "Orçamento solicitado via assistente virtual.";
+        try {
+          const fullHistory = conversationHistory
+            ? `${conversationHistory}\nCliente: ${text}\nAssistente: ${aiResponse}`
+            : `Cliente: ${text}\nAssistente: ${aiResponse}`;
+          mensagemSugerida = await ragService.generateSuggestedMessage(clienteNome, especificacoes, fullHistory);
+        } catch (e) {
+          console.warn('⚠️ Erro ao gerar mensagem sugerida, usando string padrão.');
+        }
+
+        const osRepo = new OsRepository();
+        const os = await osRepo.create({
+          clienteId,
+          especificacoes,
+          mensagem_sugerida: mensagemSugerida,
+        } as any);
+
+        // Conciliação: Emissões e notificações consolidadas
+        io.emit('nova-os', { id: os.id, cliente: clienteNome, produto: entities.produtoIdentificado });
+
+        notificationService.sendToAdmins(
+          'Novo Pedido Automático 📋',
+          `Cliente ${clienteNome} solicitou "${entities.produtoIdentificado}" via assistente virtual.`,
+          { osId: os.id, type: 'new_os' }
+        ).catch(err => console.error('❌ Erro ao enviar push de OS automática:', err));
+
+        aiResponse = TRANSBORDO_MESSAGE;
+      }
+    } catch (err) {
+      console.error('❌ Erro na extração de entidades:', err);
     }
 
     return aiResponse;
