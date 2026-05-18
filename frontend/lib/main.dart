@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
 import 'core/routes/app_routes.dart';
-import 'core/services/chat_service.dart';
+import 'core/services/push_notification_service.dart';
 
-void main() {
-  // 2. Garante que os bindings do Flutter estejam prontos antes de inicializar o socket
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 3. ACORDA O SOCKET: Instancia o Singleton e dispara a conexão com o Node.js imediatamente
-  ChatService();
-
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Confirmar inicialização com sucesso no console
+  debugPrint('🔥 [AutoGraph Firebase] Inicializado com sucesso! ID do Projeto: ${Firebase.app().options.projectId}');
+  
+  // Inicializar serviço de Push Notifications
+  await PushNotificationService().initialize();
+  
   runApp(const AutoGraphApp());
 }
 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "740185525778",
+    "project_id": "autograph-5",
+    "storage_bucket": "autograph-5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:740185525778:android:a5d22d2544d4a497e8d2cb",
+        "android_client_info": {
+          "package_name": "com.autograph.autograph"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLB36vRCa26c59X9bETMosgTIYP2U6IM8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

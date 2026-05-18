@@ -9,6 +9,7 @@ import { stateService } from './state.service';
 import { stateRouter } from '../fsm/state-router';
 import { WhatsAppMessageData } from '../utils/whatsapp.parser';
 import { io } from '../server';
+import { notificationService } from './notification.service';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -66,6 +67,14 @@ export class WebhookService {
         isFromRAG: false
       });
 
+      // Notificar administradores por push (FCM)
+      notificationService.sendToAdmins(
+        'Mensagem de Cliente 💬',
+        `${cliente.nome}: "${messageData.text.length > 50 ? messageData.text.substring(0, 50) + '...' : messageData.text}"`,
+        { clienteId: cliente.id, type: 'chat_message' }
+      ).catch(err => console.error('❌ Erro ao enviar push de chat:', err));
+
+      // 🛡️ CEREJA DO BOLO: Se o atendimento humano estiver ativo, encerramos aqui
       if (cliente.atendimentoHumano) {
         console.log(`🤫 Atendimento manual ativo para ${cliente.nome}`);
         return;
@@ -73,6 +82,43 @@ export class WebhookService {
 
       // Roteamento de arquitetura (Branch fix/rag-tests)
       let aiResponse: string;
+      try {
+        const result = await ragService.query(messageData.text, conversationHistory || undefined);
+        aiResponse = result.answer;
+      } catch (aiError) {
+        aiResponse = FALLBACK_MESSAGE;
+      }
+
+      const fullHistory = conversationHistory
+        ? `${conversationHistory}\nCliente: ${messageData.text}\nAssistente: ${aiResponse}`
+        : `Cliente: ${messageData.text}\nAssistente: ${aiResponse}`;
+
+      const entities = entityExtractionService.extract(fullHistory);
+
+      if (entities.completo && entities.produtoIdentificado) {
+        const especificacoes = {
+          produto: entities.produtoIdentificado,
+          requisitos: entities.requisitos.map((r) => ({ pergunta: r.pergunta, resposta: r.resposta })),
+        };
+
+        const mensagemSugerida = await ragService.generateSuggestedMessage(cliente.nome, especificacoes, fullHistory);
+
+        const os = await osRepo.create({
+          clienteId: cliente.id,
+          especificacoes,
+          mensagem_sugerida: mensagemSugerida,
+        } as any);
+
+        io.emit('nova-os', { id: os.id, cliente: cliente.nome, produto: entities.produtoIdentificado });
+        
+        // Notificar administradores por push (FCM)
+        notificationService.sendToAdmins(
+          'Novo Pedido Automático 📋',
+          `Cliente ${cliente.nome} solicitou "${entities.produtoIdentificado}" via assistente virtual.`,
+          { osId: os.id, type: 'new_os' }
+        ).catch(err => console.error('❌ Erro ao enviar push de OS automática:', err));
+
+        aiResponse = TRANSBORDO_MESSAGE;
       if (FSM_ENABLED) {
         aiResponse = await this.processWithFsm(cliente.id, cliente.nome, messageData);
       } else {

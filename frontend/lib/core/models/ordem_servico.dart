@@ -34,6 +34,8 @@ class OrdemServico {
   // Dados do cliente (join)
   final String? clienteNome;
   final String? clienteTelefone;
+  final String? clienteEnderecoCompleto;
+  final String? clienteEnderecoReferencia;
 
   const OrdemServico({
     required this.id,
@@ -49,6 +51,8 @@ class OrdemServico {
     this.durationSeconds = 0,
     this.clienteNome,
     this.clienteTelefone,
+    this.clienteEnderecoCompleto,
+    this.clienteEnderecoReferencia,
   });
 
   factory OrdemServico.fromJson(Map<String, dynamic> json) {
@@ -72,6 +76,8 @@ class OrdemServico {
       durationSeconds: json['durationSeconds'] as int? ?? 0,
       clienteNome: json['cliente']?['nome'] as String?,
       clienteTelefone: json['cliente']?['telefone'] as String?,
+      clienteEnderecoCompleto: json['cliente']?['enderecoCompleto'] as String?,
+      clienteEnderecoReferencia: json['cliente']?['enderecoReferencia'] as String?,
     );
   }
 
@@ -97,6 +103,8 @@ class OrdemServico {
       durationSeconds: durationSeconds ?? this.durationSeconds,
       clienteNome: clienteNome,
       clienteTelefone: clienteTelefone,
+      clienteEnderecoCompleto: clienteEnderecoCompleto,
+      clienteEnderecoReferencia: clienteEnderecoReferencia,
     );
   }
 

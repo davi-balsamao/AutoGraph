@@ -36,6 +36,8 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
         email: usuario.email,
         telefone: usuario.telefone,
         role: usuario.role,
+        enderecoCompleto: usuario.enderecoCompleto,
+        enderecoReferencia: usuario.enderecoReferencia,
       },
     });
   } catch (error) {
@@ -46,11 +48,11 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
 
 /**
  * POST /api/auth/register
- * Body: { nome: string, email: string, senha: string, telefone?: string }
+ * Body: { nome: string, email: string, senha: string, telefone?: string, enderecoCompleto?: string, enderecoReferencia?: string }
  */
 authRoutes.post('/register', async (req: Request, res: Response) => {
   try {
-    const { nome, email, senha, telefone } = req.body;
+    const { nome, email, senha, telefone, enderecoCompleto, enderecoReferencia } = req.body;
 
     if (!nome || !email || !senha || !telefone) {
       return res.status(400).json({ error: 'Nome, e-mail, senha e telefone são obrigatórios.' });
@@ -73,6 +75,8 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
         senha, // Em produção, usar bcrypt
         telefone,
         role: 'CLIENTE',
+        enderecoCompleto: enderecoCompleto || null,
+        enderecoReferencia: enderecoReferencia || null,
       },
     });
 
@@ -84,10 +88,131 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
         email: newUser.email,
         telefone: newUser.telefone,
         role: newUser.role,
+        enderecoCompleto: newUser.enderecoCompleto,
+        enderecoReferencia: newUser.enderecoReferencia,
       },
     });
   } catch (error) {
     console.error('❌ Erro no registro:', error);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+/**
+ * GET /api/auth/users
+ * Retorna todos os usuários cadastrados no sistema.
+ */
+authRoutes.get('/users', async (req: Request, res: Response) => {
+  try {
+    const usuarios = await prisma.usuario.findMany({
+      orderBy: { nome: 'asc' },
+    });
+    return res.json(usuarios);
+  } catch (error) {
+    console.error('❌ Erro ao listar usuários:', error);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+/**
+ * PUT /api/auth/users/:id
+ * Body: { nome, email, telefone, role, atendimentoHumano, enderecoCompleto, enderecoReferencia, senha }
+ * Atualiza os dados de um usuário pelo ID.
+ */
+authRoutes.put('/users/:id', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { nome, email, telefone, role, atendimentoHumano, enderecoCompleto, enderecoReferencia, senha } = req.body;
+
+    const existingUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    if (email && email !== existingUser.email) {
+      const emailDup = await prisma.usuario.findUnique({ where: { email } });
+      if (emailDup) {
+        return res.status(400).json({ error: 'E-mail já cadastrado.' });
+      }
+    }
+
+    if (telefone && telefone !== existingUser.telefone) {
+      const phoneDup = await prisma.usuario.findUnique({ where: { telefone } });
+      if (phoneDup) {
+        return res.status(400).json({ error: 'Telefone já cadastrado.' });
+      }
+    }
+
+    const updatedUser = await prisma.usuario.update({
+      where: { id },
+      data: {
+        nome: nome !== undefined ? nome : existingUser.nome,
+        email: email !== undefined ? email : existingUser.email,
+        telefone: telefone !== undefined ? telefone : existingUser.telefone,
+        role: role !== undefined ? role : existingUser.role,
+        atendimentoHumano: atendimentoHumano !== undefined ? atendimentoHumano : existingUser.atendimentoHumano,
+        enderecoCompleto: enderecoCompleto !== undefined ? enderecoCompleto : existingUser.enderecoCompleto,
+        enderecoReferencia: enderecoReferencia !== undefined ? enderecoReferencia : existingUser.enderecoReferencia,
+        senha: senha !== undefined ? senha : existingUser.senha,
+      },
+    });
+
+    return res.json({
+      user: {
+        id: updatedUser.id,
+        nome: updatedUser.nome,
+        email: updatedUser.email,
+        telefone: updatedUser.telefone,
+        role: updatedUser.role,
+        atendimentoHumano: updatedUser.atendimentoHumano,
+        enderecoCompleto: updatedUser.enderecoCompleto,
+        enderecoReferencia: updatedUser.enderecoReferencia,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar usuário:', error);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+/**
+ * PUT /api/auth/users/:id/fcm
+ * Body: { fcmToken: string }
+ *
+ * Registra/atualiza o Token do Firebase Cloud Messaging (FCM) de um usuário.
+ */
+authRoutes.put('/users/:id/fcm', async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const { fcmToken } = req.body;
+
+    if (fcmToken === undefined) {
+      return res.status(400).json({ error: 'Token FCM é obrigatório.' });
+    }
+
+    const existingUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!existingUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const updatedUser = await prisma.usuario.update({
+      where: { id },
+      data: { fcmToken: fcmToken || null },
+    });
+
+    console.log(`📱 Token FCM atualizado com sucesso para o usuário ${updatedUser.nome} (${updatedUser.id})`);
+
+    return res.json({
+      message: 'Token FCM atualizado com sucesso.',
+      user: {
+        id: updatedUser.id,
+        nome: updatedUser.nome,
+        role: updatedUser.role,
+        fcmToken: updatedUser.fcmToken,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Erro ao atualizar token FCM do usuário:', error);
     return res.status(500).json({ error: 'Erro interno.' });
   }
 });
