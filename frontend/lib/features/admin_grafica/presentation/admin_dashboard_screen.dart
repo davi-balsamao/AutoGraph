@@ -16,6 +16,10 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../admin_chat/presentation/admin_chat_list_tab.dart';
 import '../../admin_chat/presentation/admin_chat_conversation_screen.dart';
 import 'admin_usuarios_tab.dart';
+import 'aprovacoes_tab.dart';
+import '../../../core/services/chat_service.dart';
+import '../../../core/services/proposta_service.dart';
+import '../../../core/services/push_notification_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -27,6 +31,66 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _currentIndex = 0;
   final GlobalKey<_KanbanTabState> _kanbanKey = GlobalKey<_KanbanTabState>();
+  final GlobalKey<AdminChatListTabState> _chatKey = GlobalKey<AdminChatListTabState>();
+  int _propostasPendentes = 0;
+  int _conversasEscaladas = 0;
+  StreamSubscription? _propostaSub;
+  StreamSubscription? _pushTapSub;
+  StreamSubscription? _osSub;
+  StreamSubscription? _conversaSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarContadorPropostas();
+    _propostaSub = ChatService().propostaEventStream.listen((_) {
+      _carregarContadorPropostas();
+    });
+    _pushTapSub = PushNotificationService().onNotificationTap.listen((data) {
+      if (!mounted) return;
+      // Toda notificação de proposta abre a tab Aprovações (índice 1).
+      if (data['type'] == 'PROPOSTA_PENDENTE') {
+        setState(() => _currentIndex = 1);
+      }
+      // Notificação de escalação abre a tab Chat (índice 2).
+      if (data['type'] == 'escalation') {
+        setState(() => _currentIndex = 2);
+      }
+    });
+    _osSub = ChatService().osEventStream.listen((_) {
+      if (!mounted) return;
+      _kanbanKey.currentState?.refresh();
+    });
+    _conversaSub = ChatService().conversaEventStream.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        if (event.tipo == ConversaEventTipo.assumida) {
+          _conversasEscaladas++;
+        } else if (event.tipo == ConversaEventTipo.devolvida && _conversasEscaladas > 0) {
+          _conversasEscaladas--;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _propostaSub?.cancel();
+    _pushTapSub?.cancel();
+    _osSub?.cancel();
+    _conversaSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _carregarContadorPropostas() async {
+    try {
+      final lista = await PropostaService().listarPendentes();
+      if (!mounted) return;
+      setState(() => _propostasPendentes = lista.length);
+    } catch (_) {
+      // Silencioso — contador é cosmético.
+    }
+  }
 
   Future<void> _addOsManual() async {
     final clienteIdController = TextEditingController(text: 'c1');
@@ -234,7 +298,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         index: _currentIndex,
         children: [
           _KanbanTab(key: _kanbanKey),
-          const AdminChatListTab(),
+          const AprovacoesTab(),
+          AdminChatListTab(key: _chatKey),
           const _AdminHistoryTab(),
           const _FinancialTab(),
           const _CatalogTab(),
@@ -246,33 +311,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         elevation: 0,
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.view_kanban_outlined),
             selectedIcon: Icon(Icons.view_kanban, color: AppColors.brandGreen),
             label: 'Kanban',
           ),
           NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble, color: AppColors.brandGreen),
-            label: 'Chat',
+            icon: _propostasPendentes > 0
+                ? Badge.count(
+                    count: _propostasPendentes,
+                    backgroundColor: Colors.amber.shade700,
+                    child: const Icon(Icons.pending_actions_outlined),
+                  )
+                : const Icon(Icons.pending_actions_outlined),
+            selectedIcon: const Icon(Icons.pending_actions, color: AppColors.brandGreen),
+            label: 'Aprovações',
           ),
           NavigationDestination(
+            icon: _conversasEscaladas > 0
+                ? Badge.count(
+                    count: _conversasEscaladas,
+                    backgroundColor: Colors.amber.shade700,
+                    child: const Icon(Icons.chat_bubble_outline),
+                  )
+                : const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble, color: AppColors.brandGreen),
+            label: 'Chat',
+          ),
+          const NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history, color: AppColors.brandGreen),
             label: 'Histórico',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart, color: AppColors.brandGreen),
             label: 'Financeiro',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2, color: AppColors.brandGreen),
             label: 'Catálogo',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people, color: AppColors.brandGreen),
             label: 'Usuários',

@@ -18,7 +18,7 @@ import { HandlerDeps } from '../handler.types';
 import { ConversationContext, SessaoRecord } from '../states';
 import { DUVIDA } from '../transition.service';
 
-export type CrossCuttingIntent = 'DUVIDA' | 'ESCALAR' | 'NOVO' | 'PAUSA' | null;
+export type CrossCuttingIntent = 'DUVIDA' | 'ESCALAR' | 'NOVO' | 'PAUSA' | 'LISTAR_PEDIDOS' | null;
 
 /**
  * Fluxo 20: mensagem fora do propósito do bot (piada, receita, futebol, etc.).
@@ -41,6 +41,13 @@ const NOVO_RE =
 // Pedido explícito de pausa — Regra 6 estendida (Fluxo 6).
 const PAUSE_RE =
   /\b(preciso parar|vou parar|pausa|pausar|continue (meu pedido )?depois|retorno depois|volto (mais )?(tarde|depois)|n[ãa]o posso (agora|continuar)|ocupad[oa] agora|tenho que sair)\b/i;
+
+// Cliente pergunta sobre o histórico de pedidos dele próprio. Cobre variações
+// comuns: "meus pedidos", "que pedidos eu fiz", "histórico", "minhas OS".
+// Importante: precisa rodar ANTES da DUVIDA, porque "quais pedidos" também
+// poderia cair em pergunta aberta e ser jogado pro RAG.
+const LISTAR_PEDIDOS_RE =
+  /\b(meus pedidos|minhas (ordens|os|encomendas|compras)|que (pedidos|ordens|encomendas) eu (j[áa] )?fiz|quais (pedidos|ordens|encomendas) eu (j[áa] )?fiz|hist[óo]rico (de|dos) (pedidos|ordens|compras)|pedidos (anteriores|antigos|que eu (j[áa] )?fiz)|meus or[çc]amentos)\b/i;
 
 // Termos técnicos da gráfica que exigem explicação curta ao leigo (Regra 9).
 const TERMOS_TECNICOS: Array<{ termo: RegExp; explicacao: string }> = [
@@ -103,6 +110,8 @@ export function detectCrossCuttingIntent(message: string): CrossCuttingIntent {
   if (ESCALAR_RE.test(message)) return 'ESCALAR';
   // PAUSA antes de DUVIDA: "preciso parar" não é uma dúvida, é interrupção.
   if (PAUSE_RE.test(message)) return 'PAUSA';
+  // LISTAR_PEDIDOS antes de DUVIDA: "quais pedidos eu fiz" não vai pro RAG.
+  if (LISTAR_PEDIDOS_RE.test(message)) return 'LISTAR_PEDIDOS';
   if (DUVIDA.test(message)) return 'DUVIDA';
   return null;
 }

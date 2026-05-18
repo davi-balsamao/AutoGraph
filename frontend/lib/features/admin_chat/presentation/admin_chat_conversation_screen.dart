@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/services/chat_service.dart';
+import '../../../core/services/proposta_service.dart';
+import '../../../core/utils/snackbar_util.dart';
 
 class AdminChatConversationScreen extends StatefulWidget {
   final String clientId;
@@ -28,14 +30,63 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
   final ChatService _chatService = ChatService();
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
+  bool _humanoAssumiu = false;
+  bool _togglingTakeover = false;
 
   StreamSubscription<ChatMessage>? _messageSubscription;
+  StreamSubscription<ConversaEvent>? _conversaSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
+    _carregarStatusConversa();
     _listenToIncomingMessages();
+    _conversaSubscription = _chatService.conversaEventStream.listen((event) {
+      if (!mounted) return;
+      bool matchesId = event.clienteId == widget.clientId;
+      bool matchesPhone = (event.telefone != null && event.telefone == widget.clientPhone) || 
+                          (event.telefone != null && event.telefone == widget.clientId) || 
+                          (widget.clientPhone.isNotEmpty && event.clienteId == widget.clientPhone);
+      
+      if (!matchesId && !matchesPhone) return;
+
+      setState(() {
+        _humanoAssumiu = event.tipo == ConversaEventTipo.assumida;
+      });
+    });
+  }
+
+  Future<void> _carregarStatusConversa() async {
+    try {
+      final status = await ConversaService().status(widget.clientId);
+      if (!mounted) return;
+      setState(() => _humanoAssumiu = status['atendimentoHumano'] == true);
+    } catch (_) {
+      // Tela ainda funciona sem status — só não pinta o banner.
+    }
+  }
+
+  Future<void> _toggleTakeover() async {
+    setState(() => _togglingTakeover = true);
+    try {
+      if (_humanoAssumiu) {
+        await ConversaService().devolverIa(widget.clientId);
+        if (!mounted) return;
+        SnackbarUtil.showSuccess(context, 'IA retomou a conversa.');
+        setState(() => _humanoAssumiu = false);
+      } else {
+        await ConversaService().assumir(widget.clientId);
+        if (!mounted) return;
+        SnackbarUtil.showSuccess(context, 'Você assumiu a conversa. IA pausada.');
+        setState(() => _humanoAssumiu = true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      SnackbarUtil.showError(context, 'Falha: $e');
+    } finally {
+      if (mounted) setState(() => _togglingTakeover = false);
+    }
   }
 
   void _listenToIncomingMessages() {
@@ -43,8 +94,9 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
       if (mounted) {
         bool matchesId = message.senderId == widget.clientId || message.receiverId == widget.clientId;
         bool matchesPhone = widget.clientPhone.isNotEmpty && (message.senderId == widget.clientPhone || message.receiverId == widget.clientPhone);
+        bool matchesDbId = message.clienteDbId != null && (message.clienteDbId == widget.clientId || message.clienteDbId == widget.clientPhone);
 
-        if (matchesId || matchesPhone) {
+        if (matchesId || matchesPhone || matchesDbId) {
           final bool alreadyExists = _messages.any((m) => m.id == message.id);
           if (!alreadyExists) {
             setState(() {
@@ -58,7 +110,14 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
   }
 
   Future<void> _loadMessages() async {
-    final msgs = await _chatService.getMessages(widget.clientId);
+    // Tenta buscar pelo clientId (pode ser UUID ou telefone)
+    var msgs = await _chatService.getMessages(widget.clientId);
+    
+    // Se não achou e temos o telefone, tenta por ele também
+    if (msgs.isEmpty && widget.clientPhone.isNotEmpty && widget.clientPhone != widget.clientId) {
+      msgs = await _chatService.getMessages(widget.clientPhone);
+    }
+    
     if (mounted) {
       setState(() {
         _messages = msgs;
@@ -127,6 +186,7 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
   @override
   void dispose() {
     _messageSubscription?.cancel();
+    _conversaSubscription?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -141,14 +201,45 @@ class _AdminChatConversationScreenState extends State<AdminChatConversationScree
           children: [
             Text(widget.clientName, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold)),
             Text(
-              widget.clientPhone.isNotEmpty ? 'WhatsApp: ${widget.clientPhone}' : 'Conexão via ID', 
+              widget.clientPhone.isNotEmpty ? 'WhatsApp: ${widget.clientPhone}' : 'Conexão via ID',
               style: const TextStyle(fontSize: 10, color: Colors.green)
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: _humanoAssumiu ? 'Devolver para IA' : 'Assumir conversa',
+            icon: _togglingTakeover
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(_humanoAssumiu ? Icons.smart_toy_outlined : Icons.headset_mic),
+            onPressed: _togglingTakeover ? null : _toggleTakeover,
+          ),
+        ],
       ),
       body: Column(
         children: [
+          if (_humanoAssumiu)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.amber.shade100,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Colors.amber.shade900),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Você está respondendo direto (IA pausada).',
+                      style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())

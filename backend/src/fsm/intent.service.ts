@@ -20,6 +20,12 @@ const NOVO_ATENDIMENTO_OBVIO = /^(cancela tudo|esquece tudo|recome[çc]ar do zer
 
 const SAUDACAO_REINICIO = /^(oi|olá|ola|bom dia|boa tarde|boa noite|opa|e aí|eai)[\s,!.]*$/i;
 
+/**
+ * Despedida ou agradecimento final do cliente: depois de ENCERRAR só essas
+ * frases mantêm a sessão fechada. Qualquer outra mensagem reabre.
+ */
+const DESPEDIDA_FINAL = /^(obrigad[oa]?|valeu|brigad[oa]?|at[ée] (logo|mais|depois|amanh[ãa])|tchau|tchauzinho|bye|fui|falou)\b/i;
+
 const MENSAGEM_PROCESSO_ARQUIVO = /\b(pdf|jpg|png|psd|ai|cdr|exportar|salvar|camadas|achatadas|aguarda|aguardar|esperar|espera|reenviei|enviei|anexei|segue)\b/i;
 const MENSAGEM_CURTA_CONFIRMACAO = /^(entendi|ok|beleza|fechado|perfeito|t[áa] bom|certo|sim|n[ãa]o|isso)[\s,!.]*$/i;
 
@@ -42,6 +48,15 @@ export async function detectSessionIntent(
   produtoAtual?: string | null
 ): Promise<SessionIntent> {
   const msg = message.trim();
+
+  // Early-exit 0: sessão já em ENCERRAR. O cliente terminou um atendimento
+  // anterior e está mandando mensagem nova — qualquer coisa que não seja
+  // despedida/agradecimento explícito reabre o atendimento.
+  if (estadoAtual === ConversationState.ENCERRAR) {
+    return DESPEDIDA_FINAL.test(msg)
+      ? { type: 'NONE' }
+      : { type: 'NOVO_ATENDIMENTO' };
+  }
 
   // Early-exit 1: padrão obvio de cancelamento.
   if (NOVO_ATENDIMENTO_OBVIO.test(msg)) {

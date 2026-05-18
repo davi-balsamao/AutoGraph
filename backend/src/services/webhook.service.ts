@@ -47,6 +47,14 @@ export class WebhookService {
           nome: messageData.contactName || 'Cliente WhatsApp',
           telefone: messageData.from,
         });
+      } else if (
+        messageData.contactName &&
+        messageData.contactName !== 'Desconhecido' &&
+        (cliente.nome === 'Cliente WhatsApp' || cliente.nome === 'Desconhecido')
+      ) {
+        // Atualiza o nome genérico com o nome real do perfil WhatsApp
+        await clienteRepo.updateNome(cliente.id, messageData.contactName);
+        cliente = { ...cliente, nome: messageData.contactName };
       }
 
       const msgCliente = await mensagemRepo.create({
@@ -60,6 +68,8 @@ export class WebhookService {
       io.emit('message', {
         id: msgCliente.id.toString(),
         senderId: messageData.from,
+        senderName: cliente.nome,
+        clienteDbId: cliente.id,
         receiverId: 'admin',
         text: messageData.text,
         type: 'text',
@@ -87,6 +97,14 @@ export class WebhookService {
       } else {
         // Passei o nome do cliente para o legacy conseguir emitir notificações personalizadas
         aiResponse = await this.processLegacy(cliente.id, cliente.nome, messageData.text);
+      }
+
+      // Quando a FSM está em AGUARDAR_APROVACAO_ADMIN, o handler pausa sem
+      // gerar texto: silencia totalmente, sem persistir BOT vazio nem enviar
+      // WhatsApp. O admin destrava via API /api/propostas/:sessaoId/aprovar.
+      if (!aiResponse || !aiResponse.trim()) {
+        console.log(`🤫 FSM pausada — sem resposta automática para ${messageData.from}.`);
+        return;
       }
 
       const msgBot = await mensagemRepo.create({

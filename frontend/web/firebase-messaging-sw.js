@@ -18,11 +18,11 @@ const messaging = firebase.messaging();
 // Lida com as notificações quando a aba do navegador estiver em segundo plano ou fechada
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Notificação recebida em background: ', payload);
-  
+
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: '/icons/Icon-192.png' 
+    icon: '/icons/Icon-192.png'
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);

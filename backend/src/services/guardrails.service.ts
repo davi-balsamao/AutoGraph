@@ -39,7 +39,7 @@ export class GuardrailsService {
    * Valida a resposta gerada pela IA contra os documentos recuperados.
    * Preços são permitidos quando fundamentados na KB (tabela) ou dentro das margens de negociação.
    */
-  public validateResponse(response: string, retrievedDocs: Document[]): ValidationResult {
+  public validateResponse(response: string, retrievedDocs: Document[], state?: string): ValidationResult {
     if (this.isOutOfScope(response)) {
       console.warn('🚨 [Guardrails] Resposta bloqueada: Fora do escopo.');
       return {
@@ -64,7 +64,7 @@ export class GuardrailsService {
       return {
         isValid: false,
         reason: 'Preço informado sem documentos de tabela no contexto.',
-        correctedResponse: TRANSITION_NO_PRICE,
+        correctedResponse: state === 'CALCULAR_ORCAMENTO' ? TRANSITION_NO_PRICE : HALLUCINATION_PRICE_MESSAGE,
       };
     }
 

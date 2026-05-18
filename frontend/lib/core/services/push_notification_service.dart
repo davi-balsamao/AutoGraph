@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:js' as js; // 👇 Importado para permitir chamadas nativas de JavaScript na Web sem quebrar o Mobile
 import 'package:firebase_core/firebase_core.dart';
@@ -33,6 +34,18 @@ class PushNotificationService {
 
   bool _isInitialized = false;
 
+  /// Broadcast de cliques em notificação. Telas interessadas (ex: dashboard)
+  /// se inscrevem e navegam quando vem `type=PROPOSTA_PENDENTE`, etc.
+  final StreamController<Map<String, dynamic>> _notificationTapController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onNotificationTap =>
+      _notificationTapController.stream;
+
+  void _emitTap(Map<String, dynamic>? data) {
+    if (data == null || data.isEmpty) return;
+    _notificationTapController.add(Map<String, dynamic>.from(data));
+  }
+
   /// Inicializa as configurações de Push Notifications
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -56,6 +69,12 @@ class PushNotificationService {
         settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           debugPrint("📱 [FCM] Usuário clicou na notificação em primeiro plano: ${response.payload}");
+          if (response.payload != null && response.payload!.isNotEmpty) {
+            try {
+              final data = jsonDecode(response.payload!);
+              if (data is Map) _emitTap(Map<String, dynamic>.from(data));
+            } catch (_) {}
+          }
         },
       );
 
@@ -125,10 +144,32 @@ class PushNotificationService {
       // App Aberto a partir de Notificação (Segundo plano)
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('🎯 [FCM] O aplicativo foi aberto a partir de uma notificação!');
+        _emitTap(message.data);
       });
 
-      // 5. Atualizar Token e escutar novos tokens gerados
-      await syncTokenWithBackend();
+      // App aberto por notificação a partir do estado "fechado".
+      // Em web, getInitialMessage depende do service worker estar registrado —
+      // se ele falhar, esse await pode travar a inicialização. Em web fazemos
+      // fire-and-forget; em mobile mantemos o await porque é instantâneo.
+      if (kIsWeb) {
+        // ignore: discarded_futures
+        FirebaseMessaging.instance.getInitialMessage().then((initial) {
+          if (initial != null) _emitTap(initial.data);
+        }).catchError((e) {
+          debugPrint('⚠️ [FCM] getInitialMessage falhou (web): $e');
+        });
+      } else {
+        final initial = await FirebaseMessaging.instance.getInitialMessage();
+        if (initial != null) {
+          _emitTap(initial.data);
+        }
+      }
+
+      // 5. Atualizar Token e escutar novos tokens gerados.
+      // Em web sem VAPID key, getToken() pode pendurar — fire-and-forget para
+      // não bloquear o boot do app.
+      // ignore: discarded_futures
+      syncTokenWithBackend();
       FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) async {
         debugPrint('🔄 [FCM] Novo token FCM gerado: $newToken');
         await _sendTokenToBackend(newToken);
@@ -141,13 +182,30 @@ class PushNotificationService {
     }
   }
 
+  /// VAPID key do Firebase Web Push, exigida pelo navegador para emitir um
+  /// token FCM válido. Sem ela, getToken() em web retorna null e o backend
+  /// não consegue enviar push para o admin (Socket cobre em tempo real).
+  ///
+  /// Como obter:
+  ///   Console Firebase → projeto autograph-83959
+  ///   → Project settings → Cloud Messaging → Web push certificates
+  ///   → "Generate key pair" → copiar a chave pública e colar abaixo.
+  ///
+  /// Quando deixada vazia, a chamada simplesmente omite o parâmetro e o
+  /// comportamento atual (sem push web funcional) é preservado.
+  static const String _webVapidKey = ''; // TODO: colar VAPID key do autograph-83959
+
   /// Sincroniza o token atual do dispositivo com o backend caso o usuário esteja logado
   Future<void> syncTokenWithBackend() async {
     try {
-      final String? token = await FirebaseMessaging.instance.getToken();
+      final String? token = await FirebaseMessaging.instance.getToken(
+        vapidKey: (kIsWeb && _webVapidKey.isNotEmpty) ? _webVapidKey : null,
+      );
       if (token != null) {
         debugPrint('🔑 [FCM] Token FCM Atual: $token');
         await _sendTokenToBackend(token);
+      } else if (kIsWeb && _webVapidKey.isEmpty) {
+        debugPrint('ℹ️ [FCM] Token FCM web indisponível: VAPID key não configurada (ver _webVapidKey).');
       }
     } catch (e) {
       debugPrint('❌ [PushNotificationService] Falha ao sincronizar token: $e');

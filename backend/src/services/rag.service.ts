@@ -118,7 +118,8 @@ export class RagService {
 
     return this.runQuery(question, conversationHistory, stateChain, { 
       alwaysInvokeLlm: true,
-      isBehavioralState
+      isBehavioralState,
+      state
     });
   }
 
@@ -133,7 +134,7 @@ export class RagService {
     question: string,
     conversationHistory: string | undefined,
     chain: RunnableSequence,
-    options?: { alwaysInvokeLlm?: boolean; isBehavioralState?: boolean }
+    options?: { alwaysInvokeLlm?: boolean; isBehavioralState?: boolean; state?: string }
   ): Promise<RagQueryResult> {
     console.log('\n========== RAG QUERY ==========');
     console.log(`📝 Pergunta: "${question}"`);
@@ -206,7 +207,7 @@ export class RagService {
             throw e;
           }
           console.log(`⏱  [${elapsed()}] LLM respondeu (0 docs).`);
-          const validation = guardrailsService.validateResponse(contextualAnswer, []);
+          const validation = guardrailsService.validateResponse(contextualAnswer, [], options?.state);
           
           let guardrailApplied = !validation.isValid;
           let finalAnswer = stripDoubleNewlines(contextualAnswer);
@@ -263,7 +264,7 @@ export class RagService {
         (doc) => new Document({ pageContent: doc.conteudo, metadata: { id: doc.id } })
       );
       
-      const validation = guardrailsService.validateResponse(rawAnswer, langchainDocs);
+      const validation = guardrailsService.validateResponse(rawAnswer, langchainDocs, options?.state);
 
       let guardrailApplied = !validation.isValid;
       let finalAnswer = stripDoubleNewlines(rawAnswer);
