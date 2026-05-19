@@ -17,8 +17,24 @@ class OsDetailsScreen extends StatefulWidget {
   State<OsDetailsScreen> createState() => _OsDetailsScreenState();
 }
 
+class _SpecItem {
+  final String key;
+  final String label;
+  final TextEditingController controller;
+  final bool isFromRequisitos;
+  final int? indexInRequisitos;
+
+  _SpecItem({
+    required this.key,
+    required this.label,
+    required this.controller,
+    required this.isFromRequisitos,
+    this.indexInRequisitos,
+  });
+}
+
 class _OsDetailsScreenState extends State<OsDetailsScreen> {
-  late TextEditingController _specsController;
+  final List<_SpecItem> _specItems = [];
   late TextEditingController _obsController;
   late TextEditingController _artUrlController;
   bool _isSaving = false;
@@ -26,18 +42,77 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    // Preparar JSON das especificações
-    final specsCopy = Map<String, dynamic>.from(widget.os.especificacoes);
+    final specs = widget.os.especificacoes;
+    final specsCopy = Map<String, dynamic>.from(specs);
     final artUrl = specsCopy.remove('arte_url') as String? ?? '';
 
-    _specsController = TextEditingController(text: const JsonEncoder.withIndent('  ').convert(specsCopy));
     _obsController = TextEditingController(text: widget.os.observacoes ?? '');
     _artUrlController = TextEditingController(text: artUrl);
+
+    // 1. Requisitos do LLM (Perguntas e Respostas)
+    if (specs['requisitos'] is List) {
+      final reqs = specs['requisitos'] as List;
+      for (int i = 0; i < reqs.length; i++) {
+        final item = reqs[i];
+        if (item is Map) {
+          final question = item['pergunta']?.toString() ?? '';
+          final answer = item['resposta']?.toString() ?? '';
+          if (question.isNotEmpty) {
+            _specItems.add(_SpecItem(
+              key: question,
+              label: question,
+              controller: TextEditingController(text: answer),
+              isFromRequisitos: true,
+              indexInRequisitos: i,
+            ));
+          }
+        }
+      }
+    }
+
+    // 2. Dimensoes do Wizard
+    if (specs['dimensoes'] is Map) {
+      final dim = specs['dimensoes'] as Map;
+      final largura = dim['largura']?.toString() ?? '';
+      final altura = dim['altura']?.toString() ?? '';
+      _specItems.add(_SpecItem(
+        key: 'largura',
+        label: 'Largura',
+        controller: TextEditingController(text: largura),
+        isFromRequisitos: false,
+      ));
+      _specItems.add(_SpecItem(
+        key: 'altura',
+        label: 'Altura',
+        controller: TextEditingController(text: altura),
+        isFromRequisitos: false,
+      ));
+    }
+
+    // 3. Outras chaves de nível superior que não sejam metadados
+    final ignoredKeys = {
+      'produto', 'produtoId', 'produtoNome', 'precoBaseReferencia',
+      'opcaoEntrega', 'enderecoEntrega', 'referenciaEntrega',
+      'arte_url', 'arteUrl', 'orcamento', 'entrega', 'requisitos', 'dimensoes'
+    };
+
+    specs.forEach((key, value) {
+      if (!ignoredKeys.contains(key) && value is! Map && value is! List) {
+        _specItems.add(_SpecItem(
+          key: key,
+          label: key,
+          controller: TextEditingController(text: value?.toString() ?? ''),
+          isFromRequisitos: false,
+        ));
+      }
+    });
   }
 
   @override
   void dispose() {
-    _specsController.dispose();
+    for (final item in _specItems) {
+      item.controller.dispose();
+    }
     _obsController.dispose();
     _artUrlController.dispose();
     super.dispose();
@@ -46,11 +121,49 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   Future<void> _saveData() async {
     setState(() => _isSaving = true);
     try {
-      final specsMap = jsonDecode(_specsController.text) as Map<String, dynamic>;
-      
+      final specsMap = Map<String, dynamic>.from(widget.os.especificacoes);
+
+      // Atualiza os requisitos
+      if (specsMap['requisitos'] is List) {
+        final reqs = List<Map<String, dynamic>>.from(
+          (specsMap['requisitos'] as List).map((e) => Map<String, dynamic>.from(e as Map))
+        );
+        for (final item in _specItems) {
+          if (item.isFromRequisitos && item.indexInRequisitos != null) {
+            final idx = item.indexInRequisitos!;
+            if (idx < reqs.length) {
+              reqs[idx]['resposta'] = item.controller.text.trim();
+            }
+          }
+        }
+        specsMap['requisitos'] = reqs;
+      }
+
+      // Atualiza dimensoes
+      if (specsMap['dimensoes'] is Map) {
+        final dim = Map<String, dynamic>.from(specsMap['dimensoes'] as Map);
+        for (final item in _specItems) {
+          if (item.key == 'largura') {
+            dim['largura'] = item.controller.text.trim();
+          } else if (item.key == 'altura') {
+            dim['altura'] = item.controller.text.trim();
+          }
+        }
+        specsMap['dimensoes'] = dim;
+      }
+
+      // Outros campos planos
+      for (final item in _specItems) {
+        if (!item.isFromRequisitos && item.key != 'largura' && item.key != 'altura') {
+          specsMap[item.key] = item.controller.text.trim();
+        }
+      }
+
       // Adiciona a arte de volta nas especificações, se houver
       if (_artUrlController.text.trim().isNotEmpty) {
         specsMap['arte_url'] = _artUrlController.text.trim();
+      } else {
+        specsMap.remove('arte_url');
       }
 
       await OsService().updateOS(
@@ -61,7 +174,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
       
       if (mounted) SnackbarUtil.showSuccess(context, 'Dados salvos com sucesso!');
     } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Erro ao salvar: O JSON pode estar inválido.');
+      if (mounted) SnackbarUtil.showError(context, 'Erro ao salvar os dados.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -206,25 +319,33 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             ),
 
             const SizedBox(height: 40),
-            _SectionHeader(title: 'Technical Specifications (JSON)'),
+            _SectionHeader(title: 'Technical Specifications'),
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.brandTealDeep,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: TextField(
-                controller: _specsController,
-                maxLines: 8,
-                style: const TextStyle(fontFamily: 'Courier', fontSize: 13, color: AppColors.brandGreen),
-                decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.all(16),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
+            if (_specItems.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'Nenhuma especificação disponível.',
+                  style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6), fontSize: 13),
                 ),
-              ),
-            ),
+              )
+            else
+              ..._specItems.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: TextField(
+                    controller: item.controller,
+                    decoration: InputDecoration(
+                      labelText: item.label,
+                      labelStyle: const TextStyle(fontSize: 13, color: AppColors.steel),
+                      fillColor: cs.surfaceContainerHighest,
+                      filled: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                );
+              }),
 
             const SizedBox(height: 40),
             _SectionHeader(title: 'Internal Observations'),

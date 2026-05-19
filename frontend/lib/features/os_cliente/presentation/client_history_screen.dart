@@ -156,6 +156,13 @@ class _ClientCatalogTabState extends State<_ClientCatalogTab> {
     }
   }
 
+  String _resolveImageUrl(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    final apiBase = AuthService().baseUrl;
+    final rootUrl = apiBase.endsWith('/api') ? apiBase.substring(0, apiBase.length - 4) : apiBase;
+    return '$rootUrl${url.startsWith('/') ? '' : '/'}$url';
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -182,7 +189,7 @@ class _ClientCatalogTabState extends State<_ClientCatalogTab> {
             children: [
               if (p.imagemUrl != null && p.imagemUrl!.isNotEmpty)
                 Image.network(
-                  p.imagemUrl!,
+                  _resolveImageUrl(p.imagemUrl!),
                   height: 180,
                   width: double.infinity,
                   fit: BoxFit.cover,

@@ -1094,7 +1094,7 @@ class _FinancialTabState extends State<_FinancialTab> {
     int osCompletedCount = 0;
 
     for (final os in _ordens) {
-      if (os.status != StatusOS.cancelada) {
+      if (os.status == StatusOS.entregue) {
         osCompletedCount++;
         final precoRef = os.especificacoes['precoBaseReferencia'] ?? os.especificacoes['precoBase'];
         double valor = 120.0;
@@ -1293,6 +1293,13 @@ class _CatalogTabState extends State<_CatalogTab> {
   void initState() {
     super.initState();
     _fetchProdutos();
+  }
+
+  String _resolveImageUrl(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    final apiBase = AuthService().baseUrl;
+    final rootUrl = apiBase.endsWith('/api') ? apiBase.substring(0, apiBase.length - 4) : apiBase;
+    return '$rootUrl${url.startsWith('/') ? '' : '/'}$url';
   }
 
   Future<void> _fetchProdutos() async {
@@ -1524,7 +1531,7 @@ class _CatalogTabState extends State<_CatalogTab> {
                           children: [
                             hasImage
                               ? Image.network(
-                                  p.imagemUrl!,
+                                  _resolveImageUrl(p.imagemUrl!),
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => _buildImagePlaceholder(isDark),
                                   loadingBuilder: (_, child, progress) => progress == null

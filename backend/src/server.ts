@@ -133,4 +133,27 @@ app.get('/api/health', async (req, res) => {
 server.listen(port, () => {
   console.log(`🚀 Servidor e Socket.io rodando na porta ${port}`);
   cronService.start();
+
+  // Auto-atualização das imagens dos produtos no banco de dados
+  prisma.produto.findMany().then(async (produtos) => {
+    const updates: Record<string, string> = {
+      'Cartão de Visita': '/uploads/cartao_de_visita.png',
+      'Panfleto': '/uploads/panfleto.png',
+      'Bloco': '/uploads/bloco_de_notas.png',
+      'Banner em Lona': '/uploads/banner_lona.png',
+      'Apostila': '/uploads/apostila.png',
+    };
+    for (const p of produtos) {
+      const targetUrl = updates[p.nome];
+      if (targetUrl && p.imagemUrl !== targetUrl) {
+        await prisma.produto.update({
+          where: { id: p.id },
+          data: { imagemUrl: targetUrl }
+        });
+        console.log(`🔄 [AutoGraph] Imagem do produto "${p.nome}" atualizada para local: ${targetUrl}`);
+      }
+    }
+  }).catch(err => {
+    console.error('❌ Erro ao atualizar imagens do catálogo no startup:', err);
+  });
 });

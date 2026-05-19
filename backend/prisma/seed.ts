@@ -124,31 +124,31 @@ async function main() {
       nome: 'Cartão de Visita',
       descricao: 'Cartões de visita premium em papel Couchê 300g com diversas opções de acabamento profissional.',
       precoBase: 75.00,
-      imagemUrl: 'https://images.unsplash.com/photo-1589053075673-82a1548e6c71?w=600&auto=format&fit=crop&q=80',
+      imagemUrl: '/uploads/cartao_de_visita.png',
     },
     {
       nome: 'Panfleto',
       descricao: 'Divulgue sua marca com panfletos e flyers de alta qualidade nos papéis Couchê 90g ou 115g.',
       precoBase: 120.00,
-      imagemUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop&q=80',
+      imagemUrl: '/uploads/panfleto.png',
     },
     {
       nome: 'Bloco',
       descricao: 'Blocos de notas e receituários personalizados, numerados ou com vias autocopiativas.',
       precoBase: 45.00,
-      imagemUrl: 'https://images.unsplash.com/photo-1517842645767-c639042777db?w=600&auto=format&fit=crop&q=80',
+      imagemUrl: '/uploads/bloco_de_notas.png',
     },
     {
       nome: 'Banner em Lona',
       descricao: 'Banners de alta durabilidade em lona resistente com acabamento em ilhós ou madeira e corda.',
       precoBase: 90.00,
-      imagemUrl: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=600&auto=format&fit=crop&q=80',
+      imagemUrl: '/uploads/banner_lona.png',
     },
     {
       nome: 'Apostila',
       descricao: 'Impressão e encadernação de apostilas, manuais e materiais didáticos com acabamento Wire-o ou Espiral.',
       precoBase: 35.00,
-      imagemUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&auto=format&fit=crop&q=80',
+      imagemUrl: '/uploads/apostila.png',
     },
   ];
 
