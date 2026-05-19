@@ -26,7 +26,8 @@ class ConversaEvent {
   ConversaEvent(this.tipo, this.clienteId, {this.telefone, this.clienteNome, this.estadoRestaurado});
 }
 
-enum OsEventTipo { nova }
+// 👇 ADICIONADO O ESTADO 'atualizada' PARA O KANBAN
+enum OsEventTipo { nova, atualizada }
 
 class OsEvent {
   final OsEventTipo tipo;
@@ -53,13 +54,7 @@ class ChatService {
   final StreamController<ConversaEvent> _conversaStreamController = StreamController<ConversaEvent>.broadcast();
   final StreamController<OsEvent> _osStreamController = StreamController<OsEvent>.broadcast();
 
-  // Cache em memória para mensagens recebidas via Socket (real-time)
-  // Usado APENAS como buffer para mensagens que chegam depois do fetch da API
   final List<ChatMessage> _realtimeBuffer = [];
-
-  // Cache do histórico já carregado da API, indexado por todas as chaves
-  // conhecidas do cliente (UUID e telefone). Sobrevive entre rebuilds da tela
-  // de conversa para que voltar não perca o que já tínhamos.
   final Map<String, List<ChatMessage>> _historyCache = {};
 
   ChatService._internal() {
@@ -83,7 +78,6 @@ class ChatService {
     });
 
     _socket.on('message', (data) {
-      debugPrint('📩 [SOCKET FRONTEND] Dado bruto recebido do Node.js: $data');
       try {
         final message = ChatMessage(
           id: data['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
@@ -103,7 +97,6 @@ class ChatService {
 
         _realtimeBuffer.add(message);
         _messageStreamController.add(message);
-        debugPrint('✅ [SOCKET FRONTEND] Mensagem adicionada ao fluxo com sucesso!');
       } catch (e) {
         debugPrint('❌ [SOCKET FRONTEND] Erro ao converter JSON: $e');
       }
@@ -133,6 +126,7 @@ class ChatService {
         );
       } catch (_) {}
     });
+
     _socket.on('conversa-devolvida', (data) {
       try {
         final map = Map<String, dynamic>.from(data as Map);
@@ -154,15 +148,24 @@ class ChatService {
         debugPrint('❌ [SOCKET FRONTEND] nova-os parse: $e');
       }
     });
+
+    // 👇 ADICIONADO O LISTENER DO KANBAN QUE REPASSA PARA A STREAM
+    _socket.on('kanban_atualizado', (data) {
+      try {
+        debugPrint('🔄 [SOCKET FRONTEND] Kanban atualizado via backend!');
+        final map = Map<String, dynamic>.from(data as Map);
+        final osId = map['id']?.toString() ?? '';
+        _osStreamController.add(OsEvent(OsEventTipo.atualizada, osId, map));
+      } catch (e) {
+        debugPrint('❌ [SOCKET FRONTEND] kanban_atualizado parse: $e');
+      }
+    });
   }
 
   Stream<PropostaEvent> get propostaEventStream => _propostaStreamController.stream;
   Stream<ConversaEvent> get conversaEventStream => _conversaStreamController.stream;
   Stream<OsEvent> get osEventStream => _osStreamController.stream;
 
-  /// Busca mensagens do banco de dados via API REST, depois mergeia com
-  /// quaisquer mensagens que tenham chegado via Socket enquanto isso.
-  /// O [clientId] pode ser o UUID do banco ou o telefone do cliente.
   Future<List<ChatMessage>> getMessages(String clientId) async {
     final List<String> keys = [clientId];
 
@@ -175,8 +178,6 @@ class ChatService {
         final List<dynamic> data = jsonDecode(res.body);
         final dbMessages = data.map((e) => ChatMessage.fromJson(Map<String, dynamic>.from(e))).toList();
 
-        // Descobre todas as chaves possíveis pra esse cliente (UUID + telefone)
-        // a partir das mensagens vindas do banco — usado pra casar o buffer.
         for (final m in dbMessages) {
           if (m.clienteDbId != null) keys.add(m.clienteDbId!);
           if (m.senderId != 'bot' && m.senderId != 'admin') keys.add(m.senderId);
@@ -192,24 +193,16 @@ class ChatService {
         final allMessages = [...dbMessages, ...realtimeExtras];
         allMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-        // Salva no cache sob todas as chaves conhecidas, pra que próximas
-        // aberturas (e fallbacks) achem o histórico mesmo se a API falhar.
         for (final k in keys.toSet()) {
           _historyCache[k] = allMessages;
         }
 
-        debugPrint('📋 [ChatService] Carregadas ${dbMessages.length} mensagens do banco + ${realtimeExtras.length} do buffer real-time para $clientId');
         return allMessages;
-      } else if (res.statusCode == 404) {
-        debugPrint('⚠️ [ChatService] Cliente $clientId não encontrado na API, usando cache/buffer local.');
-      } else {
-        debugPrint('⚠️ [ChatService] Erro HTTP ${res.statusCode} ao buscar mensagens.');
       }
     } catch (e) {
       debugPrint('⚠️ [ChatService] Falha ao conectar com API: $e — usando cache/buffer local.');
     }
 
-    // Fallback 1: cache de histórico já carregado anteriormente
     final cached = _historyCache[clientId];
     if (cached != null && cached.isNotEmpty) {
       final cachedIds = cached.map((m) => m.id).toSet();
@@ -221,7 +214,6 @@ class ChatService {
       return merged;
     }
 
-    // Fallback 2: buffer real-time puro
     return _realtimeBuffer
         .where((m) => _messageMatchesAny(m, [clientId]))
         .toList()

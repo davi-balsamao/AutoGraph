@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js' as js; // 👇 Importado para permitir chamadas nativas de JavaScript na Web sem quebrar o Mobile
+import 'dart:js_interop';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+
+// Ponte JS Interop para executar o eval no navegador sem usar a biblioteca web-only antiga
+@JS('eval')
+external void _jsEval(String script);
 
 // Canal de alta importância do Android para exibir banners pop-up
 const AndroidNotificationChannel _channel = AndroidNotificationChannel(
@@ -117,14 +121,14 @@ class PushNotificationService {
               payload: jsonEncode(message.data),
             );
           } else {
-            // 👇 🌐 FLUXO WEB EM PRIMEIRO PLANO (FOREGROUND)
-            // Força o navegador a criar uma notificação nativa HTML5 via JS Interop
+            // FLUXO WEB EM PRIMEIRO PLANO (FOREGROUND)
+            // Força o navegador a criar uma notificação nativa HTML5 via JS Interop atualizado
             try {
               // Limpa quebras de linhas e aspas para evitar quebra do script JS
               final String cleanTitle = notification.title?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
               final String cleanBody = notification.body?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
               
-              js.context.callMethod('eval', [
+              _jsEval(
                 '''
                 if (Notification.permission === "granted") {
                   new Notification("$cleanTitle", {
@@ -133,7 +137,7 @@ class PushNotificationService {
                   });
                 }
                 '''
-              ]);
+              );
             } catch (e) {
               debugPrint('⚠️ Erro ao disparar notificação nativa na Web (Foreground): $e');
             }
@@ -148,9 +152,6 @@ class PushNotificationService {
       });
 
       // App aberto por notificação a partir do estado "fechado".
-      // Em web, getInitialMessage depende do service worker estar registrado —
-      // se ele falhar, esse await pode travar a inicialização. Em web fazemos
-      // fire-and-forget; em mobile mantemos o await porque é instantâneo.
       if (kIsWeb) {
         // ignore: discarded_futures
         FirebaseMessaging.instance.getInitialMessage().then((initial) {
@@ -166,8 +167,6 @@ class PushNotificationService {
       }
 
       // 5. Atualizar Token e escutar novos tokens gerados.
-      // Em web sem VAPID key, getToken() pode pendurar — fire-and-forget para
-      // não bloquear o boot do app.
       // ignore: discarded_futures
       syncTokenWithBackend();
       FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) async {
@@ -183,16 +182,7 @@ class PushNotificationService {
   }
 
   /// VAPID key do Firebase Web Push, exigida pelo navegador para emitir um
-  /// token FCM válido. Sem ela, getToken() em web retorna null e o backend
-  /// não consegue enviar push para o admin (Socket cobre em tempo real).
-  ///
-  /// Como obter:
-  ///   Console Firebase → projeto autograph-83959
-  ///   → Project settings → Cloud Messaging → Web push certificates
-  ///   → "Generate key pair" → copiar a chave pública e colar abaixo.
-  ///
-  /// Quando deixada vazia, a chamada simplesmente omite o parâmetro e o
-  /// comportamento atual (sem push web funcional) é preservado.
+  /// token FCM válido.
   static const String _webVapidKey = ''; // TODO: colar VAPID key do autograph-83959
 
   /// Sincroniza o token atual do dispositivo com o backend caso o usuário esteja logado

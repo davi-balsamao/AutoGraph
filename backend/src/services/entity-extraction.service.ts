@@ -9,7 +9,7 @@
  *   Extração de Respostas → Verificação de Completude
  *
  * Usa o catálogo (catalogo.json) como fonte de verdade para os requisitos
- * dinâmicos de cada produto.
+ * dinâmicos de cada produto.a
  */
 
 import * as crypto from 'crypto';

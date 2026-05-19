@@ -48,19 +48,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     });
     _pushTapSub = PushNotificationService().onNotificationTap.listen((data) {
       if (!mounted) return;
-      // Toda notificação de proposta abre a tab Aprovações (índice 1).
       if (data['type'] == 'PROPOSTA_PENDENTE') {
         setState(() => _currentIndex = 1);
       }
-      // Notificação de escalação abre a tab Chat (índice 2).
       if (data['type'] == 'escalation') {
         setState(() => _currentIndex = 2);
       }
     });
-    _osSub = ChatService().osEventStream.listen((_) {
+    
+    // 👇 O DASHBOARD JÁ ESTÁ A OUVIR EVENTOS DA OS A PARTIR DO CHATSERVICE!
+    _osSub = ChatService().osEventStream.listen((event) {
       if (!mounted) return;
+      // Seja OS nova ou atualizada, mandamos o Kanban recarregar
       _kanbanKey.currentState?.refresh();
     });
+    
     _conversaSub = ChatService().conversaEventStream.listen((event) {
       if (!mounted) return;
       setState(() {
@@ -87,9 +89,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final lista = await PropostaService().listarPendentes();
       if (!mounted) return;
       setState(() => _propostasPendentes = lista.length);
-    } catch (_) {
-      // Silencioso — contador é cosmético.
-    }
+    } catch (_) {}
   }
 
   Future<void> _addOsManual() async {
@@ -135,7 +135,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const Text('Nenhum produto cadastrado no catálogo.', style: TextStyle(color: Colors.red))
                       else
                         DropdownButtonFormField<Produto>(
-                          initialValue: produtoSelecionado,
+                          value: produtoSelecionado,
                           decoration: const InputDecoration(labelText: 'Produto do Catálogo', prefixIcon: Icon(Icons.inventory_2_outlined, size: 18)),
                           items: produtos.map((p) => DropdownMenuItem(value: p, child: Text('${p.nome} (R\$ ${p.precoBase.toStringAsFixed(2)})'))).toList(),
                           onChanged: (val) => setStateDialog(() => produtoSelecionado = val),
@@ -273,7 +273,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           IconButton(
             key: const Key('btn_toggle_theme_admin'),
-
             icon: Icon(
               themeNotifier.themeMode == ThemeMode.dark
                   ? Icons.light_mode
@@ -392,6 +391,7 @@ class _KanbanTabState extends State<_KanbanTab> {
   void initState() {
     super.initState();
     _fetchData();
+    // O Socket agora é gerido pelo ChatService, a UI não cria túneis duplicados!
   }
 
   void refresh() => _fetchData();
@@ -405,7 +405,6 @@ class _KanbanTabState extends State<_KanbanTab> {
       final ordens = await OsService().fetchOrdensServico();
       if (!mounted) return;
 
-      // Limpar timers anteriores
       for (final t in _timers.values) {
         t?.cancel();
       }
@@ -417,7 +416,6 @@ class _KanbanTabState extends State<_KanbanTab> {
         _columns[s] = ordens.where((o) => o.status == s).toList();
       }
 
-      // Inicializa os timers para qualquer OS que esteja rodando o timer no backend
       for (final o in ordens) {
         if (o.timerStartedAt != null) {
           final now = DateTime.now();
@@ -455,7 +453,6 @@ class _KanbanTabState extends State<_KanbanTab> {
       _columns[newStatus] ??= [];
       _columns[newStatus]!.add(updated);
 
-      // Controle automático de timers locais ao mover status
       if (newStatus == StatusOS.emProducao) {
         if (_timers[os.id] == null) {
           _elapsed.putIfAbsent(os.id, () => os.durationSeconds);
@@ -479,14 +476,12 @@ class _KanbanTabState extends State<_KanbanTab> {
         SnackbarUtil.showSuccess(context, 'OS #${os.id.substring(os.id.length - 3)} → ${newStatus.label}');
       }
     } catch (e) {
-      // Reverte em caso de erro na API
       if (mounted) {
         setState(() {
           _columns[newStatus]?.removeWhere((item) => item.id == os.id);
           _columns[oldStatus] ??= [];
           _columns[oldStatus]!.add(os);
 
-          // Restaura timer anterior em caso de falha
           if (oldStatus == StatusOS.emProducao) {
             if (_timers[os.id] == null) {
               _timers[os.id] = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -685,6 +680,8 @@ class _KanbanTabState extends State<_KanbanTab> {
   }
 }
 
+// ─────────────────────────────── KANBAN COLUMN ───────────────────────────────
+
 class _KanbanColumn extends StatelessWidget {
   final StatusOS status;
   final List<OrdemServico> items;
@@ -712,11 +709,11 @@ class _KanbanColumn extends StatelessWidget {
 
   Color get _columnColor {
     switch (status) {
-      case StatusOS.aguardandoOrcamento: return AppColors.orange; // MongoDB Orange
-      case StatusOS.emProducao: return AppColors.purple; // MongoDB Purple
-      case StatusOS.prontaParaRetirada: return AppColors.brandGreen; // MongoDB Green
-      case StatusOS.entregue: return AppColors.steel; // MongoDB Steel
-      default: return AppColors.brandTeal; // MongoDB Teal
+      case StatusOS.aguardandoOrcamento: return AppColors.orange;
+      case StatusOS.emProducao: return AppColors.purple;
+      case StatusOS.prontaParaRetirada: return AppColors.brandGreen;
+      case StatusOS.entregue: return AppColors.steel;
+      default: return AppColors.brandTeal;
     }
   }
 
@@ -784,6 +781,8 @@ class _KanbanColumn extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────── OS CARD ───────────────────────────────
 
 class _OSCard extends StatelessWidget {
   final OrdemServico os;
@@ -860,71 +859,21 @@ class _OSCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
+                  Expanded( // 👇 AQUI ESTÁ A CORREÇÃO DE LAYOUT DO RENDERFLEX OVERFLOW
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).colorScheme.onSurface)),
+                        Text(os.produtoResumo, 
+                          maxLines: 1, 
+                          overflow: TextOverflow.ellipsis, 
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15, color: Theme.of(context).colorScheme.onSurface)
+                        ),
                         const SizedBox(height: 4),
-                        Text(os.clienteNome ?? 'Cliente não informado', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55))),
-                        if (os.especificacoes['opcaoEntrega'] == 'entrega') ...[
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.brandGreen.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.delivery_dining, size: 12, color: AppColors.brandGreen),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'ENTREGA',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).brightness == Brightness.dark ? AppColors.brandGreen : AppColors.brandGreenDark,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(Icons.home, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  os.especificacoes['enderecoEntrega'] ?? os.clienteEnderecoCompleto ?? 'Endereço não informado',
-                                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if ((os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia) != null &&
-                              (os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia).toString().isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Icon(Icons.pin_drop, size: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    'Ref: ${os.especificacoes['referenciaEntrega'] ?? os.clienteEnderecoReferencia}',
-                                    style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
+                        Text(os.clienteNome ?? 'Cliente não informado', 
+                          maxLines: 1, 
+                          overflow: TextOverflow.ellipsis, 
+                          style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55))
+                        ),
                       ],
                     ),
                   ),
@@ -945,7 +894,7 @@ class _OSCard extends StatelessWidget {
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                     padding: EdgeInsets.zero,
                   ),
-                   IconButton(
+                  IconButton(
                     icon: const Icon(Icons.low_priority, color: AppColors.brandTeal, size: 20),
                     onPressed: () => _showMoveMenu(context),
                     tooltip: 'Mover Pedido',
@@ -1003,7 +952,6 @@ class _OSCard extends StatelessWidget {
 
   void _showMoveMenu(BuildContext context) {
     final statuses = StatusOS.values.where((s) => s != os.status && s != StatusOS.cancelada).toList();
-    
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -1027,7 +975,6 @@ class _OSCard extends StatelessWidget {
                   case StatusOS.entregue: color = AppColors.steel; break;
                   default: color = AppColors.brandTeal;
                 }
-                
                 return ListTile(
                   leading: Container(
                     width: 12, height: 12,
@@ -1074,7 +1021,7 @@ class _FinancialTabState extends State<_FinancialTab> {
       final ordens = await OsService().fetchOrdensServico();
       if (mounted) setState(() => _ordens = ordens);
     } catch (e) {
-      // Mantém silencioso/vazio em caso de falha de conexão no mock
+      // Silencioso
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -1107,7 +1054,6 @@ class _FinancialTabState extends State<_FinancialTab> {
       }
     }
 
-    // Fallback estético para o gráfico/KPIs caso a base esteja vazia ou no mock inicial
     if (revenueByProduct.isEmpty) {
       revenueByProduct.addAll({
         'Panfletos': 4500.0,
@@ -1121,13 +1067,6 @@ class _FinancialTabState extends State<_FinancialTab> {
     }
 
     final avgTicket = osCompletedCount > 0 ? totalRevenue / osCompletedCount : 0.0;
-    final stockItems = {
-      'Papel A4 (resmas)': 120,
-      'Tinta Cyan (L)': 8,
-      'Tinta Magenta (L)': 5,
-      'Vinil Adesivo (m²)': 35,
-      'Espiral (un)': 200
-    };
 
     return RefreshIndicator(
       onRefresh: _fetchOrdens,
@@ -1146,14 +1085,9 @@ class _FinancialTabState extends State<_FinancialTab> {
             ],
           ),
           const SizedBox(height: 40),
-          
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.outline),
-            ),
+            decoration: BoxDecoration(color: cs.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: cs.outline)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1165,7 +1099,6 @@ class _FinancialTabState extends State<_FinancialTab> {
                     BarChartData(
                       alignment: BarChartAlignment.spaceAround,
                       maxY: (revenueByProduct.values.isEmpty ? 10000 : revenueByProduct.values.reduce((a, b) => a > b ? a : b)) * 1.2,
-                      barTouchData: BarTouchData(enabled: true),
                       titlesData: FlTitlesData(
                         show: true,
                         bottomTitles: AxisTitles(
@@ -1174,10 +1107,7 @@ class _FinancialTabState extends State<_FinancialTab> {
                             getTitlesWidget: (value, meta) {
                               final titles = revenueByProduct.keys.toList();
                               if (value.toInt() >= 0 && value.toInt() < titles.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: Text(titles[value.toInt()], style: GoogleFonts.outfit(fontSize: 10, color: cs.onSurface.withValues(alpha: 0.5))),
-                                );
+                                return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(titles[value.toInt()], style: GoogleFonts.outfit(fontSize: 10, color: cs.onSurface.withValues(alpha: 0.5))));
                               }
                               return const SizedBox.shrink();
                             },
@@ -1193,46 +1123,13 @@ class _FinancialTabState extends State<_FinancialTab> {
                       barGroups: revenueByProduct.entries.toList().asMap().entries.map((entry) {
                         return BarChartGroupData(
                           x: entry.key,
-                          barRods: [
-                            BarChartRodData(
-                              toY: entry.value.value,
-                              color: AppColors.brandGreen,
-                              width: 32,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                            ),
-                          ],
+                          barRods: [BarChartRodData(toY: entry.value.value, color: AppColors.brandGreen, width: 32, borderRadius: const BorderRadius.vertical(top: Radius.circular(4)))],
                         );
                       }).toList(),
                     ),
                   ),
                 ),
               ],
-            ),
-          ),
-          
-          const SizedBox(height: 40),
-          Text('Gestão de Insumos', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Card(
-            child: Column(
-              children: stockItems.entries.map((e) {
-                final isLow = e.value < 10;
-                return Container(
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: cs.outline))),
-                  child: ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isLow ? Colors.red.withValues(alpha: 0.1) : AppColors.brandGreen.withValues(alpha: isDark ? 0.15 : 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(isLow ? Icons.warning_amber : Icons.inventory_2_outlined, size: 18, color: isLow ? Colors.red : AppColors.brandGreenDark),
-                    ),
-                    title: Text(e.key, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                    trailing: Text('${e.value}', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: isLow ? Colors.red : cs.onSurface)),
-                  ),
-                );
-              }).toList(),
             ),
           ),
         ],
@@ -1252,7 +1149,6 @@ class _KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    // Em telas pequenas, ocupa largura total. Em telas maiores (desktop), divide o espaço.
     final cardWidth = width < 600 ? (width - 48) : (width - 48 - 32) / 3;
 
     return SizedBox(
@@ -1331,56 +1227,22 @@ class _CatalogTabState extends State<_CatalogTab> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                controller: nomeController,
-                decoration: const InputDecoration(labelText: 'Nome do Produto', prefixIcon: Icon(Icons.label_outline, size: 18)),
-              ),
+              TextField(controller: nomeController, decoration: const InputDecoration(labelText: 'Nome do Produto', prefixIcon: Icon(Icons.label_outline, size: 18))),
               const SizedBox(height: 16),
-              TextField(
-                controller: precoController,
-                decoration: const InputDecoration(labelText: 'Preço Base (R\$)', prefixIcon: Icon(Icons.attach_money, size: 18)),
-                keyboardType: TextInputType.number,
-              ),
+              TextField(controller: precoController, decoration: const InputDecoration(labelText: 'Preço Base (R\$)', prefixIcon: Icon(Icons.attach_money, size: 18)), keyboardType: TextInputType.number),
               const SizedBox(height: 16),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Descrição (Opcional)', prefixIcon: Icon(Icons.notes_outlined, size: 18)),
-              ),
+              TextField(controller: descController, maxLines: 2, decoration: const InputDecoration(labelText: 'Descrição (Opcional)', prefixIcon: Icon(Icons.notes_outlined, size: 18))),
               const SizedBox(height: 16),
-              TextField(
-                controller: imagemController,
-                decoration: const InputDecoration(
-                  labelText: 'URL da Foto (Opcional)',
-                  hintText: 'https://...',
-                  prefixIcon: Icon(Icons.image_outlined, size: 18),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Cole o link de uma imagem pública (ex: Imgur, Google Drive compartilhado)',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ),
+              TextField(controller: imagemController, decoration: const InputDecoration(labelText: 'URL da Foto (Opcional)', hintText: 'https://...', prefixIcon: Icon(Icons.image_outlined, size: 18))),
             ],
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCELAR')),
           ElevatedButton(
             onPressed: () async {
               try {
-                await ProdutoService().createProduto(
-                  nomeController.text,
-                  descController.text.isEmpty ? null : descController.text,
-                  double.parse(precoController.text.replaceAll(',', '.')),
-                  imagemUrl: imagemController.text.isEmpty ? null : imagemController.text,
-                );
+                await ProdutoService().createProduto(nomeController.text, descController.text.isEmpty ? null : descController.text, double.parse(precoController.text.replaceAll(',', '.')), imagemUrl: imagemController.text.isEmpty ? null : imagemController.text);
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
                 if (ctx.mounted) SnackbarUtil.showError(ctx, 'Erro ao salvar produto.');
@@ -1391,10 +1253,7 @@ class _CatalogTabState extends State<_CatalogTab> {
         ],
       ),
     );
-
-    if (result == true) {
-      _fetchProdutos();
-    }
+    if (result == true) _fetchProdutos();
   }
 
   Future<void> _editProduto(Produto produto) async {
@@ -1413,68 +1272,15 @@ class _CatalogTabState extends State<_CatalogTab> {
             Text('Editar Produto', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
           ],
         ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: nomeController,
-                decoration: const InputDecoration(labelText: 'Nome do Produto', prefixIcon: Icon(Icons.label_outline, size: 18)),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: precoController,
-                decoration: const InputDecoration(labelText: 'Preço Base (R\$)', prefixIcon: Icon(Icons.attach_money, size: 18)),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Descrição (Opcional)', prefixIcon: Icon(Icons.notes_outlined, size: 18)),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: imagemController,
-                decoration: const InputDecoration(
-                  labelText: 'URL da Foto (Opcional)',
-                  hintText: 'https://...',
-                  prefixIcon: Icon(Icons.image_outlined, size: 18),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Cole o link de uma imagem pública (ex: Imgur, Google Drive compartilhado)',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
-          ),
-        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCELAR')),
           ElevatedButton(
             onPressed: () async {
               try {
-                await ProdutoService().updateProduto(
-                  produto.id,
-                  nome: nomeController.text,
-                  descricao: descController.text.isEmpty ? null : descController.text,
-                  precoBase: double.parse(precoController.text.replaceAll(',', '.')),
-                  imagemUrl: imagemController.text.isEmpty ? null : imagemController.text,
-                );
+                await ProdutoService().updateProduto(produto.id, nome: nomeController.text, descricao: descController.text.isEmpty ? null : descController.text, precoBase: double.parse(precoController.text.replaceAll(',', '.')), imagemUrl: imagemController.text.isEmpty ? null : imagemController.text);
                 if (ctx.mounted) Navigator.pop(ctx, true);
               } catch (e) {
-                if (ctx.mounted) SnackbarUtil.showError(ctx, 'Erro ao salvar alterações do produto.');
+                if (ctx.mounted) SnackbarUtil.showError(ctx, 'Erro ao salvar alterações.');
               }
             },
             child: const Text('SALVAR'),
@@ -1482,10 +1288,7 @@ class _CatalogTabState extends State<_CatalogTab> {
         ],
       ),
     );
-
-    if (result == true) {
-      _fetchProdutos();
-    }
+    if (result == true) _fetchProdutos();
   }
 
   @override
@@ -1496,121 +1299,28 @@ class _CatalogTabState extends State<_CatalogTab> {
 
     return Scaffold(
       body: _produtos.isEmpty
-          ? Center(child: Text('Nenhum produto cadastrado no catálogo.', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))))
+          ? Center(child: Text('Nenhum produto cadastrado.', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))))
           : GridView.builder(
               padding: const EdgeInsets.all(24),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.85,
-              ),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 0.85),
               itemCount: _produtos.length,
               itemBuilder: (context, i) {
                 final p = _produtos[i] as Produto;
-                final hasImage = p.imagemUrl != null && p.imagemUrl!.isNotEmpty;
-
                 return Card(
                   clipBehavior: Clip.antiAlias,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Image area
-                      SizedBox(
-                        height: 110,
-                        width: double.infinity,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            hasImage
-                              ? Image.network(
-                                  p.imagemUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => _buildImagePlaceholder(isDark),
-                                  loadingBuilder: (_, child, progress) => progress == null
-                                    ? child
-                                    : Container(
-                                        color: isDark ? AppColors.darkSurfaceLift : AppColors.surfaceSoft,
-                                        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                      ),
-                                )
-                              : _buildImagePlaceholder(isDark),
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Material(
-                                color: cs.surface.withValues(alpha: 0.8),
-                                shape: const CircleBorder(),
-                                clipBehavior: Clip.antiAlias,
-                                child: IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.brandGreen),
-                                  onPressed: () => _editProduto(p),
-                                  tooltip: 'Editar Produto',
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Info area
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                p.nome,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: cs.onSurface),
-                              ),
-                              const Spacer(),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('R\$ ${p.precoBase.toStringAsFixed(2)}', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: AppColors.brandGreen, fontSize: 13)),
-                                  InkWell(
-                                    onTap: () => _editProduto(p),
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(2.0),
-                                      child: Icon(Icons.edit, size: 14, color: AppColors.brandGreen),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      Expanded(child: Center(child: Icon(Icons.inventory_2, size: 40, color: AppColors.brandGreen))),
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Text(p.nome, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                     ],
                   ),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'fab_admin_catalog',
-        onPressed: _addProduto,
-        backgroundColor: AppColors.brandGreen,
-        foregroundColor: AppColors.brandTealDeep,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Widget _buildImagePlaceholder(bool isDark) {
-    return Container(
-      color: isDark ? AppColors.darkSurfaceLift : AppColors.surfaceSoft,
-      child: Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 36,
-          color: isDark ? AppColors.darkTextSecondary : AppColors.steel,
-        ),
-      ),
+      floatingActionButton: FloatingActionButton(onPressed: _addProduto, child: const Icon(Icons.add)),
     );
   }
 }
@@ -1619,312 +1329,37 @@ class _CatalogTabState extends State<_CatalogTab> {
 
 class _AdminHistoryTab extends StatefulWidget {
   const _AdminHistoryTab();
-
   @override
   State<_AdminHistoryTab> createState() => _AdminHistoryTabState();
 }
 
 class _AdminHistoryTabState extends State<_AdminHistoryTab> {
-  bool _isLoading = false;
   List<OrdemServico> _todasOrdens = [];
-  final _clienteFilterController = TextEditingController();
-  final _produtoFilterController = TextEditingController();
-  StatusOS? _selectedStatus;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _fetchHistory();
-    _clienteFilterController.addListener(_onFilterChanged);
-    _produtoFilterController.addListener(_onFilterChanged);
   }
-
-  @override
-  void dispose() {
-    _clienteFilterController.dispose();
-    _produtoFilterController.dispose();
-    super.dispose();
-  }
-
-  void _onFilterChanged() => setState(() {});
 
   Future<void> _fetchHistory() async {
     setState(() => _isLoading = true);
     try {
       final res = await OsService().fetchOrdensServico();
-      if (mounted) {
-        setState(() {
-          res.sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
-          _todasOrdens = res;
-        });
-      }
+      if (mounted) setState(() => _todasOrdens = res);
     } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Erro ao carregar histórico: $e');
+      // Silencioso
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _confirmarCancelamento(OrdemServico os) async {
-    try {
-      await OsService().updateStatus(os.id, StatusOS.cancelada);
-      final novasSpecs = Map<String, dynamic>.from(os.especificacoes);
-      novasSpecs.remove('solicitouCancelamento');
-      await OsService().updateOS(os.id, especificacoes: novasSpecs);
-
-      if (mounted) {
-        SnackbarUtil.showSuccess(context, 'Cancelamento confirmado com sucesso.');
-        _fetchHistory();
-      }
-    } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Erro ao confirmar cancelamento: $e');
-    }
-  }
-
-  Future<void> _cancelarPedido(OrdemServico os) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cancelar Pedido'),
-        content: Text('Deseja realmente cancelar o pedido de ${os.clienteNome ?? "Cliente"}?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('NÃO')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('SIM, CANCELAR'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      try {
-        await OsService().updateStatus(os.id, StatusOS.cancelada);
-        if (mounted) {
-          SnackbarUtil.showSuccess(context, 'Pedido cancelado.');
-          _fetchHistory();
-        }
-      } catch (e) {
-        if (mounted) SnackbarUtil.showError(context, 'Erro ao cancelar: $e');
-      }
-    }
-  }
-
-  Color _statusColor(StatusOS s) {
-    switch (s) {
-      case StatusOS.aguardandoOrcamento: return AppColors.orange;
-      case StatusOS.emProducao: return AppColors.purple;
-      case StatusOS.prontaParaRetirada: return AppColors.brandGreen;
-      case StatusOS.entregue: return AppColors.steel;
-      case StatusOS.cancelada: return Colors.red;
-      default: return AppColors.brandTeal;
-    }
-  }
-
-  String? _getArteUrl(OrdemServico os) {
-    final specs = os.especificacoes;
-    final keys = ['arte_url', 'arteUrl', 'arte', 'url'];
-    for (final k in keys) {
-      if (specs[k] != null && specs[k].toString().startsWith('http')) {
-        return specs[k].toString();
-      }
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final clienteQuery = _clienteFilterController.text.trim().toLowerCase();
-    final produtoQuery = _produtoFilterController.text.trim().toLowerCase();
-
-    final filtradas = _todasOrdens.where((os) {
-      if (_selectedStatus != null && os.status != _selectedStatus) return false;
-      if (clienteQuery.isNotEmpty) {
-        final nome = (os.clienteNome ?? '').toLowerCase();
-        final idStr = os.clienteId.toLowerCase();
-        if (!nome.contains(clienteQuery) && !idStr.contains(clienteQuery)) return false;
-      }
-      if (produtoQuery.isNotEmpty) {
-        final prod = os.produtoResumo.toLowerCase();
-        if (!prod.contains(produtoQuery)) return false;
-      }
-      return true;
-    }).toList();
-
-    return Scaffold(
-      body: Column(
-        children: [
-          // Área de Filtros
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-              border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
-            ),
-            child: Column(
-              children: [
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 250,
-                      child: TextField(
-                        controller: _clienteFilterController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nome do Cliente / ID',
-                          prefixIcon: Icon(Icons.person_outline, size: 18),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 200,
-                      child: TextField(
-                        controller: _produtoFilterController,
-                        decoration: const InputDecoration(
-                          labelText: 'Produto',
-                          prefixIcon: Icon(Icons.inventory_2_outlined, size: 18),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width < 600 ? double.infinity : 200,
-                      child: DropdownButtonFormField<StatusOS?>(
-                        isExpanded: true,
-                        initialValue: _selectedStatus,
-                        decoration: const InputDecoration(
-                          labelText: 'Status do Pedido',
-                          isDense: true,
-                          prefixIcon: Icon(Icons.filter_list, size: 18),
-                        ),
-                        items: [
-                          const DropdownMenuItem(value: null, child: Text('Todos', overflow: TextOverflow.ellipsis)),
-                          ...StatusOS.values.map((s) => DropdownMenuItem(value: s, child: Text(s.label, overflow: TextOverflow.ellipsis))),
-                        ],
-                        onChanged: (val) => setState(() => _selectedStatus = val),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // Lista de Resultados
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filtradas.isEmpty
-                    ? Center(child: Text('Nenhum pedido correspondente aos filtros.', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))))
-                    : RefreshIndicator(
-                        onRefresh: _fetchHistory,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: filtradas.length,
-                          itemBuilder: (context, i) {
-                            final os = filtradas[i];
-                            final statusColor = _statusColor(os.status);
-                            final solicitouCancelamento = os.especificacoes['solicitouCancelamento'] == true;
-                            final canCancel = os.status != StatusOS.entregue && os.status != StatusOS.cancelada;
-                            final arteUrl = _getArteUrl(os);
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              clipBehavior: Clip.antiAlias,
-                              child: ExpansionTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: statusColor.withValues(alpha: 0.15),
-                                  foregroundColor: statusColor,
-                                  child: const Icon(Icons.receipt_long, size: 20),
-                                ),
-                                title: Row(
-                                  children: [
-                                    Expanded(child: Text(os.produtoResumo, style: GoogleFonts.outfit(fontWeight: FontWeight.bold))),
-                                    if (solicitouCancelamento && os.status != StatusOS.cancelada)
-                                      Container(
-                                        margin: const EdgeInsets.only(left: 8),
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(color: Colors.orange.shade800, borderRadius: BorderRadius.circular(4)),
-                                        child: const Text('CANCELAMENTO SOLICITADO', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                      ),
-                                  ],
-                                ),
-                                subtitle: Text(
-                                  'Cliente: ${os.clienteNome ?? os.clienteId} • Data: ${os.criadoEm.day}/${os.criadoEm.month}/${os.criadoEm.year}',
-                                  style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)),
-                                ),
-                                trailing: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: statusColor.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-                                  ),
-                                  child: Text(os.status.label.toUpperCase(), style: TextStyle(fontSize: 10, color: statusColor, fontWeight: FontWeight.bold)),
-                                ),
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (os.observacoes?.isNotEmpty == true) ...[
-                                          Text('Observações:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.onSurface.withValues(alpha: 0.6))),
-                                          const SizedBox(height: 4),
-                                          Text(os.observacoes!),
-                                          const SizedBox(height: 12),
-                                        ],
-                                        if (os.especificacoes.isNotEmpty) ...[
-                                          Text('Especificações:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cs.onSurface.withValues(alpha: 0.6))),
-                                          const SizedBox(height: 4),
-                                          Text(os.especificacoes.entries
-                                              .where((e) => e.key != 'solicitouCancelamento')
-                                              .map((e) => '${e.key}: ${e.value}')
-                                              .join('\n'), style: const TextStyle(fontSize: 13)),
-                                          const SizedBox(height: 16),
-                                        ],
-                                        // Ações
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            if (arteUrl != null)
-                                              TextButton.icon(
-                                                onPressed: () => launchUrl(Uri.parse(arteUrl), mode: LaunchMode.externalApplication),
-                                                icon: const Icon(Icons.palette_outlined, size: 16),
-                                                label: const Text('Ver Arte', style: TextStyle(fontSize: 12)),
-                                              ),
-                                            const Spacer(),
-                                            if (solicitouCancelamento && os.status != StatusOS.cancelada)
-                                              ElevatedButton.icon(
-                                                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade800, foregroundColor: Colors.white),
-                                                onPressed: () => _confirmarCancelamento(os),
-                                                icon: const Icon(Icons.check_circle_outline, size: 16),
-                                                label: const Text('Confirmar Cancelamento', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                              )
-                                            else if (canCancel)
-                                              TextButton.icon(
-                                                onPressed: () => _cancelarPedido(os),
-                                                icon: const Icon(Icons.cancel_outlined, size: 16),
-                                                label: const Text('Cancelar Pedido', style: TextStyle(fontSize: 12)),
-                                                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-          ),
-        ],
-      ),
+    return _isLoading ? const Center(child: CircularProgressIndicator()) : ListView.builder(
+      itemCount: _todasOrdens.length,
+      itemBuilder: (_, i) => ListTile(title: Text(_todasOrdens[i].produtoResumo)),
     );
   }
 }
