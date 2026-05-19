@@ -12,7 +12,7 @@ if (!connectionString) {
 
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter }) as any;
+const prisma = new PrismaClient() as any;
 
 async function main() {
   console.log('🚀 Start seeding...');
@@ -20,25 +20,14 @@ async function main() {
   // IDs dos usuários que precisamos limpar
   const userIdsToClean = ['usr-client-001', 'usr-client-mock', 'c1', 'usr-admin-mock'];
 
-  // 0. LIMPEZA CIRÚRGICA: Remove as ordens vinculadas primeiro para evitar o erro P2003
+  // 0. LIMPEZA CIRÚRGICA
   console.log('🧹 Removendo ordens de serviço antigas dos usuários de teste...');
-  
-  // Testamos as variações mais comuns de nome do modelo de ordens para garantir que o Prisma limpe a tabela certa
-  const possiveisModelosDeOrdem = ['ordemServico', 'ordensDeServico', 'order', 'pedido'];
-  
-  for (const modelo of possiveisModelosDeOrdem) {
-    try {
-      await prisma[modelo].deleteMany({
-        where: {
-          clienteId: { in: userIdsToClean }
-        }
-      });
-    } catch (e) {
-      // Se o modelo não existir com esse nome no seu schema, ignora e tenta o próximo
+  await prisma.ordensDeServico.deleteMany({
+    where: {
+      clienteId: { in: userIdsToClean }
     }
-  }
+  });
 
-  // Agora que as chaves estrangeiras foram limpas, podemos apagar os usuários com segurança
   console.log('👤 Removendo usuários de teste antigos...');
   await prisma.usuario.deleteMany({
     where: {
@@ -165,32 +154,22 @@ async function main() {
     console.log(`📦 Created/Updated produto: ${upsertedProd.nome}`);
   }
 
-  // 5. Upsert da Ordem de Serviço Perfeita vinculada ao Cliente da Sessão
-  let osCriada = false;
-  for (const modelo of possiveisModelosDeOrdem) {
-    if (osCriada) break;
-    try {
-      const osPerfeita = await prisma[modelo].upsert({
-        where: { id: 'pedido-teste-fcm-123' },
-        update: {},
-        create: {
-          id: 'pedido-teste-fcm-123', 
-          descricao: 'Apostilas de Treinamento e Produção Gráfica',
-          total: 250.00,
-          status: 'AGUARDANDO_ORCAMENTO',
-          clienteId: 'usr-client-mock', 
-        },
-      });
-      console.log(`📋 Created/Updated OS de Teste Assertiva no modelo "${modelo}": ${osPerfeita.id}`);
-      osCriada = true;
-    } catch (error) {
-      // Avança se falhar
-    }
-  }
-
-  if (!osCriada) {
-    console.log('\n⚠️ Nota: Não foi possível estruturar a OS automática. Verifique a nomenclatura exata do modelo de ordens no seu schema.prisma.');
-  }
+  // 5. Upsert da Ordem de Serviço Perfeita
+  // Adicionando descrição e total dentro do campo 'especificacoes' (JSON)
+  const osPerfeita = await prisma.ordensDeServico.upsert({
+    where: { id: 'pedido-teste-fcm-123' },
+    update: {},
+    create: {
+      id: 'pedido-teste-fcm-123', 
+      status: 'AGUARDANDO_ORCAMENTO',
+      clienteId: 'usr-client-mock',
+      especificacoes: {
+        descricao: 'Apostilas de Treinamento e Produção Gráfica',
+        total: 250.00
+      }
+    },
+  });
+  console.log(`📋 Created/Updated OS de Teste Assertiva: ${osPerfeita.id}`);
 
   console.log('⭐ Seeding finished successfully.');
 }

@@ -15,7 +15,12 @@ const webhook_routes_1 = __importDefault(require("./routes/webhook.routes"));
 const os_routes_1 = __importDefault(require("./routes/os.routes"));
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const produto_routes_1 = __importDefault(require("./routes/produto.routes"));
+const notification_routes_1 = __importDefault(require("./routes/notification.routes"));
+const propostas_routes_1 = __importDefault(require("./routes/propostas.routes"));
+const conversas_routes_1 = __importDefault(require("./routes/conversas.routes"));
 const prisma_1 = require("./config/prisma");
+const cron_service_1 = require("./services/cron.service");
+const whatsapp_service_1 = require("./services/whatsapp.service");
 // Carregamento Físico do .env
 try {
     const envPath = path_1.default.resolve(process.cwd(), '.env');
@@ -35,7 +40,7 @@ const port = process.env.PORT || 3000;
 const server = http_1.default.createServer(app);
 const io = new socket_io_1.Server(server, {
     cors: {
-        origin: "*", // Em produção, restringir para o domínio do seu app
+        origin: "*", // Em produção, restringir para o domínio do app
         methods: ["GET", "POST"]
     }
 });
@@ -49,22 +54,61 @@ app.use(express_1.default.json({
 // Monitoramento de conexão socket
 io.on('connection', (socket) => {
     console.log(`🔌 Novo dispositivo conectado ao Socket: ${socket.id}`);
+    // INTERCEPTADOR DE MENSAGENS DO ADMIN
+    socket.on('message', async (data) => {
+        // Se a mensagem que chegou no Socket veio do Painel Admin do Flutter...
+        if (data.senderId === 'admin') {
+            try {
+                console.log(`📤 [SOCKET -> WPP] Admin respondendo para o telefone: ${data.receiverId}`);
+                // 1. Atira a mensagem para a API oficial do WhatsApp da Meta
+                await whatsapp_service_1.whatsappService.sendMessage(data.receiverId, data.text);
+                // 2. SILENCIADOR DA IA: Atualiza o banco de dados para avisar que o humano assumiu!
+                const cliente = await prisma_1.prisma.usuario.findFirst({ where: { telefone: data.receiverId } });
+                if (cliente) {
+                    await prisma_1.prisma.usuario.update({
+                        where: { id: cliente.id },
+                        data: { atendimentoHumano: true }
+                    });
+                    // Salva o estado atual na sessão para restaurar corretamente depois!
+                    const sessao = await prisma_1.prisma.sessaoAtendimento.findFirst({
+                        where: { clienteId: cliente.id, ativa: true },
+                        orderBy: { criadoEm: 'desc' },
+                    });
+                    if (sessao) {
+                        const ctx = sessao.contexto || {};
+                        if (!ctx.estadoSalvoTakeover) {
+                            ctx.estadoSalvoTakeover = sessao.estadoAtual;
+                            await prisma_1.prisma.sessaoAtendimento.update({
+                                where: { id: sessao.id },
+                                data: { contexto: ctx },
+                            });
+                        }
+                    }
+                }
+                console.log(`🤫 IA desativada para o cliente ${data.receiverId} (Humano assumiu a conversa)`);
+                console.log(`✅ [WPP] Mensagem do Admin entregue com sucesso!`);
+            }
+            catch (error) {
+                console.error(`❌ [WPP] Erro ao enviar mensagem do Admin:`, error);
+            }
+        }
+    });
     socket.on('disconnect', () => {
         console.log('🔌 Dispositivo desconectado');
     });
 });
-// Rota principal
 app.get('/', (req, res) => {
     res.json({ message: 'Hello World from AutoGraph API!' });
 });
-// Servindo os arquivos de upload de forma estática para visualização do Admin
 app.use('/uploads', express_1.default.static(path_1.default.resolve(__dirname, '../data/uploads')));
 app.use(webhook_routes_1.default);
 app.use('/api/os', os_routes_1.default);
 app.use('/api/auth', auth_routes_1.default);
+app.use('/api/notifications', notification_routes_1.default);
+app.use('/api/propostas', propostas_routes_1.default);
+app.use('/api/conversas', conversas_routes_1.default);
 // Rotas de Produtos
 app.use('/api/produtos', produto_routes_1.default);
-// Endpoint de Health Check (Verifica DB)
 app.get('/api/health', async (req, res) => {
     try {
         await prisma_1.prisma.$queryRaw `SELECT 1`;
@@ -72,10 +116,10 @@ app.get('/api/health', async (req, res) => {
     }
     catch (error) {
         console.error('❌ ERRO NO HEALTH CHECK (Banco de Dados Inacessível):', error);
-        res.status(503).json({ status: 'error', database: 'disconnected', message: 'Serviço de banco de dados indisponível no momento.' });
+        res.status(503).json({ status: 'error', database: 'disconnected', message: 'Serviço indisponível' });
     }
 });
-// IMPORTANTE: Usamos 'server.listen' em vez de 'app.listen' para o Socket.io funcionar
 server.listen(port, () => {
     console.log(`🚀 Servidor e Socket.io rodando na porta ${port}`);
+    cron_service_1.cronService.start();
 });

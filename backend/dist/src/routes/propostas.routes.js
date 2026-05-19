@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const propostas_controller_1 = require("../controllers/propostas.controller");
+const propostasRoutes = (0, express_1.Router)();
+propostasRoutes.get('/', propostas_controller_1.propostasController.list);
+propostasRoutes.patch('/:sessaoId', propostas_controller_1.propostasController.update);
+propostasRoutes.post('/:sessaoId/aprovar', propostas_controller_1.propostasController.approve);
+propostasRoutes.post('/:sessaoId/rejeitar', propostas_controller_1.propostasController.reject);
+exports.default = propostasRoutes;

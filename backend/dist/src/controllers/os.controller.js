@@ -8,6 +8,7 @@ const whatsapp_service_1 = require("../services/whatsapp.service");
 const client_1 = require("@prisma/client");
 const server_1 = require("../server");
 const prisma_1 = require("../config/prisma");
+const notification_service_1 = require("../services/notification.service");
 const osRepo = new os_repository_1.OsRepository();
 const mensagemRepo = new mensagem_repository_1.MensagemRepository();
 const clienteRepo = new cliente_repository_1.ClienteRepository();
@@ -59,6 +60,8 @@ class OsController {
             });
             // Emite evento Socket.io para notificar administradores em tempo real
             server_1.io.emit('new-os', novaOs);
+            // Notificar administradores via FCM
+            notification_service_1.notificationService.sendToAdmins('Novo Pedido Recebido 📋', `Cliente ${clienteExistente?.nome || clienteId} enviou um novo pedido de serviço.`, { osId: novaOs.id, type: 'new_os' }).catch(err => console.error('❌ Erro ao enviar push de novo pedido:', err));
             return res.status(201).json(novaOs);
         }
         catch (error) {
@@ -92,6 +95,18 @@ class OsController {
                 return res.status(400).json({ error: 'Status inválido.' });
             }
             const osAtualizada = await osRepo.updateStatus(id, status);
+            // Mapeamento de status amigável para a notificação
+            const statusNomes = {
+                CRIADA: 'Criado',
+                AGUARDANDO_ORCAMENTO: 'Aguardando Orçamento',
+                EM_PRODUCAO: 'Em Produção ⚙️',
+                PRONTA_PARA_RETIRADA: 'Pronto para Retirada 📦',
+                ENTREGUE: 'Entregue ✅',
+                CANCELADA: 'Cancelado ❌'
+            };
+            const statusFormatado = statusNomes[status] || status;
+            // Notificar o cliente sobre a alteração do status do pedido
+            notification_service_1.notificationService.sendToUser(osAtualizada.clienteId, 'Atualização no seu Pedido 📦', `O status do seu pedido #${osAtualizada.id.substring(0, 8)} foi alterado para: ${statusFormatado}.`, { osId: osAtualizada.id, status: osAtualizada.status, type: 'os_status' }).catch(err => console.error('❌ Erro ao enviar push de status:', err));
             return res.json(osAtualizada);
         }
         catch (error) {
@@ -109,6 +124,8 @@ class OsController {
             if (especificacoes !== undefined)
                 updatePayload.especificacoes = especificacoes;
             const osAtualizada = await osRepo.updateData(id, updatePayload);
+            // Notificar o cliente sobre atualizações em especificações/observações do pedido
+            notification_service_1.notificationService.sendToUser(osAtualizada.clienteId, 'Alteração no seu Pedido ✏️', `Seu pedido #${osAtualizada.id.substring(0, 8)} recebeu novas especificações ou observações.`, { osId: osAtualizada.id, type: 'os_update' }).catch(err => console.error('❌ Erro ao enviar push de alteração de dados:', err));
             return res.json(osAtualizada);
         }
         catch (error) {
