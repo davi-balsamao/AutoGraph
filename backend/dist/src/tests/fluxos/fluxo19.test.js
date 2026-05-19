@@ -1,0 +1,28 @@
+"use strict";
+/**
+ * Fluxo 19 · Alteração após emissão da O.S.
+ * Após receber o número da O.S., cliente quer trocar o papel.
+ * Produção pode já ter iniciado. Escalada obrigatória — bot não edita O.S. gerada.
+ *
+ * Estados: Gerar O.S. pós-OS → Escalar
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+const helpers_1 = require("./helpers");
+const PHONE = (0, helpers_1.uniquePhone)(19);
+const NAME = 'Teresa Teste F19';
+describe('Fluxo 19 · Alteração de pedido após emissão de O.S.', () => {
+    beforeAll(async () => { await (0, helpers_1.cleanupUser)(PHONE); });
+    afterAll(async () => { await (0, helpers_1.cleanupUser)(PHONE); });
+    it('deve escalar ao tentar alterar pedido pós-OS sem editar a O.S.', async () => {
+        await (0, helpers_1.turno)(PHONE, NAME, 'Oi! Acabei de receber a confirmação do meu pedido, mas preciso alterar o tipo de papel.', 'ESCALAR_HUMANO', 'Solicitação de alteração pós-OS');
+        // Após escalar, IA fica silenciada — não há resposta nova do bot.
+        await (0, helpers_1.turno)(PHONE, NAME, 'Quero trocar de papel couchê 90g para papel offset 75g. É possível mudar agora?', 'ESCALAR_HUMANO', 'Escalada — bot não edita O.S.', { expectNewResponse: false });
+    }, 30_000);
+    it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
+        const msgId = `wamid.dup_f19_${Date.now()}`;
+        await (0, helpers_1.sendMsg)(PHONE, NAME, 'Retry test', msgId);
+        await (0, helpers_1.sendMsg)(PHONE, NAME, 'Retry test', msgId);
+        await (0, helpers_1.wait)();
+        expect(await (0, helpers_1.getLastBotResponse)(PHONE)).toBeTruthy();
+    }, 25_000);
+});

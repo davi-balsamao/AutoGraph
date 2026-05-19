@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const conversas_controller_1 = require("../controllers/conversas.controller");
+const conversasRoutes = (0, express_1.Router)();
+conversasRoutes.get('/:userId/status', conversas_controller_1.conversasController.status);
+conversasRoutes.get('/:userId/mensagens', conversas_controller_1.conversasController.mensagens);
+conversasRoutes.post('/:userId/assumir', conversas_controller_1.conversasController.assumir);
+conversasRoutes.post('/:userId/devolver-ia', conversas_controller_1.conversasController.devolverIa);
+exports.default = conversasRoutes;

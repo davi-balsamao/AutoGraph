@@ -4,43 +4,56 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ragService = exports.RagService = void 0;
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 const prisma_1 = require("../config/prisma");
 const google_genai_1 = require("@langchain/google-genai");
+const llm_factory_1 = require("./llm-factory");
 const runnables_1 = require("@langchain/core/runnables");
 const prompts_1 = require("@langchain/core/prompts");
 const output_parsers_1 = require("@langchain/core/output_parsers");
 const documents_1 = require("@langchain/core/documents");
 const rag_template_1 = require("./rag-template");
 const guardrails_service_1 = require("./guardrails.service");
-const dotenv_1 = __importDefault(require("dotenv"));
-dotenv_1.default.config();
 const TOP_K = 4;
 /** Score mínimo de similaridade. Documentos abaixo disso são descartados. */
-const MIN_SIMILARITY_SCORE = 0.75;
+const MIN_SIMILARITY_SCORE = 0.55;
 /** Resposta padrão quando não há contexto suficiente. */
 const FALLBACK_RESPONSE = 'Não tenho essa informação no momento.';
+/**
+ * Remove linhas em branco duplas do output do LLM.
+ * LLMs usam \n\n por padrão (markdown); no WhatsApp isso parece artificial.
+ */
+function stripDoubleNewlines(text) {
+    return text.replace(/\n{2,}/g, '\n').trim();
+}
 class RagService {
     embeddings;
-    llm;
-    chain;
     constructor() {
-        const safeApiKey = process.env.GOOGLE_API_KEY || 'AIzaSyMockKeyForLocalTestingOnlyDoNotUse';
+        // Embeddings: usa a primeira chave do pool do Gemini. Rotação faz menos
+        // sentido aqui porque embeddings têm cota separada e bem mais alta (15 RPM
+        // no free tier do Gemini), e mudar a chave a cada request quebraria cache.
         this.embeddings = new google_genai_1.GoogleGenerativeAIEmbeddings({
             modelName: 'gemini-embedding-001',
-            apiKey: safeApiKey,
+            apiKey: (0, llm_factory_1.nextEmbeddingApiKey)(),
         });
-        // LLM — Temperature 0.0 (determinístico, conforme regras de triagem)
-        this.llm = new google_genai_1.ChatGoogleGenerativeAI({
-            temperature: 0.0,
-            model: process.env.LLM_MODEL || 'gemini-2.0-flash',
-            apiKey: safeApiKey,
-        });
+    }
+    /** Constrói uma chain stateless com uma chave rotacionada do pool. */
+    buildStatelessChain() {
+        const llm = (0, llm_factory_1.createChatLlm)('rag');
         const prompt = prompts_1.ChatPromptTemplate.fromMessages([
             prompts_1.SystemMessagePromptTemplate.fromTemplate(rag_template_1.RAG_SYSTEM_PROMPT),
             prompts_1.HumanMessagePromptTemplate.fromTemplate(rag_template_1.RAG_HUMAN_PROMPT),
         ]);
-        const outputParser = new output_parsers_1.StringOutputParser();
-        this.chain = runnables_1.RunnableSequence.from([prompt, this.llm, outputParser]);
+        return runnables_1.RunnableSequence.from([prompt, llm, new output_parsers_1.StringOutputParser()]);
+    }
+    createStateChain(systemPrompt) {
+        const llm = (0, llm_factory_1.createChatLlm)('rag');
+        const prompt = prompts_1.ChatPromptTemplate.fromMessages([
+            prompts_1.SystemMessagePromptTemplate.fromTemplate(systemPrompt),
+            prompts_1.HumanMessagePromptTemplate.fromTemplate(rag_template_1.RAG_HUMAN_PROMPT),
+        ]);
+        return runnables_1.RunnableSequence.from([prompt, llm, new output_parsers_1.StringOutputParser()]);
     }
     async retrieveDocuments(queryEmbedding) {
         const vectorString = `[${queryEmbedding.join(',')}]`;
@@ -59,41 +72,143 @@ class RagService {
         return filteredResults;
     }
     /**
-     * Executa o pipeline RAG completo.
+     * RAG com prompt específico do estado da FSM.
+     */
+    async queryWithState(question, state, context, conversationHistory) {
+        const systemPrompt = (0, rag_template_1.buildSystemPrompt)(state, context);
+        const stateChain = this.createStateChain(systemPrompt);
+        // Determina se é um estado comportamental/negociação para contornar bloqueios rígidos do guardrail por falta de docs
+        const isBehavioralState = state === 'NEGOCIAR' || state === 'ENCERRAR';
+        return this.runQuery(question, conversationHistory, stateChain, {
+            alwaysInvokeLlm: true,
+            isBehavioralState,
+            state
+        });
+    }
+    /**
+     * Executa o pipeline RAG completo (modo legado / testes).
      */
     async query(question, conversationHistory) {
+        return this.runQuery(question, conversationHistory, this.buildStatelessChain());
+    }
+    async runQuery(question, conversationHistory, chain, options) {
         console.log('\n========== RAG QUERY ==========');
         console.log(`📝 Pergunta: "${question}"`);
+        const EMBED_TIMEOUT_MS = 10_000;
+        const LLM_TIMEOUT_MS = 60_000;
+        const t0 = Date.now();
+        const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
+        const makeAbortTimeout = (ms, label) => {
+            const controller = new AbortController();
+            const handle = setTimeout(() => controller.abort(), ms);
+            return {
+                signal: controller.signal,
+                clear: () => clearTimeout(handle),
+                aborted: () => controller.signal.aborted,
+                errorMsg: `RAG timeout após ${ms / 1000}s (${label})`,
+            };
+        };
+        const embedTimeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error(`RAG timeout após ${EMBED_TIMEOUT_MS / 1000}s (embedding)`)), EMBED_TIMEOUT_MS));
         try {
-            const queryEmbedding = await this.embeddings.embedQuery(question);
-            const documents = await this.retrieveDocuments(queryEmbedding);
+            let documents = [];
+            const trimmedQuestion = question?.trim() || "";
+            if (trimmedQuestion !== "") {
+                console.log(`⏱  [${elapsed()}] Iniciando embedding...`);
+                const queryEmbedding = await Promise.race([
+                    this.embeddings.embedQuery(trimmedQuestion),
+                    embedTimeoutPromise,
+                ]);
+                console.log(`⏱  [${elapsed()}] Embedding OK. Buscando docs no pgvector...`);
+                documents = await this.retrieveDocuments(queryEmbedding);
+                console.log(`⏱  [${elapsed()}] ${documents.length} docs recuperados.`);
+            }
+            else {
+                console.log('⚠️ Pergunta vazia detectada no RAG. Ignorando busca vetorial da KB.');
+            }
             if (documents.length === 0) {
+                const podeInvocarLlm = options?.alwaysInvokeLlm || Boolean(conversationHistory?.trim());
+                if (podeInvocarLlm) {
+                    console.log(options?.alwaysInvokeLlm
+                        ? '⚠️  0 docs na KB — FSM usa prompt do estado + histórico.'
+                        : '⚠️  0 docs relevantes, usando histórico de conversa como contexto.');
+                    let kbContext = '(Nenhum trecho adicional recuperado da base vetorial para esta pergunta.)';
+                    if (conversationHistory?.trim()) {
+                        kbContext += `\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
+                    }
+                    console.log(`⏱  [${elapsed()}] Invocando LLM (0 docs)...`);
+                    const llmAbort0 = makeAbortTimeout(LLM_TIMEOUT_MS, 'llm-no-docs');
+                    let contextualAnswer;
+                    try {
+                        contextualAnswer = await chain.invoke({ context: kbContext, question: trimmedQuestion }, { signal: llmAbort0.signal });
+                        llmAbort0.clear();
+                    }
+                    catch (e) {
+                        if (llmAbort0.aborted())
+                            throw new Error(llmAbort0.errorMsg);
+                        throw e;
+                    }
+                    console.log(`⏱  [${elapsed()}] LLM respondeu (0 docs).`);
+                    const validation = guardrails_service_1.guardrailsService.validateResponse(contextualAnswer, [], options?.state);
+                    let guardrailApplied = !validation.isValid;
+                    let finalAnswer = stripDoubleNewlines(contextualAnswer);
+                    if (guardrailApplied) {
+                        if (options?.isBehavioralState) {
+                            guardrailApplied = false;
+                            console.log('ℹ️ Guardrail de grounding ignorado por se tratar de estado comportamental.');
+                        }
+                        else {
+                            finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
+                        }
+                    }
+                    console.log(`💬 Resposta final: "${finalAnswer}"`);
+                    return {
+                        answer: finalAnswer,
+                        rawAnswer: guardrailApplied ? contextualAnswer : undefined,
+                        sourceDocuments: [],
+                        guardrailApplied,
+                    };
+                }
+                console.log('⚠️  0 docs e sem histórico — fallback.');
                 return { answer: FALLBACK_RESPONSE, sourceDocuments: [] };
             }
             const context = documents
                 .map((doc, i) => `--- Documento ${i + 1} (ID: ${doc.id}) ---\n${doc.conteudo}`)
                 .join('\n\n');
-            console.log('\n📤 Prompt final montado. Enviando para o LLM...');
             // Montar contexto com histórico de conversa
             let fullContext = context;
             if (conversationHistory) {
                 fullContext = `${context}\n\n## HISTÓRICO DA CONVERSA ATUAL:\n${conversationHistory}`;
             }
-            const rawAnswer = await this.chain.invoke({
-                context: fullContext,
-                question,
-            });
+            console.log(`\n📤 [${elapsed()}] Prompt montado (${fullContext.length} chars). Invocando LLM...`);
+            const llmAbort = makeAbortTimeout(LLM_TIMEOUT_MS, 'llm');
+            let rawAnswer;
+            try {
+                rawAnswer = await chain.invoke({ context: fullContext, question: trimmedQuestion }, { signal: llmAbort.signal });
+                llmAbort.clear();
+            }
+            catch (e) {
+                if (llmAbort.aborted())
+                    throw new Error(llmAbort.errorMsg);
+                throw e;
+            }
+            console.log(`⏱  [${elapsed()}] LLM respondeu.`);
             const langchainDocs = documents.map((doc) => new documents_1.Document({ pageContent: doc.conteudo, metadata: { id: doc.id } }));
-            const validation = guardrails_service_1.guardrailsService.validateResponse(rawAnswer, langchainDocs);
-            let finalAnswer = rawAnswer;
-            let guardrailApplied = false;
-            if (!validation.isValid) {
-                finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
-                guardrailApplied = true;
+            const validation = guardrails_service_1.guardrailsService.validateResponse(rawAnswer, langchainDocs, options?.state);
+            let guardrailApplied = !validation.isValid;
+            let finalAnswer = stripDoubleNewlines(rawAnswer);
+            if (guardrailApplied) {
+                if (options?.isBehavioralState) {
+                    guardrailApplied = false;
+                    console.log('ℹ️ Guardrail de grounding ignorado no bloco com docs por se tratar de estado comportamental.');
+                }
+                else {
+                    finalAnswer = validation.correctedResponse || FALLBACK_RESPONSE;
+                }
             }
             console.log(`💬 Resposta final: "${finalAnswer}"`);
             return {
                 answer: finalAnswer,
+                rawAnswer: guardrailApplied ? rawAnswer : undefined,
                 sourceDocuments: documents.map((doc) => ({
                     id: doc.id,
                     similaridade: Number(doc.similaridade),
@@ -116,15 +231,15 @@ class RagService {
             const reqQuantidade = especificacoes.requisitos?.find((r) => r.pergunta.toLowerCase().includes('quantidade') || r.pergunta.toLowerCase().includes('quantos'));
             const quantidade = reqQuantidade ? reqQuantidade.resposta + ' ' : '';
             const prompt = `Você é um assistente de uma gráfica. O cliente ${nomeCliente} acabou de pedir um orçamento para ${quantidade}${produto}.
-Baseado no histórico, gere uma mensagem educada de NO MÁXIMO 2 linhas para a recepcionista enviar via WhatsApp.
-A mensagem DEVE ter exatamente este formato:
-"Olá ${nomeCliente}, vimos que você quer [Resumo do Pedido]. O valor fica R$ ____."
-Deixe o espaço em branco "____" para a recepcionista preencher o preço.
+Baseado no histórico, gere uma mensagem educada de NO MÁXIMO 2 linhas para a recepcionista enviar via WhatsApp após aprovar o orçamento no sistema.
+A mensagem DEVE seguir o tom: orçamento aprovado, valor total e formas de pagamento (Pix ou cartão em até 3x).
+Se o valor exato não estiver claro no histórico, use "R$ ____" no lugar do valor.
 NÃO adicione introduções como "Aqui está a mensagem". Retorne APENAS o texto final.
 
 Histórico da conversa:
 ${historico}`;
-            const response = await this.llm.invoke([{ role: 'user', content: prompt }]);
+            const llm = (0, llm_factory_1.createChatLlm)('rag');
+            const response = await llm.invoke([{ role: 'user', content: prompt }]);
             return response.content.toString().trim();
         }
         catch (error) {

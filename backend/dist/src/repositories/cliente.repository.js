@@ -17,6 +17,12 @@ class ClienteRepository {
             data: { atendimentoHumano: status },
         });
     }
+    async updateNome(id, nome) {
+        return prisma_1.prisma.usuario.update({
+            where: { id },
+            data: { nome },
+        });
+    }
     async create(data) {
         return prisma_1.prisma.usuario.create({
             data: {

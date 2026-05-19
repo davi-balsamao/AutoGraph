@@ -13,6 +13,14 @@ class OsRepository {
             include: { cliente: true }
         });
     }
+    // Lista as últimas OS de um cliente (mais recentes primeiro).
+    async findByCliente(clienteId, limit = 5) {
+        return prisma_1.prisma.ordensDeServico.findMany({
+            where: { clienteId },
+            orderBy: { criadoEm: 'desc' },
+            take: limit,
+        });
+    }
     // Lista OS com filtro opcional de status
     async findAll(status) {
         return prisma_1.prisma.ordensDeServico.findMany({
