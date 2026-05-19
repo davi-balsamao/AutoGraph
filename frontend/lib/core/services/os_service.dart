@@ -24,7 +24,7 @@ class OsService {
 
   // URL base para a API rodando localmente
   // TODO: Mover para arquivo de ambiente no futuro (.env)
-  final String baseUrl = 'http://localhost:3000/api';
+  final String baseUrl = 'http://10.10.0.139:3000/api';
 
   Future<List<OrdemServico>> fetchOrdensServico({StatusOS? status}) async {
     try {

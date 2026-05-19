@@ -20,11 +20,11 @@ class AuthService extends ChangeNotifier {
   bool get isAdmin => _currentUser?.isAdmin ?? false;
 
   String get baseUrl {
-    if (kIsWeb) return 'http://localhost:3000/api';
+    if (kIsWeb) return 'http://10.10.0.139:3000/api';
     try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:3000/api';
+      if (Platform.isAndroid) return 'http://10.10.0.139:3000/api';
     } catch (_) {}
-    return 'http://localhost:3000/api';
+    return 'http://10.10.0.139:3000/api';
   }
 
   /// Realiza login com e-mail e senha.

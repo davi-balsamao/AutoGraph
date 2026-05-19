@@ -16,7 +16,7 @@ class ProdutoService {
   factory ProdutoService() => _instance;
   ProdutoService._internal();
 
-  final String baseUrl = 'http://localhost:3000/api/produtos';
+  final String baseUrl = 'http://10.10.0.139:3000/api/produtos';
 
   Future<List<Produto>> fetchProdutos() async {
     try {
