@@ -1,3 +1,4 @@
+import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
@@ -123,12 +124,24 @@ class OsService {
       }
 
       if (file != null) {
+        // 🛠️ Cria a "etiqueta" baseada na extensão do arquivo
+        MediaType? mediaType;
+        final ext = file.extension?.toLowerCase();
+        if (ext == 'jpg' || ext == 'jpeg') {
+          mediaType = MediaType('image', 'jpeg');
+        } else if (ext == 'png') {
+          mediaType = MediaType('image', 'png');
+        } else if (ext == 'pdf') {
+          mediaType = MediaType('application', 'pdf');
+        }
+
         if (kIsWeb && file.bytes != null) {
           request.files.add(
             http.MultipartFile.fromBytes(
               'arte',
               file.bytes!,
               filename: file.name,
+              contentType: mediaType, // 🚀 Etiqueta adicionada para Web!
             ),
           );
         } else if (file.path != null) {
@@ -137,6 +150,7 @@ class OsService {
               'arte',
               file.path!,
               filename: file.name,
+              contentType: mediaType, // 🚀 Etiqueta adicionada para Mobile!
             ),
           );
         }
