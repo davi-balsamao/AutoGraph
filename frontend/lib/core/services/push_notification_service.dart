@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js' as js; // 👇 Importado para permitir chamadas nativas de JavaScript na Web sem quebrar o Mobile
+//import 'dart:js' as js; 👇 Importado para permitir chamadas nativas de JavaScript na Web sem quebrar o Mobile
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -12,19 +12,23 @@ import 'auth_service.dart';
 const AndroidNotificationChannel _channel = AndroidNotificationChannel(
   'autograph_high_importance_channel', // id
   'Notificações Importantes AutoGraph', // title
-  description: 'Canal usado para alertas críticos, novos pedidos e chats.', // description
+  description:
+      'Canal usado para alertas críticos, novos pedidos e chats.', // description
   importance: Importance.max,
   playSound: true,
   enableVibration: true,
 );
 
-final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
 
 /// Função global obrigatória para processar mensagens recebidas com o app em segundo plano/fechado
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint("📩 [FCM] Notificação recebida em Segundo Plano: ${message.messageId}");
+  debugPrint(
+    "📩 [FCM] Notificação recebida em Segundo Plano: ${message.messageId}",
+  );
 }
 
 class PushNotificationService {
@@ -52,11 +56,15 @@ class PushNotificationService {
 
     try {
       // 1. Configurar Background Handler
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
 
       // 2. Configurações do Local Notifications para o canal do Android
       await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(_channel);
 
       // Configuração inicial do Local Notifications para tratar cliques nas notificações em primeiro plano
@@ -68,7 +76,9 @@ class PushNotificationService {
       await _localNotifications.initialize(
         settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          debugPrint("📱 [FCM] Usuário clicou na notificação em primeiro plano: ${response.payload}");
+          debugPrint(
+            "📱 [FCM] Usuário clicou na notificação em primeiro plano: ${response.payload}",
+          );
           if (response.payload != null && response.payload!.isNotEmpty) {
             try {
               final data = jsonDecode(response.payload!);
@@ -79,19 +89,22 @@ class PushNotificationService {
       );
 
       // 3. Solicitar Permissões do Usuário
-      final NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+      final NotificationSettings settings = await FirebaseMessaging.instance
+          .requestPermission(
+            alert: true,
+            badge: true,
+            sound: true,
+            provisional: false,
+          );
 
-      debugPrint('🔔 [FCM] Permissão de notificação concedida: ${settings.authorizationStatus}');
+      debugPrint(
+        '🔔 [FCM] Permissão de notificação concedida: ${settings.authorizationStatus}',
+      );
 
       // 4. Configurar Listeners de mensagens em Primeiro Plano
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('📩 [FCM] Mensagem recebida em Primeiro Plano!');
-        
+
         final RemoteNotification? notification = message.notification;
         final AndroidNotification? android = message.notification?.android;
 
@@ -121,10 +134,18 @@ class PushNotificationService {
             // Força o navegador a criar uma notificação nativa HTML5 via JS Interop
             try {
               // Limpa quebras de linhas e aspas para evitar quebra do script JS
-              final String cleanTitle = notification.title?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
-              final String cleanBody = notification.body?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
-              
-              js.context.callMethod('eval', [
+              final String cleanTitle =
+                  notification.title
+                      ?.replaceAll('"', '\\"')
+                      .replaceAll('\n', ' ') ??
+                  '';
+              final String cleanBody =
+                  notification.body
+                      ?.replaceAll('"', '\\"')
+                      .replaceAll('\n', ' ') ??
+                  '';
+
+              /*js.context.callMethod('eval', [
                 '''
                 if (Notification.permission === "granted") {
                   new Notification("$cleanTitle", {
@@ -133,9 +154,11 @@ class PushNotificationService {
                   });
                 }
                 '''
-              ]);
+              ]);*/
             } catch (e) {
-              debugPrint('⚠️ Erro ao disparar notificação nativa na Web (Foreground): $e');
+              debugPrint(
+                '⚠️ Erro ao disparar notificação nativa na Web (Foreground): $e',
+              );
             }
           }
         }
@@ -143,7 +166,9 @@ class PushNotificationService {
 
       // App Aberto a partir de Notificação (Segundo plano)
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        debugPrint('🎯 [FCM] O aplicativo foi aberto a partir de uma notificação!');
+        debugPrint(
+          '🎯 [FCM] O aplicativo foi aberto a partir de uma notificação!',
+        );
         _emitTap(message.data);
       });
 
@@ -153,11 +178,14 @@ class PushNotificationService {
       // fire-and-forget; em mobile mantemos o await porque é instantâneo.
       if (kIsWeb) {
         // ignore: discarded_futures
-        FirebaseMessaging.instance.getInitialMessage().then((initial) {
-          if (initial != null) _emitTap(initial.data);
-        }).catchError((e) {
-          debugPrint('⚠️ [FCM] getInitialMessage falhou (web): $e');
-        });
+        FirebaseMessaging.instance
+            .getInitialMessage()
+            .then((initial) {
+              if (initial != null) _emitTap(initial.data);
+            })
+            .catchError((e) {
+              debugPrint('⚠️ [FCM] getInitialMessage falhou (web): $e');
+            });
       } else {
         final initial = await FirebaseMessaging.instance.getInitialMessage();
         if (initial != null) {
@@ -193,7 +221,8 @@ class PushNotificationService {
   ///
   /// Quando deixada vazia, a chamada simplesmente omite o parâmetro e o
   /// comportamento atual (sem push web funcional) é preservado.
-  static const String _webVapidKey = ''; // TODO: colar VAPID key do autograph-83959
+  static const String _webVapidKey =
+      ''; // TODO: colar VAPID key do autograph-83959
 
   /// Sincroniza o token atual do dispositivo com o backend caso o usuário esteja logado
   Future<void> syncTokenWithBackend() async {
@@ -205,7 +234,9 @@ class PushNotificationService {
         debugPrint('🔑 [FCM] Token FCM Atual: $token');
         await _sendTokenToBackend(token);
       } else if (kIsWeb && _webVapidKey.isEmpty) {
-        debugPrint('ℹ️ [FCM] Token FCM web indisponível: VAPID key não configurada (ver _webVapidKey).');
+        debugPrint(
+          'ℹ️ [FCM] Token FCM web indisponível: VAPID key não configurada (ver _webVapidKey).',
+        );
       }
     } catch (e) {
       debugPrint('❌ [PushNotificationService] Falha ao sincronizar token: $e');
@@ -216,7 +247,9 @@ class PushNotificationService {
   Future<void> _sendTokenToBackend(String token) async {
     final authService = AuthService();
     if (!authService.isLoggedIn) {
-      debugPrint('🤫 [FCM] Ignorando envio do token FCM: Nenhum usuário autenticado no momento.');
+      debugPrint(
+        '🤫 [FCM] Ignorando envio do token FCM: Nenhum usuário autenticado no momento.',
+      );
       return;
     }
 
@@ -231,9 +264,13 @@ class PushNotificationService {
       );
 
       if (response.statusCode == 200) {
-        debugPrint('✅ [FCM] Token FCM registrado no backend para o usuário $userId.');
+        debugPrint(
+          '✅ [FCM] Token FCM registrado no backend para o usuário $userId.',
+        );
       } else {
-        debugPrint('⚠️ [FCM] Falha ao registrar token no backend: ${response.statusCode} - ${response.body}');
+        debugPrint(
+          '⚠️ [FCM] Falha ao registrar token no backend: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       debugPrint('❌ [FCM] Erro na requisição para registrar token FCM: $e');

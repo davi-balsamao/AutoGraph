@@ -24,20 +24,26 @@ class OsService {
 
   // URL base para a API rodando localmente
   // TODO: Mover para arquivo de ambiente no futuro (.env)
-  final String baseUrl = 'http://10.10.0.139:3000/api';
+  final String baseUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
 
   Future<List<OrdemServico>> fetchOrdensServico({StatusOS? status}) async {
     try {
-      final uri = Uri.parse('$baseUrl/os${status != null ? '?status=${status.value}' : ''}');
+      final uri = Uri.parse(
+        '$baseUrl/os${status != null ? '?status=${status.value}' : ''}',
+      );
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => OrdemServico.fromJson(json)).toList();
       } else if (response.statusCode == 503) {
-        throw OsServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
+        throw OsServiceException(
+          'Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.',
+        );
       } else {
-        throw OsServiceException('Erro ao buscar ordens de serviço. Código: ${response.statusCode}');
+        throw OsServiceException(
+          'Erro ao buscar ordens de serviço. Código: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (e is OsServiceException) rethrow;
@@ -45,7 +51,11 @@ class OsService {
     }
   }
 
-  Future<void> updateOS(String id, {Map<String, dynamic>? especificacoes, String? observacoes}) async {
+  Future<void> updateOS(
+    String id, {
+    Map<String, dynamic>? especificacoes,
+    String? observacoes,
+  }) async {
     try {
       final body = <String, dynamic>{};
       if (especificacoes != null) body['especificacoes'] = especificacoes;
@@ -58,7 +68,9 @@ class OsService {
       );
 
       if (response.statusCode != 200) {
-        throw OsServiceException('Erro ao atualizar OS: ${response.statusCode}');
+        throw OsServiceException(
+          'Erro ao atualizar OS: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw OsServiceException('Falha na conexão com o servidor: $e');
@@ -73,7 +85,9 @@ class OsService {
         body: jsonEncode({'status': status.value}),
       );
       if (response.statusCode != 200) {
-        throw OsServiceException('Erro ao atualizar status: ${response.statusCode}');
+        throw OsServiceException(
+          'Erro ao atualizar status: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw OsServiceException('Falha na conexão com o servidor: $e');
@@ -82,12 +96,14 @@ class OsService {
 
   Future<void> startTimer(String id) async {
     final response = await http.patch(Uri.parse('$baseUrl/os/$id/timer/start'));
-    if (response.statusCode != 200) throw OsServiceException('Erro ao iniciar timer');
+    if (response.statusCode != 200)
+      throw OsServiceException('Erro ao iniciar timer');
   }
 
   Future<void> stopTimer(String id) async {
     final response = await http.patch(Uri.parse('$baseUrl/os/$id/timer/stop'));
-    if (response.statusCode != 200) throw OsServiceException('Erro ao parar timer');
+    if (response.statusCode != 200)
+      throw OsServiceException('Erro ao parar timer');
   }
 
   Future<OrdemServico> createOrdemServico({
@@ -108,17 +124,21 @@ class OsService {
 
       if (file != null) {
         if (kIsWeb && file.bytes != null) {
-          request.files.add(http.MultipartFile.fromBytes(
-            'arte',
-            file.bytes!,
-            filename: file.name,
-          ));
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'arte',
+              file.bytes!,
+              filename: file.name,
+            ),
+          );
         } else if (file.path != null) {
-          request.files.add(await http.MultipartFile.fromPath(
-            'arte',
-            file.path!,
-            filename: file.name,
-          ));
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'arte',
+              file.path!,
+              filename: file.name,
+            ),
+          );
         }
       }
 
@@ -128,10 +148,13 @@ class OsService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return OrdemServico.fromJson(jsonDecode(response.body));
       } else if (response.statusCode == 503) {
-        throw OsServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
+        throw OsServiceException(
+          'Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.',
+        );
       } else {
         throw OsServiceException(
-            'Erro ao criar Ordem de Serviço. Código: ${response.statusCode}');
+          'Erro ao criar Ordem de Serviço. Código: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (e is OsServiceException) rethrow;
@@ -139,4 +162,3 @@ class OsService {
     }
   }
 }
-

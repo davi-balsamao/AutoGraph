@@ -16,7 +16,8 @@ class ProdutoService {
   factory ProdutoService() => _instance;
   ProdutoService._internal();
 
-  final String baseUrl = 'http://10.10.0.139:3000/api/produtos';
+  final String baseUrl =
+      'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api/produtos';
 
   Future<List<Produto>> fetchProdutos() async {
     try {
@@ -25,9 +26,13 @@ class ProdutoService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Produto.fromJson(json)).toList();
       } else if (response.statusCode == 503) {
-        throw ProdutoServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
+        throw ProdutoServiceException(
+          'Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.',
+        );
       } else {
-        throw ProdutoServiceException('Erro ao carregar catálogo: ${response.statusCode}');
+        throw ProdutoServiceException(
+          'Erro ao carregar catálogo: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (e is ProdutoServiceException) rethrow;
@@ -35,7 +40,12 @@ class ProdutoService {
     }
   }
 
-  Future<Produto> createProduto(String nome, String? descricao, double precoBase, {String? imagemUrl}) async {
+  Future<Produto> createProduto(
+    String nome,
+    String? descricao,
+    double precoBase, {
+    String? imagemUrl,
+  }) async {
     try {
       final body = <String, dynamic>{
         'nome': nome,
@@ -53,9 +63,13 @@ class ProdutoService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return Produto.fromJson(jsonDecode(response.body));
       } else if (response.statusCode == 503) {
-        throw ProdutoServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
+        throw ProdutoServiceException(
+          'Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.',
+        );
       } else {
-        throw ProdutoServiceException('Erro ao criar produto: ${response.statusCode}');
+        throw ProdutoServiceException(
+          'Erro ao criar produto: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (e is ProdutoServiceException) rethrow;
@@ -63,7 +77,13 @@ class ProdutoService {
     }
   }
 
-  Future<Produto> updateProduto(String id, {String? nome, String? descricao, double? precoBase, String? imagemUrl}) async {
+  Future<Produto> updateProduto(
+    String id, {
+    String? nome,
+    String? descricao,
+    double? precoBase,
+    String? imagemUrl,
+  }) async {
     try {
       final body = <String, dynamic>{};
       if (nome != null) body['nome'] = nome;
@@ -80,9 +100,13 @@ class ProdutoService {
       if (response.statusCode == 200) {
         return Produto.fromJson(jsonDecode(response.body));
       } else if (response.statusCode == 503) {
-        throw ProdutoServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
+        throw ProdutoServiceException(
+          'Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.',
+        );
       } else {
-        throw ProdutoServiceException('Erro ao atualizar produto: ${response.statusCode}');
+        throw ProdutoServiceException(
+          'Erro ao atualizar produto: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (e is ProdutoServiceException) rethrow;
@@ -97,9 +121,13 @@ class ProdutoService {
         final Map<String, dynamic> data = jsonDecode(response.body);
         return ProdutoRegrasCatalogo.fromJson(data);
       } else if (response.statusCode == 503) {
-        throw ProdutoServiceException('Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.');
+        throw ProdutoServiceException(
+          'Serviço de banco de dados temporariamente indisponível. Tente novamente em instantes.',
+        );
       } else {
-        throw ProdutoServiceException('Erro ao carregar regras de produtos: ${response.statusCode}');
+        throw ProdutoServiceException(
+          'Erro ao carregar regras de produtos: ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (e is ProdutoServiceException) rethrow;

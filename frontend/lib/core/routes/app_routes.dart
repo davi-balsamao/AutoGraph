@@ -6,7 +6,7 @@ import '../../features/auth/presentation/landing_page.dart';
 import '../../features/os_cliente/presentation/client_history_screen.dart';
 import '../../features/admin_grafica/presentation/admin_dashboard_screen.dart';
 import '../../features/admin_grafica/presentation/os_details_screen.dart';
-import '../../../core/models/ordem_servico.dart';
+import '../models/ordem_servico.dart';
 import '../services/auth_service.dart';
 
 abstract final class AppRoutes {

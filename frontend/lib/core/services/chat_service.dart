@@ -23,7 +23,13 @@ class ConversaEvent {
   final String? telefone;
   final String? clienteNome;
   final String? estadoRestaurado;
-  ConversaEvent(this.tipo, this.clienteId, {this.telefone, this.clienteNome, this.estadoRestaurado});
+  ConversaEvent(
+    this.tipo,
+    this.clienteId, {
+    this.telefone,
+    this.clienteNome,
+    this.estadoRestaurado,
+  });
 }
 
 enum OsEventTipo { nova }
@@ -40,18 +46,23 @@ class ChatService {
   factory ChatService() => _instance;
 
   String get _baseUrl {
-    if (kIsWeb) return 'http://10.10.0.139:3000/api';
+    if (kIsWeb) return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
     try {
-      if (Platform.isAndroid) return 'http://10.10.0.139:3000/api';
+      if (Platform.isAndroid)
+        return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
     } catch (_) {}
-    return 'http://10.10.0.139:3000/api';
+    return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
   }
 
   late io.Socket _socket;
-  final StreamController<ChatMessage> _messageStreamController = StreamController<ChatMessage>.broadcast();
-  final StreamController<PropostaEvent> _propostaStreamController = StreamController<PropostaEvent>.broadcast();
-  final StreamController<ConversaEvent> _conversaStreamController = StreamController<ConversaEvent>.broadcast();
-  final StreamController<OsEvent> _osStreamController = StreamController<OsEvent>.broadcast();
+  final StreamController<ChatMessage> _messageStreamController =
+      StreamController<ChatMessage>.broadcast();
+  final StreamController<PropostaEvent> _propostaStreamController =
+      StreamController<PropostaEvent>.broadcast();
+  final StreamController<ConversaEvent> _conversaStreamController =
+      StreamController<ConversaEvent>.broadcast();
+  final StreamController<OsEvent> _osStreamController =
+      StreamController<OsEvent>.broadcast();
 
   // Cache em memória para mensagens recebidas via Socket (real-time)
   // Usado APENAS como buffer para mensagens que chegam depois do fetch da API
@@ -67,15 +78,22 @@ class ChatService {
   }
 
   void _initSocket() {
-    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+    const String serverUrl = kIsWeb
+        ? 'http://localhost:3000'
+        : 'http://10.0.2.2:3000';
 
-    _socket = io.io(serverUrl, io.OptionBuilder()
-      .setTransports(['websocket'])
-      .enableAutoConnect()
-      .build());
+    _socket = io.io(
+      serverUrl,
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .enableAutoConnect()
+          .build(),
+    );
 
     _socket.onConnect((_) {
-      debugPrint('✅ [SOCKET FRONTEND] Conectado ao Backend Node.js com sucesso!');
+      debugPrint(
+        '✅ [SOCKET FRONTEND] Conectado ao Backend Node.js com sucesso!',
+      );
     });
 
     _socket.onDisconnect((_) {
@@ -86,7 +104,9 @@ class ChatService {
       debugPrint('📩 [SOCKET FRONTEND] Dado bruto recebido do Node.js: $data');
       try {
         final message = ChatMessage(
-          id: data['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          id:
+              data['id']?.toString() ??
+              DateTime.now().millisecondsSinceEpoch.toString(),
           senderId: data['senderId']?.toString() ?? '',
           senderName: data['senderName']?.toString(),
           clienteDbId: data['clienteDbId']?.toString(),
@@ -103,7 +123,9 @@ class ChatService {
 
         _realtimeBuffer.add(message);
         _messageStreamController.add(message);
-        debugPrint('✅ [SOCKET FRONTEND] Mensagem adicionada ao fluxo com sucesso!');
+        debugPrint(
+          '✅ [SOCKET FRONTEND] Mensagem adicionada ao fluxo com sucesso!',
+        );
       } catch (e) {
         debugPrint('❌ [SOCKET FRONTEND] Erro ao converter JSON: $e');
       }
@@ -119,29 +141,51 @@ class ChatService {
       }
     }
 
-    _socket.on('proposta-pendente', (d) => emitirProposta(PropostaEventTipo.pendente, d));
-    _socket.on('proposta-atualizada', (d) => emitirProposta(PropostaEventTipo.atualizada, d));
-    _socket.on('proposta-aprovada', (d) => emitirProposta(PropostaEventTipo.aprovada, d));
-    _socket.on('proposta-rejeitada', (d) => emitirProposta(PropostaEventTipo.rejeitada, d));
-    _socket.on('proposta-cancelada', (d) => emitirProposta(PropostaEventTipo.cancelada, d));
+    _socket.on(
+      'proposta-pendente',
+      (d) => emitirProposta(PropostaEventTipo.pendente, d),
+    );
+    _socket.on(
+      'proposta-atualizada',
+      (d) => emitirProposta(PropostaEventTipo.atualizada, d),
+    );
+    _socket.on(
+      'proposta-aprovada',
+      (d) => emitirProposta(PropostaEventTipo.aprovada, d),
+    );
+    _socket.on(
+      'proposta-rejeitada',
+      (d) => emitirProposta(PropostaEventTipo.rejeitada, d),
+    );
+    _socket.on(
+      'proposta-cancelada',
+      (d) => emitirProposta(PropostaEventTipo.cancelada, d),
+    );
 
     _socket.on('conversa-assumida', (data) {
       try {
         final map = Map<String, dynamic>.from(data as Map);
         _conversaStreamController.add(
-          ConversaEvent(ConversaEventTipo.assumida, map['clienteId']?.toString() ?? '', telefone: map['telefone']?.toString(), clienteNome: map['clienteNome']?.toString()),
+          ConversaEvent(
+            ConversaEventTipo.assumida,
+            map['clienteId']?.toString() ?? '',
+            telefone: map['telefone']?.toString(),
+            clienteNome: map['clienteNome']?.toString(),
+          ),
         );
       } catch (_) {}
     });
     _socket.on('conversa-devolvida', (data) {
       try {
         final map = Map<String, dynamic>.from(data as Map);
-        _conversaStreamController.add(ConversaEvent(
-          ConversaEventTipo.devolvida,
-          map['clienteId']?.toString() ?? '',
-          telefone: map['telefone']?.toString(),
-          estadoRestaurado: map['estadoRestaurado']?.toString(),
-        ));
+        _conversaStreamController.add(
+          ConversaEvent(
+            ConversaEventTipo.devolvida,
+            map['clienteId']?.toString() ?? '',
+            telefone: map['telefone']?.toString(),
+            estadoRestaurado: map['estadoRestaurado']?.toString(),
+          ),
+        );
       } catch (_) {}
     });
 
@@ -156,8 +200,10 @@ class ChatService {
     });
   }
 
-  Stream<PropostaEvent> get propostaEventStream => _propostaStreamController.stream;
-  Stream<ConversaEvent> get conversaEventStream => _conversaStreamController.stream;
+  Stream<PropostaEvent> get propostaEventStream =>
+      _propostaStreamController.stream;
+  Stream<ConversaEvent> get conversaEventStream =>
+      _conversaStreamController.stream;
   Stream<OsEvent> get osEventStream => _osStreamController.stream;
 
   /// Busca mensagens do banco de dados via API REST, depois mergeia com
@@ -173,14 +219,18 @@ class ChatService {
 
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
-        final dbMessages = data.map((e) => ChatMessage.fromJson(Map<String, dynamic>.from(e))).toList();
+        final dbMessages = data
+            .map((e) => ChatMessage.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
 
         // Descobre todas as chaves possíveis pra esse cliente (UUID + telefone)
         // a partir das mensagens vindas do banco — usado pra casar o buffer.
         for (final m in dbMessages) {
           if (m.clienteDbId != null) keys.add(m.clienteDbId!);
-          if (m.senderId != 'bot' && m.senderId != 'admin') keys.add(m.senderId);
-          if (m.receiverId != 'bot' && m.receiverId != 'admin') keys.add(m.receiverId);
+          if (m.senderId != 'bot' && m.senderId != 'admin')
+            keys.add(m.senderId);
+          if (m.receiverId != 'bot' && m.receiverId != 'admin')
+            keys.add(m.receiverId);
         }
 
         final dbIds = dbMessages.map((m) => m.id).toSet();
@@ -198,15 +248,23 @@ class ChatService {
           _historyCache[k] = allMessages;
         }
 
-        debugPrint('📋 [ChatService] Carregadas ${dbMessages.length} mensagens do banco + ${realtimeExtras.length} do buffer real-time para $clientId');
+        debugPrint(
+          '📋 [ChatService] Carregadas ${dbMessages.length} mensagens do banco + ${realtimeExtras.length} do buffer real-time para $clientId',
+        );
         return allMessages;
       } else if (res.statusCode == 404) {
-        debugPrint('⚠️ [ChatService] Cliente $clientId não encontrado na API, usando cache/buffer local.');
+        debugPrint(
+          '⚠️ [ChatService] Cliente $clientId não encontrado na API, usando cache/buffer local.',
+        );
       } else {
-        debugPrint('⚠️ [ChatService] Erro HTTP ${res.statusCode} ao buscar mensagens.');
+        debugPrint(
+          '⚠️ [ChatService] Erro HTTP ${res.statusCode} ao buscar mensagens.',
+        );
       }
     } catch (e) {
-      debugPrint('⚠️ [ChatService] Falha ao conectar com API: $e — usando cache/buffer local.');
+      debugPrint(
+        '⚠️ [ChatService] Falha ao conectar com API: $e — usando cache/buffer local.',
+      );
     }
 
     // Fallback 1: cache de histórico já carregado anteriormente
@@ -214,7 +272,10 @@ class ChatService {
     if (cached != null && cached.isNotEmpty) {
       final cachedIds = cached.map((m) => m.id).toSet();
       final extras = _realtimeBuffer
-          .where((m) => !cachedIds.contains(m.id) && _messageMatchesAny(m, [clientId]))
+          .where(
+            (m) =>
+                !cachedIds.contains(m.id) && _messageMatchesAny(m, [clientId]),
+          )
           .toList();
       final merged = [...cached, ...extras]
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));

@@ -14,7 +14,7 @@ class PropostaService {
   factory PropostaService() => _instance;
   PropostaService._internal();
 
-  final String baseUrl = 'http://10.10.0.139:3000/api';
+  final String baseUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
 
   Future<List<PropostaPendente>> listarPendentes() async {
     try {
@@ -26,7 +26,9 @@ class PropostaService {
       }
       final List<dynamic> data = jsonDecode(res.body);
       return data
-          .map((e) => PropostaPendente.fromListJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) => PropostaPendente.fromListJson(Map<String, dynamic>.from(e)),
+          )
           .toList();
     } catch (e) {
       if (e is PropostaServiceException) rethrow;
@@ -44,7 +46,7 @@ class PropostaService {
         'proposta': {
           if (especificacoes != null) 'especificacoes': especificacoes.toJson(),
           if (orcamento != null) 'orcamento': orcamento.toJson(),
-        }
+        },
       };
       final res = await http.patch(
         Uri.parse('$baseUrl/propostas/$sessaoId'),
@@ -64,7 +66,9 @@ class PropostaService {
 
   Future<void> aprovar(String sessaoId) async {
     try {
-      final res = await http.post(Uri.parse('$baseUrl/propostas/$sessaoId/aprovar'));
+      final res = await http.post(
+        Uri.parse('$baseUrl/propostas/$sessaoId/aprovar'),
+      );
       if (res.statusCode != 200) {
         throw PropostaServiceException(
           'Erro ao aprovar proposta: ${res.statusCode}',
@@ -81,7 +85,9 @@ class PropostaService {
       final res = await http.post(
         Uri.parse('$baseUrl/propostas/$sessaoId/rejeitar'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({if (motivo != null && motivo.isNotEmpty) 'motivo': motivo}),
+        body: jsonEncode({
+          if (motivo != null && motivo.isNotEmpty) 'motivo': motivo,
+        }),
       );
       if (res.statusCode != 200) {
         throw PropostaServiceException(
@@ -103,23 +109,33 @@ class ConversaService {
   final String baseUrl = 'http://localhost:3000/api';
 
   Future<void> assumir(String userId) async {
-    final res = await http.post(Uri.parse('$baseUrl/conversas/$userId/assumir'));
+    final res = await http.post(
+      Uri.parse('$baseUrl/conversas/$userId/assumir'),
+    );
     if (res.statusCode != 200) {
-      throw PropostaServiceException('Erro ao assumir conversa: ${res.statusCode}');
+      throw PropostaServiceException(
+        'Erro ao assumir conversa: ${res.statusCode}',
+      );
     }
   }
 
   Future<void> devolverIa(String userId) async {
-    final res = await http.post(Uri.parse('$baseUrl/conversas/$userId/devolver-ia'));
+    final res = await http.post(
+      Uri.parse('$baseUrl/conversas/$userId/devolver-ia'),
+    );
     if (res.statusCode != 200) {
-      throw PropostaServiceException('Erro ao devolver conversa: ${res.statusCode}');
+      throw PropostaServiceException(
+        'Erro ao devolver conversa: ${res.statusCode}',
+      );
     }
   }
 
   Future<Map<String, dynamic>> status(String userId) async {
     final res = await http.get(Uri.parse('$baseUrl/conversas/$userId/status'));
     if (res.statusCode != 200) {
-      throw PropostaServiceException('Erro ao buscar status: ${res.statusCode}');
+      throw PropostaServiceException(
+        'Erro ao buscar status: ${res.statusCode}',
+      );
     }
     return Map<String, dynamic>.from(jsonDecode(res.body));
   }

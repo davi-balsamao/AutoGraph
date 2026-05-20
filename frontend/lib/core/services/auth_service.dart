@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart' show kIsWeb, ChangeNotifier, debugPrint;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, ChangeNotifier, debugPrint;
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
@@ -20,32 +21,35 @@ class AuthService extends ChangeNotifier {
   bool get isAdmin => _currentUser?.isAdmin ?? false;
 
   String get baseUrl {
-    if (kIsWeb) return 'http://10.10.0.139:3000/api';
+    if (kIsWeb) return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
     try {
-      if (Platform.isAndroid) return 'http://10.10.0.139:3000/api';
+      if (Platform.isAndroid)
+        return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
     } catch (_) {}
-    return 'http://10.10.0.139:3000/api';
+    return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
   }
 
   /// Realiza login com e-mail e senha.
   Future<UserModel> login(String email, String senha) async {
     // 1. Tenta login real via API
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'senha': senha}),
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'senha': senha}),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final user = UserModel.fromJson(data['user']);
         _currentUser = user;
         await _persistSession(user);
-        
+
         // Sincronizar Token do FCM ao fazer Login
         PushNotificationService().syncTokenWithBackend();
-        
+
         notifyListeners();
         return user;
       }
@@ -54,7 +58,8 @@ class AuthService extends ChangeNotifier {
     }
 
     // 2. Fallback para Mock (para desenvolvimento/demonstração)
-    if (email.toLowerCase().trim() == 'admin@autograph.com' && senha == 'admin123') {
+    if (email.toLowerCase().trim() == 'admin@autograph.com' &&
+        senha == 'admin123') {
       final user = UserModel(
         id: 'usr-admin-mock',
         nome: 'Gerente AutoGraph (Offline)',
@@ -64,9 +69,9 @@ class AuthService extends ChangeNotifier {
       );
       _currentUser = user;
       await _persistSession(user);
-      
+
       PushNotificationService().syncTokenWithBackend();
-      
+
       notifyListeners();
       return user;
     } else if (email.isNotEmpty && senha.length >= 4) {
@@ -79,9 +84,9 @@ class AuthService extends ChangeNotifier {
       );
       _currentUser = user;
       await _persistSession(user);
-      
+
       PushNotificationService().syncTokenWithBackend();
-      
+
       notifyListeners();
       return user;
     }
@@ -133,10 +138,10 @@ class AuthService extends ChangeNotifier {
 
     try {
       _currentUser = UserModel.fromJson(jsonDecode(json));
-      
+
       // Sincronizar Token do FCM ao restaurar Sessão
       PushNotificationService().syncTokenWithBackend();
-      
+
       notifyListeners();
       return true;
     } catch (_) {
@@ -155,10 +160,12 @@ class AuthService extends ChangeNotifier {
   /// Busca todos os utilizadores do sistema (apenas Admin/Gerente).
   Future<List<UserModel>> fetchUsers() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/auth/users'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/auth/users'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -170,15 +177,37 @@ class AuthService extends ChangeNotifier {
       debugPrint('⚠️ Erro ao buscar utilizadores da API (retornando mock): $e');
       // Mock de desenvolvimento offline
       return [
-        const UserModel(id: 'c1', nome: 'Cliente 1 (Mock)', telefone: '11999990001', email: 'cliente1@test.com', role: 'CLIENTE', atendimentoHumano: false),
-        const UserModel(id: 'c2', nome: 'Cliente 2 (Mock)', telefone: '11999990002', email: 'cliente2@test.com', role: 'CLIENTE', atendimentoHumano: true),
-        const UserModel(id: 'usr-admin-mock', nome: 'Gerente AutoGraph (Mock)', telefone: '11999990000', email: 'admin@autograph.com', role: 'GERENTE', atendimentoHumano: false),
+        const UserModel(
+          id: 'c1',
+          nome: 'Cliente 1 (Mock)',
+          telefone: '11999990001',
+          email: 'cliente1@test.com',
+          role: 'CLIENTE',
+          atendimentoHumano: false,
+        ),
+        const UserModel(
+          id: 'c2',
+          nome: 'Cliente 2 (Mock)',
+          telefone: '11999990002',
+          email: 'cliente2@test.com',
+          role: 'CLIENTE',
+          atendimentoHumano: true,
+        ),
+        const UserModel(
+          id: 'usr-admin-mock',
+          nome: 'Gerente AutoGraph (Mock)',
+          telefone: '11999990000',
+          email: 'admin@autograph.com',
+          role: 'GERENTE',
+          atendimentoHumano: false,
+        ),
       ];
     }
   }
 
   /// Atualiza os dados de um utilizador pelo ID (apenas Admin/Gerente).
-  Future<UserModel> updateUser(String id, {
+  Future<UserModel> updateUser(
+    String id, {
     required String nome,
     required String email,
     required String telefone,
@@ -189,25 +218,27 @@ class AuthService extends ChangeNotifier {
     String? senha,
   }) async {
     try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/auth/users/$id'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'nome': nome,
-          'email': email,
-          'telefone': telefone,
-          'role': role,
-          'atendimentoHumano': atendimentoHumano,
-          'enderecoCompleto': enderecoCompleto,
-          'enderecoReferencia': enderecoReferencia,
-          if (senha != null && senha.isNotEmpty) 'senha': senha,
-        }),
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/auth/users/$id'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'nome': nome,
+              'email': email,
+              'telefone': telefone,
+              'role': role,
+              'atendimentoHumano': atendimentoHumano,
+              'enderecoCompleto': enderecoCompleto,
+              'enderecoReferencia': enderecoReferencia,
+              if (senha != null && senha.isNotEmpty) 'senha': senha,
+            }),
+          )
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final updatedUser = UserModel.fromJson(data['user']);
-        
+
         // Se o utilizador editado for o próprio utilizador logado, atualiza o _currentUser
         if (_currentUser?.id == id) {
           _currentUser = updatedUser;
@@ -217,7 +248,9 @@ class AuthService extends ChangeNotifier {
         return updatedUser;
       } else {
         final data = jsonDecode(response.body);
-        throw AuthException(data['error'] ?? 'Falha ao atualizar dados do utilizador.');
+        throw AuthException(
+          data['error'] ?? 'Falha ao atualizar dados do utilizador.',
+        );
       }
     } catch (e) {
       if (e is AuthException) rethrow;
