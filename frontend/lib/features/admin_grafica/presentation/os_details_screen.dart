@@ -128,8 +128,8 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => AdminChatConversationScreen(
-                        clientId: widget.os.clienteId,
-                        clientName: widget.os.clienteNome ?? 'Cliente',
+                        clienteId: widget.os.clienteId,
+                        clienteNome: widget.os.clienteNome ?? 'Cliente',
                       ),
                     ),
                   );
