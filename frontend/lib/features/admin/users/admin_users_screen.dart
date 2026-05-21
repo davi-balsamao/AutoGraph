@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/models/user_model.dart';
+import '../../../core/widgets/ag_theme_toggle.dart';
 import '../shared/adm_badge.dart';
 
 class AdminUsersScreen extends StatefulWidget {
@@ -78,8 +79,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ],
         ),
         actions: [
+          const ThemeToggleIcon(size: 36),
           Container(
-            margin: const EdgeInsets.only(right: 12),
+            margin: const EdgeInsets.only(right: 12, left: 4),
             width: 32, height: 32,
             decoration: const BoxDecoration(
               color: AGColors.brandGreen,

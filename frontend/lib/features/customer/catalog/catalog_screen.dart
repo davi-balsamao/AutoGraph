@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/widgets/ag_product_glyph.dart';
+import '../../../core/widgets/ag_theme_toggle.dart';
 import 'widgets/filter_pill_row.dart';
 import 'widgets/product_list_card.dart';
 
@@ -96,14 +97,21 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Catálogo',
-                        style: GoogleFonts.inter(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.6,
-                          color: textColor,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Catálogo',
+                              style: GoogleFonts.inter(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.6,
+                                color: textColor,
+                              ),
+                            ),
+                          ),
+                          const ThemeToggleIcon(size: 36),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/services/os_service.dart';
+import '../../../core/widgets/ag_theme_toggle.dart';
 import '../../../core/models/ordem_servico.dart';
 import '../shared/adm_badge.dart';
 
@@ -72,7 +73,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                   letterSpacing: -0.3,
                                 )),
                           ),
-                          Icon(Icons.download_outlined,
+                          const ThemeToggleIcon(size: 36),
+                      const SizedBox(width: 8),
+                      Icon(Icons.download_outlined,
                               color: mutedColor, size: 20),
                         ],
                       ),
@@ -85,7 +88,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
                 // Mini KPIs scroll
                 SizedBox(
-                  height: 70,
+                  height: 88,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),

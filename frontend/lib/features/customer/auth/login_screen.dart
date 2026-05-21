@@ -243,50 +243,6 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                       ),
                     ),
 
-                    // Divider social
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Row(
-                        children: [
-                          Expanded(child: Divider(color: borderColor)),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              'ou continue com',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: mutedColor,
-                              ),
-                            ),
-                          ),
-                          Expanded(child: Divider(color: borderColor)),
-                        ],
-                      ),
-                    ),
-
-                    // Social buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SocialBtn(
-                            label: 'WhatsApp',
-                            icon: const Icon(Icons.chat_rounded,
-                                size: 16, color: Color(0xFF25D366)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _SocialBtn(
-                            label: 'Google',
-                            icon: Text('G',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14, fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF4285F4))),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -348,43 +304,6 @@ class _CircleButton extends StatelessWidget {
           ),
         ),
         child: Center(child: child),
-      ),
-    );
-  }
-}
-
-class _SocialBtn extends StatelessWidget {
-  final String label;
-  final Widget icon;
-
-  const _SocialBtn({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: isDark ? AGColors.surfaceDark : AGColors.canvas,
-        borderRadius: BorderRadius.circular(AGRadius.full),
-        border: Border.all(
-          color: isDark ? AGColors.hairlineDarkStr : AGColors.hairlineStrong,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          icon,
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isDark ? AGColors.onDark : AGColors.ink,
-            ),
-          ),
-        ],
       ),
     );
   }

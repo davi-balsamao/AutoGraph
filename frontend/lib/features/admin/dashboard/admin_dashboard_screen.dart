@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/widgets/ag_theme_toggle.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -108,6 +109,8 @@ class AdminDashboardScreen extends StatelessWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      const ThemeToggleIcon(size: 36),
                     ],
                   ),
 

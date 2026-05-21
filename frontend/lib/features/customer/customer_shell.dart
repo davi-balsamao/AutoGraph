@@ -14,6 +14,9 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/ag_bottom_tab_bar.dart';
 import 'home/home_screen.dart';
 import 'catalog/catalog_screen.dart';
+import 'chat/chat_screen.dart';
+import 'orders/orders_screen.dart';
+import 'account/account_screen.dart';
 
 class CustomerShell extends StatefulWidget {
   const CustomerShell({super.key});
@@ -46,9 +49,9 @@ class _CustomerShellState extends State<CustomerShell> {
             children: const [
               HomeScreen(),
               CatalogScreen(),
-              _PlaceholderTab(icon: Icons.chat_bubble_outline_rounded, label: 'Atendimento'),
-              _PlaceholderTab(icon: Icons.assignment_outlined, label: 'Pedidos'),
-              _PlaceholderTab(icon: Icons.person_outline_rounded, label: 'Conta'),
+              ChatScreen(),
+              OrdersScreen(),
+              AccountScreen(),
             ],
           ),
 

@@ -340,7 +340,10 @@ class _AdminChatBubble extends StatelessWidget {
     final textIn = isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
     final metaColor = const Color(0xFF667781);
 
-    final bg = isOutgoing ? bubbleOut : bubbleIn;
+    // Agente: verde igual ao outgoing; humano recebido: branco/dark
+    final bg = isAgent
+        ? (isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3))
+        : (isOutgoing ? bubbleOut : bubbleIn);
     final textColor = textIn;
     final align = isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final radius = isOutgoing

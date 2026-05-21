@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
+import '../../../core/widgets/ag_theme_toggle.dart';
 
 class AdminFinanceScreen extends StatelessWidget {
   const AdminFinanceScreen({super.key});
@@ -33,6 +34,7 @@ class AdminFinanceScreen extends StatelessWidget {
             style: GoogleFonts.inter(
                 fontSize: 17, fontWeight: FontWeight.w600, color: textColor)),
         actions: [
+          const ThemeToggleIcon(size: 36),
           IconButton(
             icon: Icon(Icons.download_outlined, color: mutedColor),
             onPressed: () {},

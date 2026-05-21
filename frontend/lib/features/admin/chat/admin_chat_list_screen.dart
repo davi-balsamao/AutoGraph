@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
+import '../../../core/widgets/ag_theme_toggle.dart';
 import 'admin_chat_conversation_screen.dart';
 
 class AdminChatListScreen extends StatefulWidget {
@@ -80,6 +81,8 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                           ],
                         ),
                       ),
+                      const ThemeToggleIcon(size: 36),
+                      const SizedBox(width: 8),
                       Icon(Icons.search_rounded, color: mutedColor, size: 20),
                     ],
                   ),

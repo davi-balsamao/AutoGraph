@@ -10,6 +10,7 @@ import '../../../core/theme/ag_tokens.dart';
 import '../../../core/services/os_service.dart';
 import '../../../core/models/ordem_servico.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/widgets/ag_theme_toggle.dart';
 import 'widgets/kanban_card.dart';
 
 class KanbanScreen extends StatefulWidget {
@@ -107,6 +108,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           ],
                         ),
                       ),
+                      const ThemeToggleIcon(size: 36),
+                      const SizedBox(width: 8),
                       // FAB inline
                       Container(
                         width: 36, height: 36,
