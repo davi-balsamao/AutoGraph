@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 32" width="280" height="64">
+  <rect x="2" y="2" width="28" height="28" rx="8" fill="#001e2b"></rect>
+  <path d="M9 22 L16 8 L23 22" stroke="#00ed64" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+  <path d="M12 18 L20 18" stroke="#00ed64" stroke-width="2.6" stroke-linecap="round" fill="none"></path>
+  <path d="M21 23.5 Q23.5 25 25.5 23.2" stroke="#00ed64" stroke-width="1.6" stroke-linecap="round" fill="none"></path>
+  <text x="42" y="22" font-family="Inter, -apple-system, sans-serif" font-size="18" font-weight="600" letter-spacing="-0.4" fill="#001e2b">Auto<tspan fill="#00684a">graph</tspan></text>
+</svg>
