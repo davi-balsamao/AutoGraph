@@ -35,7 +35,10 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELADA: 'cancelada',
 };
 
-function formatarPedidosCliente(clienteNome: string, pedidos: Awaited<ReturnType<OsRepository['findByCliente']>>): string {
+function formatarPedidosCliente(
+  clienteNome: string,
+  pedidos: Awaited<ReturnType<OsRepository['findByCliente']>>
+): string {
   if (!pedidos.length) {
     return `Não encontrei pedidos no seu histórico, ${clienteNome.split(' ')[0]}. Quer fazer um novo orçamento agora?`;
   }
@@ -46,12 +49,14 @@ function formatarPedidosCliente(clienteNome: string, pedidos: Awaited<ReturnType
     const numero = p.id.slice(0, 8).toUpperCase();
     const status = STATUS_LABEL[p.status] ?? p.status.toLowerCase();
     const data = p.criadoEm.toLocaleDateString('pt-BR');
+
     return `• #${numero} — ${produto} (${status}, aberto em ${data})`;
   });
 
-  const cabecalho = pedidos.length === 1
-    ? `Encontrei 1 pedido no seu histórico:`
-    : `Aqui estão seus últimos ${pedidos.length} pedidos:`;
+  const cabecalho =
+    pedidos.length === 1
+      ? 'Encontrei 1 pedido no seu histórico:'
+      : `Aqui estão seus últimos ${pedidos.length} pedidos:`;
 
   return `${cabecalho}\n${linhas.join('\n')}\n\nQuer saber mais detalhes de algum deles ou abrir um novo orçamento?`;
 }
@@ -59,6 +64,9 @@ function formatarPedidosCliente(clienteNome: string, pedidos: Awaited<ReturnType
 /**
  * Estados onde o middleware DUVIDA NÃO desvia para ESCLARECER_DUVIDA:
  *  · BOAS_VINDAS: ainda não há produto/contexto; handler chama RAG por conta.
+ *  · COLETAR_ESPECIFICACOES: o próprio handler responde dúvidas técnicas
+ *    locais/RAG e depois retoma a coleta. Ex.: "O que é isso?" após
+ *    "O papel será autocopiativo?"
  *  · ESCLARECER_DUVIDA: já é o destino, não faz sentido re-transitar.
  *  · ESCALAR_HUMANO: gerente assumiu, IA não deve agir.
  *  · ENCERRAR: o intent service já reabre nova sessão automaticamente.
@@ -66,6 +74,7 @@ function formatarPedidosCliente(clienteNome: string, pedidos: Awaited<ReturnType
  */
 const ESTADOS_SEM_DESVIO_DUVIDA = new Set<ConversationState>([
   ConversationState.BOAS_VINDAS,
+  ConversationState.COLETAR_ESPECIFICACOES,
   ConversationState.ESCLARECER_DUVIDA,
   ConversationState.ESCALAR_HUMANO,
   ConversationState.ENCERRAR,
@@ -113,6 +122,7 @@ export async function runHandlerChain(
 
   for (let step = 0; step < maxChain; step++) {
     const handler = getHandlerForState(currentState);
+
     const result = await handler.handle(
       message,
       { ...sessao, contexto: context, estadoAtual: currentState },
@@ -122,10 +132,12 @@ export async function runHandlerChain(
     if (result.response?.trim()) {
       const texto = enrichForLeigo(result.response.trim(), deps.conversationHistory);
       responseParts.push(texto);
+
       console.log(
         `🤖 Handler [${currentState}]: "${texto.substring(0, 500)}${texto.length > 500 ? '...' : ''}"`
       );
     }
+
     context = result.updatedContext;
     escalarHumano = escalarHumano || !!result.escalarHumano;
 
@@ -155,7 +167,11 @@ export async function runHandlerChain(
 
     if (result.gerarOs && context.osId) {
       gerouOs = true;
-      osMeta = { id: context.osId, produto: context.produto || 'Pedido' };
+      osMeta = {
+        id: context.osId,
+        produto: context.produto || 'Pedido',
+      };
+
       io.emit('nova-os', {
         id: context.osId,
         cliente: deps.clienteNome,
@@ -165,21 +181,19 @@ export async function runHandlerChain(
 
     if (escalarHumano) {
       await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
-      
-      // Envia notificação push para os gerentes pelo Firebase FCM
+
       await notificationService.sendToAdmins(
         'Atendimento Escalado',
         `O cliente ${deps.clienteNome} precisa falar com um especialista.`,
-        { 
+        {
           type: 'escalation',
           clienteId: sessao.clienteId,
-          telefone: deps.clienteTelefone
+          telefone: deps.clienteTelefone,
         }
       );
 
-      // Informa ao front-end em tempo real para atualizar o ícone do chat
-      io.emit('conversa-assumida', { 
-        clienteId: sessao.clienteId, 
+      io.emit('conversa-assumida', {
+        clienteId: sessao.clienteId,
         telefone: deps.clienteTelefone,
         clienteNome: deps.clienteNome,
       });
@@ -193,7 +207,13 @@ export async function runHandlerChain(
     break;
   }
 
-  return { responseParts, sessao, gerouOs, osMeta, escalarHumano };
+  return {
+    responseParts,
+    sessao,
+    gerouOs,
+    osMeta,
+    escalarHumano,
+  };
 }
 
 export class StateRouter {
@@ -207,13 +227,13 @@ export class StateRouter {
       ? sessao.estadoAtual
       : ConversationState.BOAS_VINDAS;
 
-    // Fase 3: histórico é montado antes do intent porque o LLM precisa dele
-    // para classificar (NOVO_ATENDIMENTO / TROCAR_PRODUTO / NONE).
     let context = parseContext(sessao.contexto);
+
     const history = await conversationService.getFormattedHistorySince(
       sessao.clienteId,
       sessao.criadoEm
     );
+
     const conversationHistory = history
       ? `${history}\nCliente: ${message}`
       : `Cliente: ${message}`;
@@ -224,20 +244,28 @@ export class StateRouter {
       conversationHistory,
       context.produto
     );
+
     if (intent.type === 'NOVO_ATENDIMENTO' && currentState !== ConversationState.BOAS_VINDAS) {
       console.log('🔄 [FSM] Cliente pediu novo atendimento — sessão reiniciada.');
-      // Se havia proposta pendente, avisa o dashboard pra remover o card.
+
       if (context.propostaPendente) {
-        io.emit('proposta-cancelada', { sessaoId: sessao.id, motivo: 'NOVO_ATENDIMENTO' });
+        io.emit('proposta-cancelada', {
+          sessaoId: sessao.id,
+          motivo: 'NOVO_ATENDIMENTO',
+        });
       }
+
       sessao = await stateService.reiniciarSessao(sessao.clienteId);
+
       const resposta = mensagemNovoAtendimento();
+
       sessao = await stateService.transition(
         sessao.id,
         ConversationState.IDENTIFICAR_NECESSIDADE,
         {},
         { previousState: null }
       );
+
       return { response: resposta, sessao };
     }
 
@@ -250,19 +278,26 @@ export class StateRouter {
       console.log(
         `🔄 [FSM] Troca de produto${intent.produtoIdentificado ? `: ${intent.produtoIdentificado}` : ''}`
       );
+
       if (context.propostaPendente) {
-        io.emit('proposta-cancelada', { sessaoId: sessao.id, motivo: 'TROCAR_PRODUTO' });
+        io.emit('proposta-cancelada', {
+          sessaoId: sessao.id,
+          motivo: 'TROCAR_PRODUTO',
+        });
       }
+
       sessao = await stateService.reiniciarContextoPedido(
         sessao.id,
         intent.produtoIdentificado || undefined
       );
 
       let resposta = mensagemTrocaProduto(intent.produtoIdentificado);
+
       if (intent.produtoIdentificado) {
         const entities = await entityExtractionService.extract(`Cliente: ${message}`, {
           produtoAtual: intent.produtoIdentificado,
         });
+
         if (entities.perguntasFaltantes[0]) {
           resposta = formatarPerguntaCatalogo(entities.perguntasFaltantes[0]);
         }
@@ -271,11 +306,8 @@ export class StateRouter {
       return { response: resposta, sessao };
     }
 
-    // Fluxo 6 / Regra 6 estendida — pedido explícito de pausa do cliente.
-    // Cliente diz "preciso parar / continue depois / volto mais tarde" em
-    // qualquer estado avançado → transita imediatamente para AGUARDAR_RETORNO.
-    // O estado anterior é preservado para permitir retomada quando voltar.
     const crossCutting = detectCrossCuttingIntent(message);
+
     if (
       crossCutting === 'PAUSA' &&
       currentState !== ConversationState.AGUARDAR_RETORNO &&
@@ -283,12 +315,14 @@ export class StateRouter {
       currentState !== ConversationState.BOAS_VINDAS
     ) {
       console.log(`⏸️  [FSM] Cliente pediu pausa em ${currentState} — entrando em AGUARDAR_RETORNO.`);
+
       sessao = await stateService.transition(
         sessao.id,
         ConversationState.AGUARDAR_RETORNO,
         context,
-        { previousState: currentState },
+        { previousState: currentState }
       );
+
       return {
         response:
           'Tudo bem! Vou pausar seu atendimento aqui. Quando voltar, é só me mandar mensagem que retomamos de onde paramos.',
@@ -303,19 +337,19 @@ export class StateRouter {
       clienteTelefone,
     };
 
-    // Cross-cutting LISTAR_PEDIDOS — cliente pergunta sobre o próprio histórico.
-    // Consulta direta no banco, sem passar pelo RAG (que respondia "não consigo
-    // acessar seu histórico"). Mantém o estado atual da sessão intacto.
     if (crossCutting === 'LISTAR_PEDIDOS') {
       console.log(`📦 [FSM] Cliente pediu histórico de pedidos em ${currentState}.`);
+
       try {
         const pedidos = await osRepo.findByCliente(sessao.clienteId, 5);
+
         return {
           response: formatarPedidosCliente(clienteNome, pedidos),
           sessao,
         };
       } catch (err) {
         console.error('❌ Falha ao listar pedidos do cliente:', err);
+
         return {
           response: 'Tive um problema pra consultar seu histórico agora. Pode tentar de novo em um instante?',
           sessao,
@@ -323,17 +357,18 @@ export class StateRouter {
       }
     }
 
-    // Cross-cutting DUVIDA — pergunta aberta (catálogo, recomendação,
-    // esclarecimento técnico) pode aparecer em qualquer estado avançado. Em vez
-    // de cada handler tratar isso, o router intercepta e transita para
-    // ESCLARECER_DUVIDA com previousState = currentState. O próprio
-    // EsclarecerDuvidaHandler restaura o estado quando o cliente sinaliza
-    // MOVING_FORWARD ("ok, vou de X", "entendi, prefiro Y").
+    /**
+     * DUVIDA global:
+     * Para COLETAR_ESPECIFICACOES, NÃO desviamos aqui.
+     * O próprio handler trata dúvidas técnicas no meio da coleta, inclusive
+     * perguntas ambíguas como "O que é isso?" usando a pergunta pendente atual.
+     */
     if (
       crossCutting === 'DUVIDA' &&
       !ESTADOS_SEM_DESVIO_DUVIDA.has(currentState)
     ) {
       console.log(`❓ [FSM] Dúvida detectada em ${currentState} — desviando para ESCLARECER_DUVIDA.`);
+
       sessao = await stateService.transition(
         sessao.id,
         ConversationState.ESCLARECER_DUVIDA,
@@ -342,6 +377,7 @@ export class StateRouter {
       );
 
       const chainDuvida = await runHandlerChain(sessao, message, deps);
+
       return {
         response: chainDuvida.responseParts.join('\n') || 'Um momento, por favor.',
         sessao: chainDuvida.sessao,
@@ -353,8 +389,6 @@ export class StateRouter {
 
     const chain = await runHandlerChain(sessao, message, deps);
 
-    // Se o chain terminou em AGUARDAR_APROVACAO_ADMIN sem produzir resposta,
-    // sinaliza silêncio total (não manda fallback pro WhatsApp).
     const silencioAdmin =
       chain.responseParts.length === 0 &&
       chain.sessao.estadoAtual === ConversationState.AGUARDAR_APROVACAO_ADMIN;

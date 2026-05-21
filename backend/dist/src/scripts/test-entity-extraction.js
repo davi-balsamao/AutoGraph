@@ -74,33 +74,35 @@ console.log('============================================\n');
 console.log(`📦 Produtos disponíveis: ${entity_extraction_service_1.entityExtractionService.getAvailableProducts().join(', ')}\n`);
 let acertos = 0;
 let total = testCases.length;
-for (const tc of testCases) {
-    console.log(`--- ${tc.nome} ---`);
-    const resultado = entity_extraction_service_1.entityExtractionService.extract(tc.historico);
-    // Verificar produto
-    const produtoCorreto = resultado.produtoIdentificado === tc.produtoEsperado;
-    console.log(`  Produto: ${resultado.produtoIdentificado || '(nenhum)'} ${produtoCorreto ? '✅' : `❌ (esperado: ${tc.produtoEsperado})`}`);
-    if (resultado.produtoIdentificado) {
-        console.log(`  Requisitos:`);
-        for (const req of resultado.requisitos) {
-            const status = req.preenchido ? '✅' : '⬜';
-            console.log(`    ${status} ${req.pergunta}`);
-            if (req.resposta) {
-                console.log(`       → ${req.resposta}`);
+(async () => {
+    for (const tc of testCases) {
+        console.log(`--- ${tc.nome} ---`);
+        const resultado = await entity_extraction_service_1.entityExtractionService.extract(tc.historico);
+        // Verificar produto
+        const produtoCorreto = resultado.produtoIdentificado === tc.produtoEsperado;
+        console.log(`  Produto: ${resultado.produtoIdentificado || '(nenhum)'} ${produtoCorreto ? '✅' : `❌ (esperado: ${tc.produtoEsperado})`}`);
+        if (resultado.produtoIdentificado) {
+            console.log(`  Requisitos:`);
+            for (const req of resultado.requisitos) {
+                const status = req.preenchido ? '✅' : '⬜';
+                console.log(`    ${status} ${req.pergunta}`);
+                if (req.resposta) {
+                    console.log(`       → ${req.resposta}`);
+                }
+            }
+            console.log(`  Completo: ${resultado.completo ? '✅ SIM' : '❌ NÃO'}`);
+            if (resultado.perguntasFaltantes.length > 0) {
+                console.log(`  Faltam: ${resultado.perguntasFaltantes.length} pergunta(s)`);
             }
         }
-        console.log(`  Completo: ${resultado.completo ? '✅ SIM' : '❌ NÃO'}`);
-        if (resultado.perguntasFaltantes.length > 0) {
-            console.log(`  Faltam: ${resultado.perguntasFaltantes.length} pergunta(s)`);
+        else if (resultado.produtoDesconhecido) {
+            console.log(`  ⚠️ Produto não reconhecido no catálogo.`);
         }
+        if (produtoCorreto)
+            acertos++;
+        console.log('');
     }
-    else if (resultado.produtoDesconhecido) {
-        console.log(`  ⚠️ Produto não reconhecido no catálogo.`);
-    }
-    if (produtoCorreto)
-        acertos++;
-    console.log('');
-}
-console.log('============================================');
-console.log(`  Resultado: ${acertos}/${total} produtos identificados corretamente`);
-console.log('============================================\n');
+    console.log('============================================');
+    console.log(`  Resultado: ${acertos}/${total} produtos identificados corretamente`);
+    console.log('============================================\n');
+})();

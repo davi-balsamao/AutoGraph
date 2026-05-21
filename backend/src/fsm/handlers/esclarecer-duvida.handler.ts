@@ -9,14 +9,23 @@ import { transitionService, DUVIDA } from '../transition.service';
  * interrogativas. Enquanto cliente perguntar, fica no estado.
  */
 const IS_QUESTION =
-  /\?|(\b(qual|quais|como|o que|por que|pra que|quando|quanto|existe|há|vocês fazem|dá pra|vocês têm|vocês tem|voces tem)\b)/i;
+  /\?|(\b(qual|quais|como|o que|por que|pra que|quando|quanto|existe|há|ha|vocês fazem|voces fazem|dá pra|da pra|vocês têm|vocês tem|voces tem)\b)/i;
 
 /**
  * Detecta sinal de progresso: cliente quer prosseguir, sem fazer nova pergunta.
  * Inclui formas curtas ("ok", "vou de X") e longas ("então prefiro").
  */
 const MOVING_FORWARD =
-  /\b(então|entendi|obrigad|ok|beleza|certo|perfeito|combinado|fechado|vou de|vou com|vou nos|fico com|prefiro|escolho|gosto de|pode fazer|enviei|reenviei|mandei|anexei|segue|pronto|pronta|sim|pode ser)\b/i;
+  /\b(então|entao|entendi|obrigad|ok|beleza|certo|perfeito|combinado|fechado|vou de|vou com|vou nos|fico com|prefiro|escolho|gosto de|pode fazer|enviei|reenviei|mandei|anexei|segue|pronto|pronta|sim|pode ser)\b/i;
+
+/**
+ * Detecta mensagens sobre arquivo/formato que devem ser processadas pelo estado
+ * VALIDAR_ARQUIVO quando esse for o estado anterior.
+ */
+const ARQUIVO_OU_FORMATO =
+  /\b(exportar|pdf|jpg|jpeg|png|tiff|formato|extensão|extensao|salvar|arquivo|arte|psd|ai|cdr|corel|photoshop|illustrator)\b/i;
+
+const SUBMISSION_RE = /\b(enviei|reenviei|mandei|anexei|segue)\b/i;
 
 /**
  * Handler do estado ESCLARECER_DUVIDA — o estado mais maleável da FSM.
@@ -31,7 +40,7 @@ const MOVING_FORWARD =
  *    na entrada (via `transitionService.shouldPushPreviousState`).
  *
  * Lógica de transição:
- *  • PERMANECE se a mensagem é uma pergunta (cliente ainda em dúvida).
+ *  • PERMANECE se a mensagem é uma pergunta.
  *  • SAI quando o cliente sinaliza avanço sem perguntar — retorna ao estado
  *    anterior. Promove IDENTIFICAR_NECESSIDADE → COLETAR_ESPECIFICACOES quando
  *    já há produto identificado no contexto/histórico.
@@ -43,48 +52,46 @@ export class EsclarecerDuvidaHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     const baseContext: ConversationContext = parseContext(sessao.contexto);
+
     const entities = entityExtractionService.extractRegex(
       deps.conversationHistory || `Cliente: ${message}`,
-      { produtoAtual: sessao.contexto.produto }
+      { produtoAtual: baseContext.produto || sessao.contexto.produto }
     );
+
     // Preserva o produto/specs inferidos pela regex no contexto que será
-    // propagado adiante — sem isso, o chain para COLETAR_ESPECIFICACOES
-    // recebe contexto vazio e a FSM acaba pulando para CALCULAR_ORCAMENTO.
+    // propagado adiante.
     const context: ConversationContext = syncContextFromEntities(baseContext, entities);
 
-    // Resposta vem SEMPRE da knowledge base — guardrails filtram off-scope
-    // e bloqueiam preços não autorizados.
-    const ragResult = await deps.ragService.queryWithState(
-      message,
-      ConversationState.ESCLARECER_DUVIDA,
-      context,
-      deps.conversationHistory || undefined
-    );
+    const estadoRetomar = transitionService.restorePreviousState(sessao.estadoAnterior);
 
     const isQuestion = IS_QUESTION.test(message) || DUVIDA.test(message);
-    const PAUSA_OU_FORMATO = /\b(exportar|pdf|jpg|png|tiff|formato|extensão|extensao|aguardar|esperar|salvar)\b/i;
-    const SUBMISSION_RE = /\b(enviei|reenviei|mandei|anexei|segue)\b/i;
+
     const movingForward =
       MOVING_FORWARD.test(message) &&
-      (SUBMISSION_RE.test(message) || !PAUSA_OU_FORMATO.test(message));
+      (SUBMISSION_RE.test(message) || !ARQUIVO_OU_FORMATO.test(message));
 
-    // SAÍDA: progresso explícito, ou mensagem não é uma pergunta.
-    // Isso evita prender o usuário se ele responder uma especificação (ex: "frente e verso", "100 paginas")
-    if (movingForward || !isQuestion) {
-      const estadoRetomar = transitionService.restorePreviousState(
-        sessao.estadoAnterior
-      );
+    /**
+     * Caso especial:
+     * Se o usuário estava em VALIDAR_ARQUIVO e perguntou sobre formato/arquivo,
+     * o RAG responde. Porém, se depois ele disser algo como "Entendi. Tenho em PDF",
+     * precisamos devolver a mesma mensagem para VALIDAR_ARQUIVO processar,
+     * em vez de permanecer preso em ESCLARECER_DUVIDA.
+     */
+    const shouldReturnToFileValidation =
+      estadoRetomar === ConversationState.VALIDAR_ARQUIVO &&
+      !isQuestion &&
+      (MOVING_FORWARD.test(message) || ARQUIVO_OU_FORMATO.test(message));
+
+    // SAÍDA: progresso explícito, mensagem não-pergunta, ou retorno para validar arquivo.
+    if (movingForward || shouldReturnToFileValidation || !isQuestion) {
       const hasProduto = !!(context.produto || entities.produtoIdentificado);
 
-      // Promove o fluxo: produto já conhecido → pula da identificação direto
-      // pra coleta de specs, não regride.
+      // Produto já conhecido → pula da identificação direto para coleta de specs.
       const nextState =
         hasProduto && estadoRetomar === ConversationState.IDENTIFICAR_NECESSIDADE
           ? ConversationState.COLETAR_ESPECIFICACOES
           : estadoRetomar;
 
-      // Chain pra que o handler de destino processe a mesma mensagem
-      // (ex.: "Sim, tenho a arte" em VALIDAR_ARQUIVO encadeia CALCULAR → APRESENTAR).
       return {
         response: '',
         nextState,
@@ -94,6 +101,13 @@ export class EsclarecerDuvidaHandler implements StateHandler {
     }
 
     // PERMANÊNCIA: ainda em dúvida, RAG continua respondendo.
+    const ragResult = await deps.ragService.queryWithState(
+      message,
+      ConversationState.ESCLARECER_DUVIDA,
+      context,
+      deps.conversationHistory || undefined
+    );
+
     return {
       response: ragResult.answer,
       nextState: ConversationState.ESCLARECER_DUVIDA,

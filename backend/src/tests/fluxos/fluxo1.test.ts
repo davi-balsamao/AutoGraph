@@ -1,27 +1,23 @@
 /**
  * Fluxo 1 · Fluxo base — sem desvios
  *
- * Cada turno valida TRÊS coisas:
- *   1. Estado FSM persistido no DB (para imediatamente se errar)
- *   2. Resposta do bot não vazia
- *   3. Conteúdo esperado nos checkpoints críticos (preço, código de OS)
+ * Este teste valida o fluxo principal até a etapa de aprovação admin.
  *
  * Estados esperados:
  *   BOAS_VINDAS
  *   → IDENTIFICAR_NECESSIDADE
  *   → COLETAR_ESPECIFICACOES
  *   → VALIDAR_ARQUIVO
- *   → [chain: CALCULAR → APRESENTAR] → AGUARDAR_APROVACAO
- *   → COLETAR_DADOS_ENTREGA
- *   → CONFIRMAR_PEDIDO
- *   → [chain: GERAR_OS] → ENCERRAR
+ *   → [chain: CALCULAR → AGUARDAR_APROVACAO_ADMIN]
+ *
+ * A continuação após aprovação do admin é coberta pelo fluxo21.
  */
 
 import {
   sendMsg,
   getLastBotResponse,
+  getSessionState,
   getSessionContext,
-  getLastOS,
   cleanupUser,
   wait,
   uniquePhone,
@@ -29,113 +25,91 @@ import {
 } from './helpers';
 
 const PHONE = uniquePhone(1);
-const NAME  = 'Ana Teste F1';
+const NAME = 'Ana Teste F1';
 
 /** Wrapper que fixa PHONE e NAME para não repetir em cada chamada. */
 const turno = (text: string, expectedState: string, label: string, timeoutMs?: number) =>
   turnoHelper(PHONE, NAME, text, expectedState, label, timeoutMs);
 
 describe('Fluxo 1 · Fluxo base — sem desvios', () => {
-  beforeAll(async () => { await cleanupUser(PHONE); });
-  afterAll(async ()  => { await cleanupUser(PHONE); });
+  beforeAll(async () => {
+    await cleanupUser(PHONE);
+  });
 
-  it('deve percorrer o fluxo completo respeitando estado e conteúdo em cada turno', async () => {
+  afterAll(async () => {
+    await cleanupUser(PHONE);
+  });
 
-    // ── Turno 1: Boas-vindas ────────────────────────────────────────────────
+  it('deve percorrer o fluxo base até aprovação admin', async () => {
     await turno(
       'Oi, boa tarde! Gostaria de fazer um pedido de impressão.',
       'IDENTIFICAR_NECESSIDADE',
-      'Boas-vindas',
+      'Boas-vindas'
     );
 
-    // ── Turno 2: Identificar produto ────────────────────────────────────────
     await turno(
       'Quero panfletos para divulgar meu restaurante.',
       'COLETAR_ESPECIFICACOES',
-      'Identificar produto',
+      'Identificar produto'
     );
 
-    // ── Turno 3: Coletar specs ───────────────────────────────────────────────
     await turno(
       'Preciso de 1000 unidades, tamanho A5, frente e verso colorido, papel couchê 90g.',
       'VALIDAR_ARQUIVO',
-      'Coletar specs',
+      'Coletar specs'
     );
 
-    // Verifica que as specs foram salvas no contexto
     const ctxAposSpecs = await getSessionContext(PHONE);
     console.log('  Contexto após specs:', JSON.stringify(ctxAposSpecs, null, 2));
+
     expect(ctxAposSpecs?.produto?.toLowerCase()).toContain('panfleto');
+    expect(ctxAposSpecs?.specs).toBeTruthy();
 
-    // ── Turno 4: Validar arquivo → (chain) Calcular → Apresentar ────────────
-    // Este turno dispara 3 estados internos automáticos. Aguarda mais tempo.
-    const { resp: respAprovacao } = await turno(
-      'Sim, tenho o arquivo de arte finalizada em PDF.',
-      'AGUARDAR_APROVACAO',
-      'Validar arquivo → chain Calcular → Apresentar',
-      30_000,
-    );
+    /**
+     * Ao confirmar a arte, o backend calcula, cria a proposta e muda para
+     * AGUARDAR_APROVACAO_ADMIN.
+     *
+     * Nesse estado, a FSM pausa sem enviar nova mensagem automática.
+     * Por isso não usamos turno() aqui.
+     */
+    await sendMsg(PHONE, NAME, 'Sim, tenho o arquivo de arte finalizada em PDF.');
+    await wait(30_000);
 
-    // Checkpoint crítico: o orçamento deve ter sido calculado e salvo no contexto
+    const stateAprovacaoAdmin = await getSessionState(PHONE);
     const ctxAposCalculo = await getSessionContext(PHONE);
-    console.log('  Contexto após cálculo:', JSON.stringify(ctxAposCalculo?.orcamento, null, 2));
-    expect(ctxAposCalculo?.orcamento?.total).toBeGreaterThan(0);
 
-    // A resposta enviada ao cliente deve conter o valor monetário
-    expect(respAprovacao).toMatch(/R\$|orçamento|valor/i);
+    console.log('\n[Validar arquivo → Calcular → aprovação admin]');
+    console.log('  Cliente: "Sim, tenho o arquivo de arte finalizada em PDF."');
+    console.log(`  Estado : ${stateAprovacaoAdmin}  (esperado: AGUARDAR_APROVACAO_ADMIN)`);
+    console.log('  Proposta pendente:', JSON.stringify(ctxAposCalculo?.propostaPendente, null, 2));
 
-    // ── Turno 5: Aprovar orçamento ───────────────────────────────────────────
+    expect(stateAprovacaoAdmin).toBe('AGUARDAR_APROVACAO_ADMIN');
+    expect(ctxAposCalculo?.propostaPendente).toBeTruthy();
+    expect(ctxAposCalculo?.propostaPendente?.orcamento?.total).toBeGreaterThan(0);
+
     await turno(
-      'Aprovado! Pode continuar.',
-      'COLETAR_DADOS_ENTREGA',
-      'Aguardar aprovação',
+      'Pode calcular o orçamento.',
+      'AGUARDAR_APROVACAO_ADMIN',
+      'Follow-up enquanto aguarda admin',
+      30_000
     );
-
-    // ── Turno 6: Dados de entrega ────────────────────────────────────────────
-    await turno(
-      'Vou retirar na loja, não preciso de entrega.',
-      'CONFIRMAR_PEDIDO',
-      'Dados de entrega',
-    );
-
-    // Verifica que a modalidade foi salva
-    const ctxAposEntrega = await getSessionContext(PHONE);
-    console.log('  Entrega:', JSON.stringify(ctxAposEntrega?.entrega, null, 2));
-    expect(ctxAposEntrega?.entrega?.modalidade).toBe('retirada');
-
-    // ── Turno 7: Confirmar → (chain) Gerar O.S. → Encerrar ──────────────────
-    // GERAR_OS chama LLM para mensagem sugerida — aguarda mais tempo.
-    const { resp: respEncerrar } = await turno(
-      'Confirmo o pedido.',
-      'ENCERRAR',
-      'Confirmar → chain Gerar O.S. → Encerrar',
-      30_000,
-    );
-
-    // Checkpoint crítico: a O.S. deve ter sido criada no banco
-    const os = await getLastOS(PHONE);
-    console.log('  O.S. criada:', os ? `ID ${os.id.slice(0, 8).toUpperCase()}` : 'NENHUMA');
-    expect(os).not.toBeNull();
-    // Fase 2: observações ficam vazias por padrão — validação técnica de arte
-    // é responsabilidade da recepcionista, não do bot (validar-arquivo.md).
-    expect(os!.observacoes ?? '').toBe('');
-
-    // A resposta deve mencionar a Ordem de Serviço
-    expect(respEncerrar).toMatch(/ordem de servi[çc]o|O\.S\.|OS/i);
-
-  }, 90_000);
+  }, 100_000);
 
   it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
     const msgId = `wamid.dup_f1_${Date.now()}`;
+
     await sendMsg(PHONE, NAME, 'Retry test', msgId);
     await sendMsg(PHONE, NAME, 'Retry test', msgId);
+
     await wait();
+
     expect(await getLastBotResponse(PHONE)).toBeTruthy();
   }, 25_000);
 
   it('deve responder a entrada incompleta', async () => {
     await sendMsg(PHONE, NAME, '?');
     await wait();
+
     expect(await getLastBotResponse(PHONE)).toBeTruthy();
   }, 20_000);
 });
