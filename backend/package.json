@@ -9,7 +9,7 @@
     "start-server": "NODE_TLS_REJECT_UNAUTHORIZED=0 npx ts-node src/server.ts",
     "test": "jest --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/dist/ --testPathIgnorePatterns=src/tests/fluxos",
     "start-prisma": "npx prisma migrate deploy && npm run seed:prod && node dist/src/server.js",
-    "test:fluxos": "jest src/tests/fluxos",
+    "test:fluxos": "jest src/tests/fluxos --testPathIgnorePatterns=/node_modules/ --testPathIgnorePatterns=/dist/",
     "test:guardrails": "ts-node-dev src/scripts/test-guardrails.ts",
     "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",
     "test:rag": "ts-node-dev src/scripts/test-rag.ts",

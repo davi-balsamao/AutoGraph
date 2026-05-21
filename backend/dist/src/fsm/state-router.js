@@ -39,13 +39,16 @@ function formatarPedidosCliente(clienteNome, pedidos) {
         return `• #${numero} — ${produto} (${status}, aberto em ${data})`;
     });
     const cabecalho = pedidos.length === 1
-        ? `Encontrei 1 pedido no seu histórico:`
+        ? 'Encontrei 1 pedido no seu histórico:'
         : `Aqui estão seus últimos ${pedidos.length} pedidos:`;
     return `${cabecalho}\n${linhas.join('\n')}\n\nQuer saber mais detalhes de algum deles ou abrir um novo orçamento?`;
 }
 /**
  * Estados onde o middleware DUVIDA NÃO desvia para ESCLARECER_DUVIDA:
  *  · BOAS_VINDAS: ainda não há produto/contexto; handler chama RAG por conta.
+ *  · COLETAR_ESPECIFICACOES: o próprio handler responde dúvidas técnicas
+ *    locais/RAG e depois retoma a coleta. Ex.: "O que é isso?" após
+ *    "O papel será autocopiativo?"
  *  · ESCLARECER_DUVIDA: já é o destino, não faz sentido re-transitar.
  *  · ESCALAR_HUMANO: gerente assumiu, IA não deve agir.
  *  · ENCERRAR: o intent service já reabre nova sessão automaticamente.
@@ -53,6 +56,7 @@ function formatarPedidosCliente(clienteNome, pedidos) {
  */
 const ESTADOS_SEM_DESVIO_DUVIDA = new Set([
     states_1.ConversationState.BOAS_VINDAS,
+    states_1.ConversationState.COLETAR_ESPECIFICACOES,
     states_1.ConversationState.ESCLARECER_DUVIDA,
     states_1.ConversationState.ESCALAR_HUMANO,
     states_1.ConversationState.ENCERRAR,
@@ -103,7 +107,10 @@ async function runHandlerChain(initialSessao, message, deps, maxChain = 4) {
         currentState = nextState;
         if (result.gerarOs && context.osId) {
             gerouOs = true;
-            osMeta = { id: context.osId, produto: context.produto || 'Pedido' };
+            osMeta = {
+                id: context.osId,
+                produto: context.produto || 'Pedido',
+            };
             server_1.io.emit('nova-os', {
                 id: context.osId,
                 cliente: deps.clienteNome,
@@ -112,13 +119,11 @@ async function runHandlerChain(initialSessao, message, deps, maxChain = 4) {
         }
         if (escalarHumano) {
             await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
-            // Envia notificação push para os gerentes pelo Firebase FCM
             await notification_service_1.notificationService.sendToAdmins('Atendimento Escalado', `O cliente ${deps.clienteNome} precisa falar com um especialista.`, {
                 type: 'escalation',
                 clienteId: sessao.clienteId,
-                telefone: deps.clienteTelefone
+                telefone: deps.clienteTelefone,
             });
-            // Informa ao front-end em tempo real para atualizar o ícone do chat
             server_1.io.emit('conversa-assumida', {
                 clienteId: sessao.clienteId,
                 telefone: deps.clienteTelefone,
@@ -131,15 +136,19 @@ async function runHandlerChain(initialSessao, message, deps, maxChain = 4) {
         }
         break;
     }
-    return { responseParts, sessao, gerouOs, osMeta, escalarHumano };
+    return {
+        responseParts,
+        sessao,
+        gerouOs,
+        osMeta,
+        escalarHumano,
+    };
 }
 class StateRouter {
     async route(sessao, message, clienteNome, clienteTelefone) {
         let currentState = (0, states_1.isConversationState)(sessao.estadoAtual)
             ? sessao.estadoAtual
             : states_1.ConversationState.BOAS_VINDAS;
-        // Fase 3: histórico é montado antes do intent porque o LLM precisa dele
-        // para classificar (NOVO_ATENDIMENTO / TROCAR_PRODUTO / NONE).
         let context = (0, states_1.parseContext)(sessao.contexto);
         const history = await conversation_service_1.conversationService.getFormattedHistorySince(sessao.clienteId, sessao.criadoEm);
         const conversationHistory = history
@@ -148,9 +157,11 @@ class StateRouter {
         const intent = await (0, intent_service_1.detectSessionIntent)(message, currentState, conversationHistory, context.produto);
         if (intent.type === 'NOVO_ATENDIMENTO' && currentState !== states_1.ConversationState.BOAS_VINDAS) {
             console.log('🔄 [FSM] Cliente pediu novo atendimento — sessão reiniciada.');
-            // Se havia proposta pendente, avisa o dashboard pra remover o card.
             if (context.propostaPendente) {
-                server_1.io.emit('proposta-cancelada', { sessaoId: sessao.id, motivo: 'NOVO_ATENDIMENTO' });
+                server_1.io.emit('proposta-cancelada', {
+                    sessaoId: sessao.id,
+                    motivo: 'NOVO_ATENDIMENTO',
+                });
             }
             sessao = await state_service_1.stateService.reiniciarSessao(sessao.clienteId);
             const resposta = (0, intent_service_1.mensagemNovoAtendimento)();
@@ -163,7 +174,10 @@ class StateRouter {
             currentState !== states_1.ConversationState.ENCERRAR) {
             console.log(`🔄 [FSM] Troca de produto${intent.produtoIdentificado ? `: ${intent.produtoIdentificado}` : ''}`);
             if (context.propostaPendente) {
-                server_1.io.emit('proposta-cancelada', { sessaoId: sessao.id, motivo: 'TROCAR_PRODUTO' });
+                server_1.io.emit('proposta-cancelada', {
+                    sessaoId: sessao.id,
+                    motivo: 'TROCAR_PRODUTO',
+                });
             }
             sessao = await state_service_1.stateService.reiniciarContextoPedido(sessao.id, intent.produtoIdentificado || undefined);
             let resposta = (0, intent_service_1.mensagemTrocaProduto)(intent.produtoIdentificado);
@@ -177,10 +191,6 @@ class StateRouter {
             }
             return { response: resposta, sessao };
         }
-        // Fluxo 6 / Regra 6 estendida — pedido explícito de pausa do cliente.
-        // Cliente diz "preciso parar / continue depois / volto mais tarde" em
-        // qualquer estado avançado → transita imediatamente para AGUARDAR_RETORNO.
-        // O estado anterior é preservado para permitir retomada quando voltar.
         const crossCutting = (0, base_handler_1.detectCrossCuttingIntent)(message);
         if (crossCutting === 'PAUSA' &&
             currentState !== states_1.ConversationState.AGUARDAR_RETORNO &&
@@ -199,9 +209,6 @@ class StateRouter {
             clienteNome,
             clienteTelefone,
         };
-        // Cross-cutting LISTAR_PEDIDOS — cliente pergunta sobre o próprio histórico.
-        // Consulta direta no banco, sem passar pelo RAG (que respondia "não consigo
-        // acessar seu histórico"). Mantém o estado atual da sessão intacto.
         if (crossCutting === 'LISTAR_PEDIDOS') {
             console.log(`📦 [FSM] Cliente pediu histórico de pedidos em ${currentState}.`);
             try {
@@ -219,12 +226,12 @@ class StateRouter {
                 };
             }
         }
-        // Cross-cutting DUVIDA — pergunta aberta (catálogo, recomendação,
-        // esclarecimento técnico) pode aparecer em qualquer estado avançado. Em vez
-        // de cada handler tratar isso, o router intercepta e transita para
-        // ESCLARECER_DUVIDA com previousState = currentState. O próprio
-        // EsclarecerDuvidaHandler restaura o estado quando o cliente sinaliza
-        // MOVING_FORWARD ("ok, vou de X", "entendi, prefiro Y").
+        /**
+         * DUVIDA global:
+         * Para COLETAR_ESPECIFICACOES, NÃO desviamos aqui.
+         * O próprio handler trata dúvidas técnicas no meio da coleta, inclusive
+         * perguntas ambíguas como "O que é isso?" usando a pergunta pendente atual.
+         */
         if (crossCutting === 'DUVIDA' &&
             !ESTADOS_SEM_DESVIO_DUVIDA.has(currentState)) {
             console.log(`❓ [FSM] Dúvida detectada em ${currentState} — desviando para ESCLARECER_DUVIDA.`);
@@ -239,8 +246,6 @@ class StateRouter {
             };
         }
         const chain = await runHandlerChain(sessao, message, deps);
-        // Se o chain terminou em AGUARDAR_APROVACAO_ADMIN sem produzir resposta,
-        // sinaliza silêncio total (não manda fallback pro WhatsApp).
         const silencioAdmin = chain.responseParts.length === 0 &&
             chain.sessao.estadoAtual === states_1.ConversationState.AGUARDAR_APROVACAO_ADMIN;
         return {

@@ -4,9 +4,9 @@
  * Contrato ([rag-test/estados/validar-arquivo.md]):
  *  • Perguntar de forma simples: "Você já tem o arquivo de arte pronto?"
  *  • Informar formatos aceitos: PDF, JPG, PNG, TIFF
- *  • NÃO pedir DPI/resolução/sangria ao cliente (recepcionista valida tecnicamente)
+ *  • NÃO pedir DPI/resolução/sangria ao cliente
  *  • Se tem arte → CALCULAR_ORCAMENTO
- *  • Se não tem → orientar (designer / ferramenta de preferência), permanece no estado
+ *  • Se não tem → orientar, permanece no estado
  *  • Se vai enviar depois → AGUARDAR_RETORNO
  */
 
@@ -24,8 +24,11 @@ const SEM_ARTE_RE =
 const ENVIA_DEPOIS_RE =
   /\b(envio depois|envia depois|mando depois|te mando|enviar depois|depois te (mando|envio)|amanh[ãa]|na pr[óo]xima|outro dia)\b/i;
 
-const INCOMPATIBLE_FORMAT_RE = /\b(psd|ai|cdr|indd|photoshop|illustrator|corel|coreldraw)\b/i;
-const FORMATO_RE = /\b(exportar|pdf|jpg|png|tiff|formato|extensão|extensao|aguardar|esperar|salvar)\b/i;
+const INCOMPATIBLE_FORMAT_RE =
+  /\b(psd|ai|cdr|indd|photoshop|illustrator|corel|coreldraw)\b/i;
+
+const FORMATO_RE =
+  /\b(exportar|pdf|jpg|png|tiff|formato|extens[ãa]o|extensao|aguardar|esperar|salvar)\b/i;
 
 const ORIENTACAO_SEM_ARTE =
   'Sem problema! Para a arte ficar boa, sugiro pedir para um designer ou usar uma ferramenta de sua preferência (Canva, por exemplo). Exporte em PDF, JPG, PNG ou TIFF e me envia quando estiver pronto.';
@@ -42,30 +45,20 @@ export class ValidarArquivoHandler implements StateHandler {
 
     if (INCOMPATIBLE_FORMAT_RE.test(msg)) {
       return {
-        response: 'Formatos de softwares de edição (como .PSD, .AI, .CDR) não são aceitos diretamente. Por favor, salve ou exporte seu arquivo em PDF, JPG, PNG ou TIFF antes de enviar!',
+        response:
+          'Formatos de softwares de edição (como .PSD, .AI, .CDR) não são aceitos diretamente. Por favor, salve ou exporte seu arquivo em PDF, JPG, PNG ou TIFF antes de enviar!',
         nextState: ConversationState.VALIDAR_ARQUIVO,
         updatedContext: context,
       };
     }
 
-    if (ARTE_PRONTA_RE.test(msg)) {
-      context.validacaoArteOk = true;
+    // Importante: precisa vir antes de ARTE_PRONTA_RE,
+    // porque "Não tenho arte" também contém a palavra "tenho".
+    if (SEM_ARTE_RE.test(msg)) {
       return {
-        response: '',
-        nextState: ConversationState.CALCULAR_ORCAMENTO,
+        response: ORIENTACAO_SEM_ARTE,
+        nextState: ConversationState.VALIDAR_ARQUIVO,
         updatedContext: context,
-        chainNext: ConversationState.CALCULAR_ORCAMENTO,
-      };
-    }
-
-    // Fluxo 4 / Formatos: cliente pergunta sobre preço ou discute formatos/exportação —
-    // roteia para ESCLARECER_DUVIDA para que o RAG explique/oriente.
-    if (DUVIDA.test(msg) || FORMATO_RE.test(msg)) {
-      return {
-        response: '',
-        nextState: ConversationState.ESCLARECER_DUVIDA,
-        updatedContext: context,
-        chainNext: ConversationState.ESCLARECER_DUVIDA,
       };
     }
 
@@ -77,17 +70,36 @@ export class ValidarArquivoHandler implements StateHandler {
       };
     }
 
-    if (SEM_ARTE_RE.test(msg)) {
+    if (ARTE_PRONTA_RE.test(msg)) {
+      context.validacaoArteOk = true;
+
+      const pendentes = context.specsPendentes || [];
+
+      if (pendentes.length > 0) {
+        return {
+          response: `Antes de calcular, preciso confirmar: ${pendentes[0]}`,
+          nextState: ConversationState.COLETAR_ESPECIFICACOES,
+          updatedContext: context,
+        };
+      }
+
       return {
-        response: ORIENTACAO_SEM_ARTE,
-        nextState: ConversationState.VALIDAR_ARQUIVO,
+        response: '',
+        nextState: ConversationState.CALCULAR_ORCAMENTO,
         updatedContext: context,
+        chainNext: ConversationState.CALCULAR_ORCAMENTO,
       };
     }
 
+    if (DUVIDA.test(msg) || FORMATO_RE.test(msg)) {
+      return {
+        response: '',
+        nextState: ConversationState.ESCLARECER_DUVIDA,
+        updatedContext: context,
+        chainNext: ConversationState.ESCLARECER_DUVIDA,
+      };
+    }
 
-
-    // Resposta ambígua — re-pergunta no formato do .md.
     return {
       response: 'Você já tem o arquivo de arte pronto para enviar? Aceitamos PDF, JPG, PNG ou TIFF.',
       nextState: ConversationState.VALIDAR_ARQUIVO,

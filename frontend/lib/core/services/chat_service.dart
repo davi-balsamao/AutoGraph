@@ -41,11 +41,11 @@ class ChatService {
   factory ChatService() => _instance;
 
   String get _baseUrl {
-    if (kIsWeb) return 'http://10.10.0.139:3000/api';
+    if (kIsWeb) return 'http://localhost:3000/api';
     try {
-      if (Platform.isAndroid) return 'http://10.10.0.139:3000/api';
+      if (Platform.isAndroid) return 'http://localhost:3000/api';
     } catch (_) {}
-    return 'http://10.10.0.139:3000/api';
+    return 'http://localhost:3000/api';
   }
 
   late io.Socket _socket;
@@ -62,7 +62,7 @@ class ChatService {
   }
 
   void _initSocket() {
-    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://localhost:3000';
 
     _socket = io.io(serverUrl, io.OptionBuilder()
       .setTransports(['websocket'])

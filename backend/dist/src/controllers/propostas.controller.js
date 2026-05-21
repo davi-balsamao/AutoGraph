@@ -40,7 +40,10 @@ class PropostasController {
     async list(_req, res) {
         try {
             const sessoes = await prisma_1.prisma.sessaoAtendimento.findMany({
-                where: { ativa: true, estadoAtual: states_1.ConversationState.AGUARDAR_APROVACAO_ADMIN },
+                where: {
+                    ativa: true,
+                    estadoAtual: states_1.ConversationState.AGUARDAR_APROVACAO_ADMIN,
+                },
                 orderBy: { atualizadoEm: 'desc' },
                 include: { cliente: true },
             });
@@ -66,7 +69,9 @@ class PropostasController {
         }
         catch (error) {
             console.error('❌ Erro ao listar propostas:', error);
-            return res.status(500).json({ error: 'Erro ao listar propostas.' });
+            return res.status(500).json({
+                error: 'Erro ao listar propostas.',
+            });
         }
     }
     // PATCH /api/propostas/:sessaoId — admin edita especificacoes/orcamento
@@ -75,19 +80,34 @@ class PropostasController {
             const sessaoId = req.params.sessaoId;
             const { proposta } = req.body;
             const sessao = await findSessaoPendente(sessaoId);
-            if (!sessao)
-                return res.status(404).json({ error: 'Sessão não encontrada.' });
+            if (!sessao) {
+                return res.status(404).json({
+                    error: 'Sessão não encontrada.',
+                });
+            }
             const ctx = (0, states_1.parseContext)(sessao.contexto);
             if (!ctx.propostaPendente) {
-                return res.status(400).json({ error: 'Sessão sem proposta pendente.' });
+                return res.status(400).json({
+                    error: 'Sessão sem proposta pendente.',
+                });
             }
             const novaProposta = {
                 ...ctx.propostaPendente,
                 ...(proposta?.especificacoes
-                    ? { especificacoes: { ...ctx.propostaPendente.especificacoes, ...proposta.especificacoes } }
+                    ? {
+                        especificacoes: {
+                            ...ctx.propostaPendente.especificacoes,
+                            ...proposta.especificacoes,
+                        },
+                    }
                     : {}),
                 ...(proposta?.orcamento
-                    ? { orcamento: { ...ctx.propostaPendente.orcamento, ...proposta.orcamento } }
+                    ? {
+                        orcamento: {
+                            ...ctx.propostaPendente.orcamento,
+                            ...proposta.orcamento,
+                        },
+                    }
                     : {}),
             };
             ctx.propostaPendente = novaProposta;
@@ -95,12 +115,21 @@ class PropostasController {
                 where: { id: sessaoId },
                 data: { contexto: ctx },
             });
-            server_1.io.emit('proposta-atualizada', { sessaoId, proposta: novaProposta });
-            return res.json({ sessaoId, proposta: novaProposta, atualizadoEm: atualizada.atualizadoEm });
+            server_1.io.emit('proposta-atualizada', {
+                sessaoId,
+                proposta: novaProposta,
+            });
+            return res.json({
+                sessaoId,
+                proposta: novaProposta,
+                atualizadoEm: atualizada.atualizadoEm,
+            });
         }
         catch (error) {
             console.error('❌ Erro ao atualizar proposta:', error);
-            return res.status(500).json({ error: 'Erro ao atualizar proposta.' });
+            return res.status(500).json({
+                error: 'Erro ao atualizar proposta.',
+            });
         }
     }
     // POST /api/propostas/:sessaoId/aprovar — admin libera e dispara APRESENTAR_ORCAMENTO
@@ -108,22 +137,29 @@ class PropostasController {
         try {
             const sessaoId = req.params.sessaoId;
             const sessao = await findSessaoPendente(sessaoId);
-            if (!sessao)
-                return res.status(404).json({ error: 'Sessão não encontrada.' });
+            if (!sessao) {
+                return res.status(404).json({
+                    error: 'Sessão não encontrada.',
+                });
+            }
             if (sessao.estadoAtual !== states_1.ConversationState.AGUARDAR_APROVACAO_ADMIN) {
-                return res.status(409).json({ error: 'Sessão não está aguardando aprovação admin.' });
+                return res.status(409).json({
+                    error: 'Sessão não está aguardando aprovação admin.',
+                });
             }
             const ctx = (0, states_1.parseContext)(sessao.contexto);
             if (!ctx.propostaPendente) {
-                return res.status(400).json({ error: 'Sessão sem proposta pendente.' });
+                return res.status(400).json({
+                    error: 'Sessão sem proposta pendente.',
+                });
             }
-            // Move orcamento aprovado para o contexto principal e descarta proposta.
+            // Move orçamento aprovado para o contexto principal e descarta proposta.
             ctx.orcamento = ctx.propostaPendente.orcamento;
             ctx.specs = ctx.specs || {};
             delete ctx.propostaPendente;
             delete ctx.aguardandoFollowupEnviado;
-            // Transita pra APRESENTAR_ORCAMENTO e reexecuta o chain — handler vai
-            // gerar a mensagem do orçamento, transitar pra AGUARDAR_APROVACAO (cliente).
+            // Transita para APRESENTAR_ORCAMENTO.
+            // O handler gera a mensagem do orçamento e transita para AGUARDAR_APROVACAO.
             const transicionada = await state_service_1.stateService.transition(sessaoId, states_1.ConversationState.APRESENTAR_ORCAMENTO, ctx);
             const history = await conversation_service_1.conversationService.getFormattedHistorySince(transicionada.clienteId, transicionada.criadoEm);
             const deps = {
@@ -149,9 +185,29 @@ class PropostasController {
                     timestamp: new Date().toISOString(),
                     isFromRAG: true,
                 });
-                await whatsapp_service_1.whatsappService.sendMessage(sessao.cliente.telefone, resposta);
+                const useMockWhatsApp = process.env.USE_MOCK_WHATSAPP === 'true';
+                if (useMockWhatsApp) {
+                    console.log('🧪 [MOCK] Aprovação admin — mensagem não enviada para WhatsApp real:', {
+                        telefone: sessao.cliente.telefone,
+                        mensagem: resposta,
+                    });
+                }
+                else {
+                    try {
+                        await whatsapp_service_1.whatsappService.sendMessage(sessao.cliente.telefone, resposta);
+                    }
+                    catch (sendError) {
+                        console.error('❌ [Aprovar Proposta] Falha ao enviar WhatsApp:', sendError);
+                        // Importante:
+                        // A aprovação admin não deve ser revertida por falha externa da Meta.
+                        // A mensagem já foi registrada no banco e emitida no socket.
+                    }
+                }
             }
-            server_1.io.emit('proposta-aprovada', { sessaoId, clienteId: sessao.clienteId });
+            server_1.io.emit('proposta-aprovada', {
+                sessaoId,
+                clienteId: sessao.clienteId,
+            });
             return res.json({
                 sessaoId,
                 estadoAtual: chain.sessao.estadoAtual,
@@ -160,7 +216,11 @@ class PropostasController {
         }
         catch (error) {
             console.error('❌ Erro ao aprovar proposta:', error);
-            return res.status(500).json({ error: 'Erro ao aprovar proposta.' });
+            return res.status(500).json({
+                error: 'Erro ao aprovar proposta.',
+                details: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+            });
         }
     }
     // POST /api/propostas/:sessaoId/rejeitar — admin recusa, escala humano
@@ -169,24 +229,36 @@ class PropostasController {
             const sessaoId = req.params.sessaoId;
             const { motivo } = (req.body || {});
             const sessao = await findSessaoPendente(sessaoId);
-            if (!sessao)
-                return res.status(404).json({ error: 'Sessão não encontrada.' });
+            if (!sessao) {
+                return res.status(404).json({
+                    error: 'Sessão não encontrada.',
+                });
+            }
             const ctx = (0, states_1.parseContext)(sessao.contexto);
             ctx.estadoSalvoTakeover = sessao.estadoAtual;
             delete ctx.propostaPendente;
             delete ctx.aguardandoFollowupEnviado;
             await state_service_1.stateService.transition(sessaoId, states_1.ConversationState.ESCALAR_HUMANO, ctx);
             await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
-            server_1.io.emit('proposta-rejeitada', { sessaoId, clienteId: sessao.clienteId, motivo: motivo || null });
-            return res.json({ sessaoId, atendimentoHumano: true });
+            server_1.io.emit('proposta-rejeitada', {
+                sessaoId,
+                clienteId: sessao.clienteId,
+                motivo: motivo || null,
+            });
+            return res.json({
+                sessaoId,
+                atendimentoHumano: true,
+            });
         }
         catch (error) {
             console.error('❌ Erro ao rejeitar proposta:', error);
-            return res.status(500).json({ error: 'Erro ao rejeitar proposta.' });
+            return res.status(500).json({
+                error: 'Erro ao rejeitar proposta.',
+            });
         }
     }
 }
 exports.PropostasController = PropostasController;
 exports.propostasController = new PropostasController();
-// Suprime warning de import não usado de toSessaoRecord (mantido pra futuro uso).
+// Suprime warning de import não usado de toSessaoRecord (mantido para futuro uso).
 void toSessaoRecord;

@@ -368,26 +368,58 @@ export class EntityExtractionService {
 
       // Heurística: quantidade — só olha mensagens do CLIENTE (em ordem reversa),
       // ignora exemplos em mensagens do assistente (ex: "10x14cm").
-      if (perguntaLower.includes('quantidade') || perguntaLower.includes('quantas')) {
+      if (
+        (perguntaLower.includes('quantidade') || perguntaLower.includes('quantas')) &&
+        !perguntaLower.includes('vias')
+      ) {
         const linhasCliente = historico
           .split('\n')
           .filter((l) => l.startsWith('Cliente:'))
           .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
           .reverse();
 
+        const normalizarLinha = (texto: string) =>
+          texto
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
         for (const linha of linhasCliente) {
-          const ll = linha.toLowerCase();
-          // Número + unidade explícita
-          const m1 = ll.match(
-            /\b(\d{1,6})\s*(?:unidades?|cartões|cartoes|panfletos|blocos|cópias|copias|und|peças|pecas|tirage|impressões|impressoes)\b/
+          const ll = normalizarLinha(linha);
+
+          // Evita confundir tamanho tipo "10x14" com quantidade.
+          const linhaSemMedidas = ll.replace(/\b\d{1,3}\s*x\s*\d{1,3}\b/g, ' ');
+
+          // Ex.: "1000 cartoes", "1000 cart es", "500 panfletos", "200 banners"
+          const m1 = linhaSemMedidas.match(
+            /\b(\d{1,6})\s+(?:unidades?|unid|und|cart\w*|panfleto\w*|bloco\w*|banner\w*|lona\w*|apostila\w*|copia\w*|peca\w*|tirage\w*|impress\w*)\b/i
           );
+
           if (m1) {
             resposta = `${m1[1]} unidades`;
             break;
           }
-          // Linha é só o número (resposta direta a "qual quantidade?")
-          if (/^\d{1,6}$/.test(linha)) {
-            resposta = `${linha} unidades`;
+
+          // Fallback: se a linha menciona produto gráfico e tem um número grande,
+          // assume esse número como quantidade.
+          const mencionaProduto =
+            /\b(cart|panfleto|bloco|banner|lona|apostila|impress|copia|peca)\w*/i.test(linhaSemMedidas);
+
+          if (mencionaProduto) {
+            const m2 = linhaSemMedidas.match(/\b(\d{2,6})\b/);
+
+            if (m2) {
+              resposta = `${m2[1]} unidades`;
+              break;
+            }
+          }
+
+          // Linha é só o número, resposta direta a "qual quantidade?"
+          if (/^\d{1,6}$/.test(linha.trim())) {
+            resposta = `${linha.trim()} unidades`;
             break;
           }
         }
@@ -432,21 +464,82 @@ export class EntityExtractionService {
         }
       }
 
-      // Heurística: verniz
-      if (perguntaLower.includes('verniz total')) {
-        if (textoLower.includes('verniz') && textoLower.includes('sim')) {
-          resposta = 'Sim, com verniz total';
-        } else if (textoLower.includes('verniz') && (textoLower.includes('não') || textoLower.includes('nao'))) {
-          resposta = 'Sem verniz total';
-        }
-      }
+// Heurística: verniz
+if (perguntaLower.includes('verniz total')) {
+  const linhasCliente = historico
+    .split('\n')
+    .filter((l) => l.startsWith('Cliente:'))
+    .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+    .reverse();
 
-      // Heurística: laminação
-      if (perguntaLower.includes('laminação') || perguntaLower.includes('laminacao')) {
-        if (textoLower.includes('laminação') || textoLower.includes('laminacao')) {
+  for (const linha of linhasCliente) {
+    const ll = linha
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    // Negativo primeiro: "sem verniz", "não terá verniz", "nao quero verniz"
+    if (
+      /\bsem\s+verniz\b/i.test(ll) ||
+      /\bnao\s+(?:quero|tera|terá|vai|coloca|precisa).{0,30}verniz\b/i.test(ll) ||
+      /\bnão\s+(?:quero|tera|terá|vai|coloca|precisa).{0,30}verniz\b/i.test(ll)
+    ) {
+      resposta = 'Sem verniz total';
+      break;
+    }
+
+    // Positivo explícito
+    if (
+      /\bcom\s+verniz\b/i.test(ll) ||
+      /\bsim.{0,30}verniz\b/i.test(ll) ||
+      /\bverniz\s+total\b/i.test(ll)
+    ) {
+      resposta = 'Sim, com verniz total';
+      break;
+    }
+  }
+}
+
+    // Heurística: laminação
+    if (
+      perguntaLower.includes('lamina') ||
+      perguntaLower.includes('laminação') ||
+      perguntaLower.includes('laminacao')
+    ) {
+      const linhasCliente = historico
+        .split('\n')
+        .filter((l) => l.startsWith('Cliente:'))
+        .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+        .reverse();
+
+      for (const linha of linhasCliente) {
+        const ll = linha
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+
+        // Negativo primeiro: "sem laminação", "não terá laminação"
+        if (
+          /\bsem\s+lamina/i.test(ll) ||
+          /\bnao\s+(?:quero|tera|terá|vai|coloca|precisa).{0,30}lamina/i.test(ll) ||
+          /\bnão\s+(?:quero|tera|terá|vai|coloca|precisa).{0,30}lamina/i.test(ll)
+        ) {
+          resposta = 'Sem laminação fosca e sem verniz localizado';
+          break;
+        }
+
+        // Positivo explícito
+        if (
+          /\bcom\s+lamina/i.test(ll) ||
+          /\bsim.{0,30}lamina/i.test(ll) ||
+          /\blaminacao\s+fosca\b/i.test(ll) ||
+          /\blaminação\s+fosca\b/i.test(ll)
+        ) {
           resposta = 'Com laminação fosca';
+          break;
         }
       }
+    }
 
       // Heurística: colorida/preto
       if (perguntaLower.includes('colorid') || perguntaLower.includes('preto')) {
@@ -459,9 +552,37 @@ export class EntityExtractionService {
 
       // Heurística: vias
       if (perguntaLower.includes('vias')) {
-        const match = textoLower.match(/(\d+)\s*vias?/);
-        if (match) {
-          resposta = `${match[1]} vias`;
+        const linhasCliente = historico
+          .split('\n')
+          .filter((l) => l.startsWith('Cliente:'))
+          .map((l) => l.replace(/^Cliente:\s*/i, '').trim())
+          .reverse();
+
+        const ultimaAssistenteNormalizada = ultimaAssistente
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+
+        for (const linha of linhasCliente) {
+          const ll = linha
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+          const explicito = ll.match(/\b(\d{1,2})\s*vias?\b/i);
+          if (explicito) {
+            resposta = `${explicito[1]} vias`;
+            break;
+          }
+
+          // Só aceita número solto se a pergunta anterior do bot era sobre vias.
+          if (
+            ultimaAssistenteNormalizada.includes('vias') &&
+            /^\d{1,2}$/.test(linha.trim())
+          ) {
+            resposta = `${linha.trim()} vias`;
+            break;
+          }
         }
       }
 
@@ -598,7 +719,45 @@ export class EntityExtractionService {
     produtoTravado?: string | null
   ): PedidoEntities {
     // Produto: prioridade ao travado na sessão; senão o que o LLM identificou.
-    const nomeProduto = produtoTravado || llm.produtoIdentificado || null;
+const produtoExtraidoDasSpecs = (() => {
+  const specsTexto = Object.values(llm.specs || {})
+    .filter((v) => v !== null && v !== undefined)
+    .map((v) => String(v))
+    .join(' ');
+
+  if (!specsTexto.trim()) return null;
+
+  const normalizarBusca = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const alvo = normalizarBusca(specsTexto);
+
+  const encontrado = this.catalogo.find((c) => {
+    const produtoCatalogo = normalizarBusca(c.produto);
+
+    return (
+      alvo.includes(produtoCatalogo) ||
+      produtoCatalogo.includes(alvo) ||
+      (alvo.includes('cartao') && produtoCatalogo.includes('cartao')) ||
+      (alvo.includes('cartoes') && produtoCatalogo.includes('cartao')) ||
+      (alvo.includes('panfleto') && produtoCatalogo.includes('panfleto')) ||
+      (alvo.includes('banner') && produtoCatalogo.includes('banner')) ||
+      (alvo.includes('lona') && produtoCatalogo.includes('banner')) ||
+      (alvo.includes('apostila') && produtoCatalogo.includes('apostila')) ||
+      (alvo.includes('bloco') && produtoCatalogo.includes('bloco'))
+    );
+  });
+
+  return encontrado?.produto ?? null;
+})();
+
+const nomeProduto = produtoTravado || llm.produtoIdentificado || produtoExtraidoDasSpecs || null;
     const normalizar = (s: string) =>
       s
         .toLowerCase()

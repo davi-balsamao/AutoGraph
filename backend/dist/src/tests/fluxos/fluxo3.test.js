@@ -1,41 +1,46 @@
 "use strict";
 /**
- * Fluxo 3 · Arquivo em JPEG (validação técnica fica com a recepcionista)
+ * Fluxo 3 · Arquivo em JPEG
  *
- * Realinhado ao contrato do validar-arquivo.md (Fase 5):
- *   - Bot NÃO valida DPI/resolução/sangria — isso é responsabilidade da recepcionista
- *     no momento da revisão da O.S.
- *   - Cliente diz que tem o arquivo (em qualquer formato aceito) → bot aceita e segue.
- *   - A jornada original (rejeitar 72 dpi → reenviar 300 dpi) testava uma feature
- *     que nunca foi implementada e contradiz o .md (linhas 8-9).
+ * Bot aceita arquivo em JPEG e encaminha o orçamento para aprovação admin.
+ * A validação técnica fina fica com a recepcionista/admin.
  *
- * Estados: Boas-vindas → Identificar → Coletar specs → Validar arq. ✓ →
- *          Calcular → Apresentar → Aguardar aprov. → Dados entrega →
- *          Confirmar → Gerar O.S. → Encerrar
+ * Estados:
+ * Boas-vindas → Identificar → Coletar specs → Validar arquivo →
+ * AGUARDAR_APROVACAO_ADMIN
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 const helpers_1 = require("./helpers");
 const PHONE = (0, helpers_1.uniquePhone)(3);
 const NAME = 'Carla Teste F3';
 describe('Fluxo 3 · Arquivo em JPEG — recepcionista valida técnico depois', () => {
-    beforeAll(async () => { await (0, helpers_1.cleanupUser)(PHONE); });
-    afterAll(async () => { await (0, helpers_1.cleanupUser)(PHONE); });
-    it('deve aceitar arquivo em JPEG e seguir até a O.S. (recepcionista revisa)', async () => {
+    beforeAll(async () => {
+        await (0, helpers_1.cleanupUser)(PHONE);
+    });
+    afterAll(async () => {
+        await (0, helpers_1.cleanupUser)(PHONE);
+    });
+    it('deve aceitar arquivo em JPEG e seguir para aprovação admin', async () => {
         await (0, helpers_1.turno)(PHONE, NAME, 'Olá! Quero fazer panfletos para um evento.', 'IDENTIFICAR_NECESSIDADE', 'Boas-vindas');
         await (0, helpers_1.turno)(PHONE, NAME, 'Preciso de panfletos para divulgar um show.', 'COLETAR_ESPECIFICACOES', 'Identificar');
         await (0, helpers_1.turno)(PHONE, NAME, '500 unidades, tamanho A5, só frente colorida, papel couchê 90g.', 'VALIDAR_ARQUIVO', 'Coletar specs');
-        // Cliente confirma que tem o arquivo (em JPEG). Bot aceita per .md — a validação
-        // técnica (DPI, sangria, dimensões) é responsabilidade da recepcionista.
-        await (0, helpers_1.turno)(PHONE, NAME, 'Tenho o arquivo pronto em JPEG.', 'AGUARDAR_APROVACAO', 'Validar arq. → chain Calcular → Apresentar', 30_000);
-        await (0, helpers_1.turno)(PHONE, NAME, 'Aprovado! Pode continuar.', 'COLETAR_DADOS_ENTREGA', 'Aguardar aprov.');
-        await (0, helpers_1.turno)(PHONE, NAME, 'Vou retirar na loja.', 'CONFIRMAR_PEDIDO', 'Dados entrega');
-        await (0, helpers_1.turno)(PHONE, NAME, 'Confirmo o pedido.', 'ENCERRAR', 'Confirmar → chain Gerar O.S.', 30_000);
-        const os = await (0, helpers_1.getLastOS)(PHONE);
-        expect(os).not.toBeNull();
-        // Fase 2: observações ficam vazias por padrão — recepcionista preenche durante revisão.
-        expect(os.observacoes ?? '').toBe('');
-        await (0, helpers_1.turno)(PHONE, NAME, 'Obrigada! Até logo.', 'ENCERRAR', 'Encerrar');
-    }, 130_000);
+        /**
+         * Ao confirmar a arte, a FSM pode pausar sem resposta nova.
+         * Então validamos o estado diretamente.
+         */
+        await (0, helpers_1.sendMsg)(PHONE, NAME, 'Tenho o arquivo pronto em JPEG.');
+        await (0, helpers_1.wait)(30_000);
+        const stateAprovacaoAdmin = await (0, helpers_1.getSessionState)(PHONE);
+        const ctxAposCalculo = await (0, helpers_1.getSessionContext)(PHONE);
+        console.log('\n[Validar arq. → chain Calcular → aprovação admin]');
+        console.log('  Cliente: "Tenho o arquivo pronto em JPEG."');
+        console.log(`  Estado : ${stateAprovacaoAdmin}  (esperado: AGUARDAR_APROVACAO_ADMIN)`);
+        console.log('  Proposta pendente:', JSON.stringify(ctxAposCalculo?.propostaPendente, null, 2));
+        expect(stateAprovacaoAdmin).toBe('AGUARDAR_APROVACAO_ADMIN');
+        expect(ctxAposCalculo?.propostaPendente).toBeTruthy();
+        expect(ctxAposCalculo?.propostaPendente?.orcamento?.total).toBeGreaterThan(0);
+        await (0, helpers_1.turno)(PHONE, NAME, 'Pode calcular o orçamento.', 'AGUARDAR_APROVACAO_ADMIN', 'Follow-up enquanto aguarda admin', 30_000);
+    }, 100_000);
     it('deve ignorar mensagem duplicada (retry da Meta)', async () => {
         const msgId = `wamid.dup_f3_${Date.now()}`;
         await (0, helpers_1.sendMsg)(PHONE, NAME, 'Retry test', msgId);
