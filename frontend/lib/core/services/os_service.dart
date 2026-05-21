@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/ordem_servico.dart';
+import 'auth_service.dart';
 
 class OsServiceException implements Exception {
   final String message;
@@ -29,7 +30,7 @@ class OsService {
   Future<List<OrdemServico>> fetchOrdensServico({StatusOS? status}) async {
     try {
       final uri = Uri.parse('$baseUrl/os${status != null ? '?status=${status.value}' : ''}');
-      final response = await http.get(uri);
+      final response = await http.get(uri, headers: AuthService().authHeaders);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);

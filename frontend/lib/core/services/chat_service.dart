@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../models/chat_message.dart';
+import 'auth_service.dart';
 
 enum PropostaEventTipo { pendente, atualizada, aprovada, rejeitada, cancelada }
 
@@ -69,9 +70,12 @@ class ChatService {
   void _initSocket() {
     const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
 
+    final token = AuthService().token;
     _socket = io.io(serverUrl, io.OptionBuilder()
       .setTransports(['websocket'])
       .enableAutoConnect()
+      .setExtraHeaders(
+        token != null ? {'authorization': 'Bearer $token'} : {})
       .build());
 
     _socket.onConnect((_) {

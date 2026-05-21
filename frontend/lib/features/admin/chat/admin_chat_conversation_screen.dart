@@ -252,7 +252,9 @@ class _AdminChatConversationScreenState
                 itemCount: _messages.length,
                 itemBuilder: (ctx, i) {
                   final m = _messages[i];
+                  // Agente e admin ficam à direita; cliente à esquerda
                   final isOut = m.isFromAdmin ||
+                      m.isFromRAG ||
                       m.senderId == AuthService().currentUser?.id;
                   return _AdminChatBubble(
                     message: m,

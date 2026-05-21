@@ -97,7 +97,14 @@ class _CustomerLoginScreenState extends State<CustomerLoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _CircleButton(
-                            onTap: () => Navigator.maybePop(context),
+                            onTap: () {
+                              if (Navigator.canPop(context)) {
+                                Navigator.pop(context);
+                              } else {
+                                Navigator.pushReplacementNamed(
+                                    context, AppRoutes.landing);
+                              }
+                            },
                             child: Icon(Icons.arrow_back_rounded,
                                 size: 16, color: textColor),
                           ),

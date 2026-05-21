@@ -23,11 +23,17 @@ class KanbanCard extends StatelessWidget {
     return AdmBadgeStyle.gray;
   }
 
+  /// OSs em AGUARDANDO_APROVACAO são criadas pelo agente e não podem
+  /// ser movidas manualmente pelo admin — só o sistema pode avançar.
+  bool get _isLocked => os.status == StatusOS.aguardandoOrcamento;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AGColors.canvasDark : AGColors.canvas;
-    final borderColor = isDark ? AGColors.hairlineDark : AGColors.hairline;
+    final borderColor = _isLocked
+        ? AGColors.warningText.withValues(alpha: 0.4)
+        : (isDark ? AGColors.hairlineDark : AGColors.hairline);
     final textColor = isDark ? AGColors.onDark : AGColors.ink;
     final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
 
@@ -36,7 +42,7 @@ class KanbanCard extends StatelessWidget {
     final total = os.especificacoes['totalEstimado'] as double?;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: _isLocked ? null : onTap, // OS em aguardo não abre detalhes
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
@@ -59,14 +65,29 @@ class KanbanCard extends StatelessWidget {
                     fontSize: 11, color: mutedColor),
                 ),
                 const Spacer(),
-                // Indicador prioridade
-                Container(
-                  width: 8, height: 8,
-                  decoration: const BoxDecoration(
-                    color: AGColors.accentOrange,
-                    shape: BoxShape.circle,
+                // Badge bloqueado (aguardando aprovação do cliente)
+                if (_isLocked) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AGColors.warningBg,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text('🔒 AGUARDANDO',
+                        style: GoogleFonts.inter(
+                          fontSize: 8, fontWeight: FontWeight.w700,
+                          color: AGColors.warningText, letterSpacing: 0.3)),
                   ),
-                ),
+                ] else ...[
+                  // Indicador prioridade
+                  Container(
+                    width: 8, height: 8,
+                    decoration: const BoxDecoration(
+                      color: AGColors.accentOrange,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
               ],
             ),
 

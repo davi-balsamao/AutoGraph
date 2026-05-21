@@ -41,12 +41,14 @@ class _AdminShellState extends State<AdminShell> {
         children: [
           IndexedStack(
             index: _index,
-            children: const [
-              AdminDashboardScreen(),
-              KanbanScreen(),
-              AdminChatListScreen(),
-              AdminOrdersScreen(),
-              AdminMoreScreen(),
+            children: [
+              AdminDashboardScreen(
+                onViewKanban: () => setState(() => _currentTab = AdminTab.oss),
+              ),
+              const KanbanScreen(),
+              const AdminChatListScreen(),
+              const AdminOrdersScreen(),
+              const AdminMoreScreen(),
             ],
           ),
 

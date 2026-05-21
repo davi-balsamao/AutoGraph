@@ -136,27 +136,26 @@ class AdminMoreScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AGRadius.xl - 4),
                 border: Border.all(color: borderColor),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('☀️', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Aparência',
-                            style: GoogleFonts.inter(
-                              fontSize: 14, fontWeight: FontWeight.w600,
-                              color: textColor,
-                            )),
-                        Text(
-                          isDark ? 'Atual: Escuro' : 'Atual: Claro',
+                  Row(
+                    children: [
+                      const Text('☀️', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 10),
+                      Text('Aparência',
                           style: GoogleFonts.inter(
-                              fontSize: 11, color: mutedColor),
-                        ),
-                      ],
-                    ),
+                            fontSize: 14, fontWeight: FontWeight.w600,
+                            color: textColor,
+                          )),
+                      const SizedBox(width: 6),
+                      Text(
+                        isDark ? '· Escuro' : '· Claro',
+                        style: GoogleFonts.inter(fontSize: 11, color: mutedColor),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 10),
                   const ThemeToggleSwitch(),
                 ],
               ),

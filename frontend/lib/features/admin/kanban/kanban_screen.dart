@@ -7,7 +7,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
+import 'dart:async';
 import '../../../core/services/os_service.dart';
+import '../../../core/services/chat_service.dart';
 import '../../../core/models/ordem_servico.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
@@ -23,6 +25,7 @@ class KanbanScreen extends StatefulWidget {
 class _KanbanScreenState extends State<KanbanScreen> {
   List<OrdemServico> _all = [];
   bool _loading = true;
+  StreamSubscription<OsEvent>? _osSub;
 
   static const _statusTabs = [
     (StatusOS.aguardandoOrcamento, 'Aguard.'),
@@ -47,6 +50,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
   void initState() {
     super.initState();
     _load();
+    // Listener real-time: recarrega quando nova OS chega via Socket.io
+    _osSub = ChatService().osEventStream.listen((event) {
+      if (event.tipo == OsEventTipo.nova) _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _osSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {

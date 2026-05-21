@@ -15,9 +15,18 @@ class AuthService extends ChangeNotifier {
   AuthService._();
 
   UserModel? _currentUser;
+  String? _token;
+
   UserModel? get currentUser => _currentUser;
+  String? get token => _token;
   bool get isLoggedIn => _currentUser != null;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
+
+  /// Headers com JWT para todos os requests HTTP autenticados.
+  Map<String, String> get authHeaders => {
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+  };
 
   String get baseUrl {
     if (kIsWeb) return 'http://localhost:3000/api';
@@ -41,7 +50,8 @@ class AuthService extends ChangeNotifier {
         final data = jsonDecode(response.body);
         final user = UserModel.fromJson(data['user']);
         _currentUser = user;
-        await _persistSession(user);
+        _token = data['token'] as String?;
+        await _persistSession(user, token: _token);
         
         // Sincronizar Token do FCM ao fazer Login
         PushNotificationService().syncTokenWithBackend();
@@ -133,10 +143,11 @@ class AuthService extends ChangeNotifier {
 
     try {
       _currentUser = UserModel.fromJson(jsonDecode(json));
-      
+      _token = prefs.getString('autograph_token');
+
       // Sincronizar Token do FCM ao restaurar Sessão
       PushNotificationService().syncTokenWithBackend();
-      
+
       notifyListeners();
       return true;
     } catch (_) {
@@ -147,8 +158,10 @@ class AuthService extends ChangeNotifier {
   /// Encerra a sessão.
   Future<void> logout() async {
     _currentUser = null;
+    _token = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('autograph_user');
+    await prefs.remove('autograph_token');
     notifyListeners();
   }
 
@@ -225,9 +238,12 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> _persistSession(UserModel user) async {
+  Future<void> _persistSession(UserModel user, {String? token}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('autograph_user', jsonEncode(user.toJson()));
+    if (token != null) {
+      await prefs.setString('autograph_token', token);
+    }
   }
 }
 

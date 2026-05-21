@@ -11,7 +11,8 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
-  const AdminDashboardScreen({super.key});
+  final VoidCallback? onViewKanban;
+  const AdminDashboardScreen({super.key, this.onViewKanban});
 
   @override
   Widget build(BuildContext context) {
@@ -268,6 +269,7 @@ class AdminDashboardScreen extends StatelessWidget {
                             color: textColor,
                           )),
                       GestureDetector(
+                        onTap: onViewKanban,
                         child: Text(
                           'Ver Kanban →',
                           style: GoogleFonts.inter(
