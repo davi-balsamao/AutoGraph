@@ -340,6 +340,9 @@ class _AdminChatBubble extends StatelessWidget {
     final textIn = isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
     final metaColor = const Color(0xFF667781);
 
+    // Declarar isAgent ANTES de usar
+    final isAgent = message.isFromRAG;
+
     // Agente: verde igual ao outgoing; humano recebido: branco/dark
     final bg = isAgent
         ? (isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3))
@@ -362,9 +365,6 @@ class _AdminChatBubble extends StatelessWidget {
 
     final hour =
         '${message.timestamp.hour.toString().padLeft(2, '0')}:${message.timestamp.minute.toString().padLeft(2, '0')}';
-
-    // Badge agente
-    final isAgent = message.isFromRAG;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
