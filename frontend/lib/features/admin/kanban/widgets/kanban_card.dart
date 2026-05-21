@@ -23,8 +23,6 @@ class KanbanCard extends StatelessWidget {
     return AdmBadgeStyle.gray;
   }
 
-  /// OSs em AGUARDANDO_APROVACAO são criadas pelo agente e não podem
-  /// ser movidas manualmente pelo admin — só o sistema pode avançar.
   bool get _isLocked => os.status == StatusOS.aguardandoOrcamento;
 
   @override
@@ -37,12 +35,13 @@ class KanbanCard extends StatelessWidget {
     final textColor = isDark ? AGColors.onDark : AGColors.ink;
     final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
 
-    final produto = os.especificacoes['produtoNome'] as String? ?? 'Produto';
+    final produto = (os.especificacoes['produtoNome'] ?? os.especificacoes['produto']) as String? ?? 'Produto';
     final cliente = os.clienteNome ?? 'Cliente';
-    final total = os.especificacoes['totalEstimado'] as double?;
+    final orcamento = os.especificacoes['orcamento'] as Map?;
+    final total = (orcamento?['total'] as num?)?.toDouble();
 
     return GestureDetector(
-      onTap: _isLocked ? null : onTap, // OS em aguardo não abre detalhes
+      onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),

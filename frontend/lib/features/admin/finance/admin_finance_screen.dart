@@ -78,39 +78,23 @@ class AdminFinanceScreen extends StatelessWidget {
                           color: AGColors.brandGreen,
                         )),
                     const SizedBox(height: 4),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('R\$ 28.140',
-                            style: GoogleFonts.inter(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              letterSpacing: -0.5,
-                            )),
-                        Text(',40',
-                            style: GoogleFonts.inter(
-                                fontSize: 18, color: Colors.white)),
-                      ],
-                    ),
+                    Text('R\$ —',
+                        style: GoogleFonts.inter(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        )),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.arrow_upward_rounded,
-                            size: 12, color: AGColors.brandGreen),
-                        Text('12,8% vs. abril',
-                            style: GoogleFonts.inter(
-                                fontSize: 11, color: AGColors.muted)),
-                      ],
-                    ),
+                    Text('Módulo financeiro em breve',
+                        style: GoogleFonts.inter(
+                            fontSize: 11, color: AGColors.muted)),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        _LegendItem('● Recebido', 'R\$ 24.310',
-                            AGColors.brandGreen),
+                        _LegendItem('● Recebido', '—', AGColors.brandGreen),
                         const SizedBox(width: 20),
-                        _LegendItem('● A receber', 'R\$ 3.830',
-                            AGColors.accentOrange),
+                        _LegendItem('● A receber', '—', AGColors.accentOrange),
                       ],
                     ),
                   ],
@@ -127,8 +111,8 @@ class AdminFinanceScreen extends StatelessWidget {
               Expanded(
                 child: _InfoCard(
                   label: 'CUSTOS MÊS',
-                  value: 'R\$ 9.840',
-                  sub: 'Insumos · R\$ 5.420\nLogística · R\$ 1.840',
+                  value: '—',
+                  sub: 'sem dados',
                   cardBg: cardBg,
                   borderColor: borderColor,
                   textColor: textColor,
@@ -139,8 +123,8 @@ class AdminFinanceScreen extends StatelessWidget {
               Expanded(
                 child: _InfoCard(
                   label: 'MARGEM LÍQUIDA',
-                  value: '65,0%',
-                  sub: 'R\$ 18.300 lucro',
+                  value: '—',
+                  sub: 'sem dados',
                   cardBg: cardBg,
                   borderColor: borderColor,
                   textColor: textColor,
@@ -153,92 +137,29 @@ class AdminFinanceScreen extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // ── Fluxo de caixa (placeholder chart)
+          // ── Gráficos — sem dados reais ainda
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: cardBg,
               borderRadius: BorderRadius.circular(AGRadius.xl - 4),
               border: Border.all(color: borderColor),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Fluxo de caixa',
+                Icon(Icons.bar_chart_rounded, size: 36, color: AGColors.stone),
+                const SizedBox(height: 8),
+                Text('Gráficos disponíveis em breve',
                     style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    )),
-                Text('Últimos 6 meses',
-                    style: GoogleFonts.inter(
-                        fontSize: 11, color: mutedColor)),
-                const SizedBox(height: 16),
-                _MiniBarChart(isDark: isDark),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _LegendItem('● Receita', '', AGColors.brandGreen),
-                    const SizedBox(width: 16),
-                    _LegendItem('● Custos', '', AGColors.accentOrange),
-                  ],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: textColor)),
+                const SizedBox(height: 4),
+                Text(
+                  'O módulo financeiro será integrado\nquando o tracking de caixa estiver ativo.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(fontSize: 11, color: mutedColor, height: 1.5),
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ── Por método (placeholder)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(AGRadius.xl - 4),
-              border: Border.all(color: borderColor),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Por método',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    )),
-                const SizedBox(height: 12),
-                ...['Pix', 'Cartão', 'Boleto'].map((m) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Text(m,
-                          style: GoogleFonts.inter(
-                              fontSize: 13, color: textColor)),
-                      const Spacer(),
-                      Container(
-                        width: 120, height: 6,
-                        decoration: BoxDecoration(
-                          color: surfaceBg,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: m == 'Pix'
-                              ? 0.6
-                              : m == 'Cartão'
-                                  ? 0.3
-                                  : 0.1,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: AGColors.brandGreen,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
               ],
             ),
           ),

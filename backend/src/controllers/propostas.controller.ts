@@ -60,6 +60,7 @@ export class PropostasController {
           return {
             sessaoId: s.id,
             clienteId: s.clienteId,
+            osId: ctx.osId ?? null,
             cliente: {
               id: s.cliente.id,
               nome: s.cliente.nome,

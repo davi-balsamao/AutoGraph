@@ -3,6 +3,7 @@ import { conversasController } from '../controllers/conversas.controller';
 
 const conversasRoutes = Router();
 
+conversasRoutes.get('/', conversasController.list);
 conversasRoutes.get('/:userId/status', conversasController.status);
 conversasRoutes.get('/:userId/mensagens', conversasController.mensagens);
 conversasRoutes.post('/:userId/assumir', conversasController.assumir);

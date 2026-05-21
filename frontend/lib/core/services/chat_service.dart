@@ -27,7 +27,7 @@ class ConversaEvent {
   ConversaEvent(this.tipo, this.clienteId, {this.telefone, this.clienteNome, this.estadoRestaurado});
 }
 
-enum OsEventTipo { nova }
+enum OsEventTipo { nova, atualizada }
 
 class OsEvent {
   final OsEventTipo tipo;
@@ -149,13 +149,23 @@ class ChatService {
       } catch (_) {}
     });
 
-    _socket.on('nova-os', (data) {
+    _socket.on('os-nova', (data) {
       try {
         final map = Map<String, dynamic>.from(data as Map);
         final osId = map['id']?.toString() ?? '';
         _osStreamController.add(OsEvent(OsEventTipo.nova, osId, map));
       } catch (e) {
-        debugPrint('❌ [SOCKET FRONTEND] nova-os parse: $e');
+        debugPrint('❌ [SOCKET FRONTEND] os-nova parse: $e');
+      }
+    });
+
+    _socket.on('os-atualizada', (data) {
+      try {
+        final map = Map<String, dynamic>.from(data as Map);
+        final osId = map['id']?.toString() ?? '';
+        _osStreamController.add(OsEvent(OsEventTipo.atualizada, osId, map));
+      } catch (e) {
+        debugPrint('❌ [SOCKET FRONTEND] os-atualizada parse: $e');
       }
     });
   }

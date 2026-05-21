@@ -1,6 +1,8 @@
 import { OsRepository } from '../../repositories/os.repository';
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationContext, ConversationState, SessaoRecord } from '../states';
+import { io } from '../../server';
+import { StatusOS } from '@prisma/client';
 
 const osRepo = new OsRepository();
 
@@ -41,14 +43,22 @@ export class GerarOsHandler implements StateHandler {
 
     const mensagemSugerida = montarMensagemSugerida(deps.clienteNome, context);
 
-    // Fase 2: observações ficam vazias por padrão. A validação técnica da arte
-    // (DPI, sangria, formato) é responsabilidade da recepcionista no momento
-    // da revisão da O.S. — conforme validar-arquivo.md:3.
-    const os = await osRepo.create({
-      clienteId: sessao.clienteId,
-      especificacoes,
-      mensagem_sugerida: mensagemSugerida,
-    } as Parameters<typeof osRepo.create>[0]);
+    let os;
+    if (context.osId) {
+      // Caminho normal: OS foi criada em AGUARDAR_APROVACAO_ADMIN — atualiza em vez de criar nova
+      await osRepo.updateData(context.osId, { especificacoes, mensagem_sugerida: mensagemSugerida });
+      os = await osRepo.updateStatus(context.osId, StatusOS.APROVADO);
+      io.emit('os-atualizada', os);
+    } else {
+      // Fallback: sessões iniciadas sem ADMIN_APPROVAL_REQUIRED — cria OS agora
+      os = await osRepo.create({
+        clienteId: sessao.clienteId,
+        especificacoes,
+        mensagem_sugerida: mensagemSugerida,
+        status: StatusOS.APROVADO,
+      } as Parameters<typeof osRepo.create>[0]);
+      io.emit('os-nova', os);
+    }
 
     context.osId = os.id;
 

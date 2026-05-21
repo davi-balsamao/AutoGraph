@@ -2,6 +2,7 @@
 enum StatusOS {
   criada('CRIADA', 'Criada'),
   aguardandoOrcamento('AGUARDANDO_ORCAMENTO', 'Aguardando Orçamento'),
+  aprovado('APROVADO', 'Aprovado'),
   emProducao('EM_PRODUCAO', 'Em Produção'),
   prontaParaRetirada('PRONTA_PARA_RETIRADA', 'Pronta para Retirada'),
   entregue('ENTREGUE', 'Entregue'),

@@ -29,7 +29,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   static const _statusTabs = [
     (StatusOS.aguardandoOrcamento, 'Aguard.'),
-    (StatusOS.emProducao,          'Aprov.'),   // usando emProducao como proxy
+    (StatusOS.aprovado,            'Aprov.'),
     (StatusOS.emProducao,          'Progresso'),
     (StatusOS.entregue,            'Revisão'),
     (StatusOS.entregue,            'Concl.'),
@@ -50,9 +50,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
   void initState() {
     super.initState();
     _load();
-    // Listener real-time: recarrega quando nova OS chega via Socket.io
+    // Listener real-time: recarrega quando nova OS chega ou é atualizada via Socket.io
     _osSub = ChatService().osEventStream.listen((event) {
-      if (event.tipo == OsEventTipo.nova) _load();
+      if (event.tipo == OsEventTipo.nova || event.tipo == OsEventTipo.atualizada) _load();
     });
   }
 

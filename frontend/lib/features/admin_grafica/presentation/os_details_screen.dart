@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import '../../../core/models/ordem_servico.dart';
+import '../../../core/services/auth_service.dart';
 import '../../../core/services/os_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/theme/app_theme.dart';
@@ -21,18 +23,33 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   late TextEditingController _specsController;
   late TextEditingController _obsController;
   late TextEditingController _artUrlController;
+  late TextEditingController _totalCtrl;
+  late TextEditingController _prazoCtrl;
+
   bool _isSaving = false;
+  bool _isApproving = false;
+  bool _isRejecting = false;
+  String? _sessaoId;
+
+  bool get _isPendingReview => widget.os.status == StatusOS.aguardandoOrcamento;
 
   @override
   void initState() {
     super.initState();
-    // Preparar JSON das especificações
     final specsCopy = Map<String, dynamic>.from(widget.os.especificacoes);
     final artUrl = specsCopy.remove('arte_url') as String? ?? '';
 
-    _specsController = TextEditingController(text: const JsonEncoder.withIndent('  ').convert(specsCopy));
+    _specsController = TextEditingController(
+        text: const JsonEncoder.withIndent('  ').convert(specsCopy));
     _obsController = TextEditingController(text: widget.os.observacoes ?? '');
     _artUrlController = TextEditingController(text: artUrl);
+
+    final orcamento = (widget.os.especificacoes['orcamento'] as Map?) ?? {};
+    _totalCtrl = TextEditingController(text: '${orcamento['total'] ?? ''}');
+    _prazoCtrl = TextEditingController(
+        text: '${orcamento['prazo'] ?? '3 dias úteis'}');
+
+    if (_isPendingReview) _loadSessaoId();
   }
 
   @override
@@ -40,30 +57,110 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
     _specsController.dispose();
     _obsController.dispose();
     _artUrlController.dispose();
+    _totalCtrl.dispose();
+    _prazoCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSessaoId() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${AuthService().baseUrl}/propostas'),
+        headers: AuthService().authHeaders,
+      );
+      if (res.statusCode == 200 && mounted) {
+        final List<dynamic> data = jsonDecode(res.body);
+        final match = data.cast<Map<String, dynamic>>().firstWhere(
+              (p) => p['osId'] == widget.os.id,
+              orElse: () => {},
+            );
+        if (match.isNotEmpty) {
+          setState(() => _sessaoId = match['sessaoId'] as String?);
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _saveData() async {
     setState(() => _isSaving = true);
     try {
       final specsMap = jsonDecode(_specsController.text) as Map<String, dynamic>;
-      
-      // Adiciona a arte de volta nas especificações, se houver
       if (_artUrlController.text.trim().isNotEmpty) {
         specsMap['arte_url'] = _artUrlController.text.trim();
       }
-
       await OsService().updateOS(
         widget.os.id,
         especificacoes: specsMap,
         observacoes: _obsController.text.trim(),
       );
-      
       if (mounted) SnackbarUtil.showSuccess(context, 'Dados salvos com sucesso!');
     } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Erro ao salvar: O JSON pode estar inválido.');
+      if (mounted) SnackbarUtil.showError(context, 'Erro ao salvar: JSON pode estar inválido.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _aprovar() async {
+    if (_sessaoId == null) return;
+    setState(() => _isApproving = true);
+    try {
+      final novoTotal = double.tryParse(_totalCtrl.text.replaceAll(',', '.'));
+      final novoPrazo = _prazoCtrl.text.trim();
+
+      // Salva edições de orçamento antes de aprovar
+      if (novoTotal != null || novoPrazo.isNotEmpty) {
+        await http.patch(
+          Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId'),
+          headers: AuthService().authHeaders,
+          body: jsonEncode({
+            'proposta': {
+              'orcamento': {
+                if (novoTotal != null) 'total': novoTotal,
+                if (novoPrazo.isNotEmpty) 'prazo': novoPrazo,
+              }
+            }
+          }),
+        );
+      }
+
+      final res = await http.post(
+        Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId/aprovar'),
+        headers: AuthService().authHeaders,
+      );
+
+      if (res.statusCode == 200 && mounted) {
+        SnackbarUtil.showSuccess(context, 'Proposta aprovada! Orçamento enviado ao cliente.');
+        Navigator.maybePop(context);
+      } else if (mounted) {
+        SnackbarUtil.showError(context, 'Erro ao aprovar: ${res.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) SnackbarUtil.showError(context, 'Falha ao aprovar: $e');
+    } finally {
+      if (mounted) setState(() => _isApproving = false);
+    }
+  }
+
+  Future<void> _rejeitar() async {
+    if (_sessaoId == null) return;
+    setState(() => _isRejecting = true);
+    try {
+      final res = await http.post(
+        Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId/rejeitar'),
+        headers: AuthService().authHeaders,
+        body: jsonEncode({'motivo': 'Rejeitado pelo admin'}),
+      );
+      if (res.statusCode == 200 && mounted) {
+        SnackbarUtil.showSuccess(context, 'Proposta rejeitada. Sessão escalada para atendimento humano.');
+        Navigator.maybePop(context);
+      } else if (mounted) {
+        SnackbarUtil.showError(context, 'Erro ao rejeitar: ${res.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) SnackbarUtil.showError(context, 'Falha ao rejeitar: $e');
+    } finally {
+      if (mounted) setState(() => _isRejecting = false);
     }
   }
 
@@ -76,16 +173,31 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('ORDER DETAILS', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: cs.onSurface.withValues(alpha: 0.5))),
+        title: Text(
+          'DETALHES DA OS',
+          style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              color: cs.onSurface.withValues(alpha: 0.5)),
+        ),
         actions: [
-          _isSaving 
-            ? const Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
-            : TextButton.icon(
-                onPressed: _saveData,
-                icon: const Icon(Icons.check, size: 18),
-                label: const Text('SAVE CHANGES'),
-                style: TextButton.styleFrom(foregroundColor: brandGreen, textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              ),
+          _isSaving
+              ? const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2)))
+              : TextButton.icon(
+                  onPressed: _saveData,
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('SALVAR'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: brandGreen,
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
         ],
       ),
       body: SingleChildScrollView(
@@ -93,14 +205,17 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Badge and ID
+            // ── ID + status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
                     'OS #${widget.os.id.split('-').last.toUpperCase()}',
-                    style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: cs.onSurface),
+                    style: GoogleFonts.outfit(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -110,32 +225,37 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                   decoration: BoxDecoration(
                     color: _getStatusColor(widget.os.status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: _getStatusColor(widget.os.status).withValues(alpha: 0.5)),
+                    border: Border.all(
+                        color: _getStatusColor(widget.os.status).withValues(alpha: 0.5)),
                   ),
                   child: Text(
                     widget.os.status.label.toUpperCase(),
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _getStatusColor(widget.os.status)),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _getStatusColor(widget.os.status)),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
+
+            // ── Botão chat com cliente
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AdminChatConversationScreen(
-                        clienteId: widget.os.clienteId,
-                        clienteNome: widget.os.clienteNome ?? 'Cliente',
-                      ),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AdminChatConversationScreen(
+                      clienteId: widget.os.clienteId,
+                      clienteNome: widget.os.clienteNome ?? 'Cliente',
+                      clienteTelefone: widget.os.clienteTelefone,
                     ),
-                  );
-                },
+                  ),
+                ),
                 icon: const Icon(Icons.chat_outlined),
-                label: const Text('CONVERSAR COM CLIENTE (WHATSAPP)'),
+                label: const Text('VER CONVERSA COM CLIENTE'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandGreen,
                   foregroundColor: AppColors.brandTealDeep,
@@ -144,11 +264,149 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const SizedBox(height: 32),
-            
-            // Core Information Grid
-            _SectionHeader(title: 'General Information'),
+            const SizedBox(height: 24),
+
+            // ── Seção Orçamento (editável quando aguardando revisão)
+            if (_isPendingReview) ...[
+              _SectionHeader(title: 'Orçamento da Proposta'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.brandGreenDark.withValues(alpha: 0.15)
+                      : AppColors.successLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppColors.brandGreen.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Edite o valor e prazo antes de aprovar:',
+                      style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.6)),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _totalCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              labelText: 'Valor Total (R\$)',
+                              labelStyle: const TextStyle(fontSize: 13),
+                              prefixText: 'R\$ ',
+                              fillColor: cs.surfaceContainerHighest,
+                              filled: true,
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _prazoCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'Prazo de entrega',
+                              labelStyle: const TextStyle(fontSize: 13),
+                              hintText: '3 dias úteis',
+                              fillColor: cs.surfaceContainerHighest,
+                              filled: true,
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Spec requisitos do cliente (leitura rápida)
+              _buildRequisitosList(cs),
+              const SizedBox(height: 24),
+              // Botões Aprovar / Recusar
+              if (_sessaoId != null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _isApproving || _isRejecting ? null : _aprovar,
+                        icon: _isApproving
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.check_circle_outline),
+                        label: const Text('APROVAR'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.brandGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _isApproving || _isRejecting ? null : _rejeitar,
+                        icon: _isRejecting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.cancel_outlined),
+                        label: const Text('RECUSAR'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Aprovar envia o orçamento ao cliente via WhatsApp.\nRecusar escala para atendimento humano.',
+                  style: GoogleFonts.outfit(
+                      fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                  textAlign: TextAlign.center,
+                ),
+              ] else
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Carregando dados da proposta…',
+                    style: GoogleFonts.outfit(
+                        fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              const SizedBox(height: 32),
+            ],
+
+            // ── Informações gerais
+            _SectionHeader(title: 'Informações Gerais'),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(20),
@@ -159,54 +417,65 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               ),
               child: Column(
                 children: [
-                   _InfoRow(label: 'Product', value: widget.os.produtoResumo),
-                  const Divider(height: 24),
-                  _InfoRow(label: 'Customer', value: widget.os.clienteNome ?? 'Not provided'),
-                  _InfoRow(label: 'Phone', value: widget.os.clienteTelefone ?? 'Not provided'),
+                  _InfoRow(label: 'Produto', value: widget.os.produtoResumo),
                   const Divider(height: 24),
                   _InfoRow(
-                    label: 'Delivery Type',
-                    value: widget.os.especificacoes['opcaoEntrega'] == 'entrega' ? 'Delivery (Entrega em Casa)' : 'Store Pickup (Retirada na Loja)',
+                      label: 'Cliente',
+                      value: widget.os.clienteNome ?? 'Não informado'),
+                  _InfoRow(
+                      label: 'Telefone',
+                      value: widget.os.clienteTelefone ?? 'Não informado'),
+                  const Divider(height: 24),
+                  _InfoRow(
+                    label: 'Entrega',
+                    value: widget.os.especificacoes['opcaoEntrega'] == 'entrega'
+                        ? 'Entrega em casa'
+                        : 'Retirada na loja',
                   ),
                   if (widget.os.especificacoes['opcaoEntrega'] == 'entrega') ...[
                     _InfoRow(
-                      label: 'Delivery Address',
-                      value: widget.os.especificacoes['enderecoEntrega'] ?? widget.os.clienteEnderecoCompleto ?? 'Not provided',
-                    ),
-                    _InfoRow(
-                      label: 'Reference Point',
-                      value: widget.os.especificacoes['referenciaEntrega'] ?? widget.os.clienteEnderecoReferencia ?? 'Not provided',
+                      label: 'Endereço',
+                      value: widget.os.especificacoes['enderecoEntrega'] ??
+                          widget.os.clienteEnderecoCompleto ??
+                          'Não informado',
                     ),
                   ],
                   const Divider(height: 24),
-                  _InfoRow(label: 'Created', value: dateFormat.format(widget.os.criadoEm)),
-                  _InfoRow(label: 'Last Update', value: dateFormat.format(widget.os.atualizadoEm)),
+                  _InfoRow(
+                      label: 'Criado em',
+                      value: dateFormat.format(widget.os.criadoEm)),
+                  _InfoRow(
+                      label: 'Atualizado',
+                      value: dateFormat.format(widget.os.atualizadoEm)),
                   if (widget.os.durationSeconds > 0) ...[
                     const Divider(height: 24),
-                    _InfoRow(label: 'Production Time', value: widget.os.durationFormatted),
+                    _InfoRow(
+                        label: 'Tempo produção',
+                        value: widget.os.durationFormatted),
                   ],
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 40),
-            _SectionHeader(title: 'Customer Assets'),
+            _SectionHeader(title: 'Arte do Cliente'),
             const SizedBox(height: 16),
             TextField(
               controller: _artUrlController,
               decoration: InputDecoration(
-                labelText: 'Artwork URL (Google Drive / Dropbox)',
+                labelText: 'URL da Arte (Google Drive / Dropbox)',
                 labelStyle: const TextStyle(fontSize: 13, color: AppColors.steel),
                 prefixIcon: const Icon(Icons.link, size: 20),
                 fillColor: cs.surfaceContainerHighest,
                 filled: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                enabledBorder:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
 
             const SizedBox(height: 40),
-            _SectionHeader(title: 'Technical Specifications (JSON)'),
+            _SectionHeader(title: 'Especificações Técnicas (JSON)'),
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
@@ -216,7 +485,10 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               child: TextField(
                 controller: _specsController,
                 maxLines: 8,
-                style: const TextStyle(fontFamily: 'Courier', fontSize: 13, color: AppColors.brandGreen),
+                style: const TextStyle(
+                    fontFamily: 'Courier',
+                    fontSize: 13,
+                    color: AppColors.brandGreen),
                 decoration: const InputDecoration(
                   contentPadding: EdgeInsets.all(16),
                   border: InputBorder.none,
@@ -227,48 +499,55 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             ),
 
             const SizedBox(height: 40),
-            _SectionHeader(title: 'Internal Observations'),
+            _SectionHeader(title: 'Observações Internas'),
             const SizedBox(height: 16),
             TextField(
               controller: _obsController,
               maxLines: 4,
               decoration: InputDecoration(
-                hintText: 'Add private notes for the production team...',
+                hintText: 'Notas privadas para a equipe de produção…',
                 fillColor: cs.surfaceContainerHighest,
                 filled: true,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                enabledBorder:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
 
-            if (widget.os.mensagemSugerida != null && widget.os.mensagemSugerida!.isNotEmpty) ...[
+            if (widget.os.mensagemSugerida != null &&
+                widget.os.mensagemSugerida!.isNotEmpty) ...[
               const SizedBox(height: 40),
-              _SectionHeader(title: 'AI Suggested Response'),
+              _SectionHeader(title: 'Resposta Sugerida pela IA'),
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDark ? AppColors.brandGreenDark.withValues(alpha: 0.25) : AppColors.successLight,
+                  color: isDark
+                      ? AppColors.brandGreenDark.withValues(alpha: 0.25)
+                      : AppColors.successLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.brandGreen.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: AppColors.brandGreen.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.auto_awesome, color: AppColors.brandGreenDark, size: 20),
+                    const Icon(Icons.auto_awesome,
+                        color: AppColors.brandGreenDark, size: 20),
                     const SizedBox(width: 16),
                     Expanded(
                       child: SelectableText(
                         widget.os.mensagemSugerida!,
-                        style: GoogleFonts.outfit(color: cs.onSurface, fontSize: 15, height: 1.5),
+                        style: GoogleFonts.outfit(
+                            color: cs.onSurface, fontSize: 15, height: 1.5),
                       ),
                     ),
                   ],
                 ),
               ),
             ],
-            
+
             const SizedBox(height: 80),
           ],
         ),
@@ -276,14 +555,85 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
     );
   }
 
+  Widget _buildRequisitosList(ColorScheme cs) {
+    final requisitos = widget.os.especificacoes['requisitos'];
+    if (requisitos == null) return const SizedBox.shrink();
+
+    List<Map<String, dynamic>> reqs = [];
+    if (requisitos is List) {
+      reqs = requisitos
+          .whereType<Map>()
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    }
+    if (reqs.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Especificações do pedido',
+              style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface.withValues(alpha: 0.5),
+                  letterSpacing: 0.5)),
+          const SizedBox(height: 10),
+          ...reqs.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '${r['pergunta'] ?? ''}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface.withValues(alpha: 0.55)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        '${r['resposta'] ?? '—'}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
   Color _getStatusColor(StatusOS status) {
     switch (status) {
-      case StatusOS.aguardandoOrcamento: return AppColors.orange;
-      case StatusOS.emProducao: return AppColors.purple;
-      case StatusOS.prontaParaRetirada: return AppColors.brandGreen;
-      case StatusOS.entregue: return AppColors.steel;
-      case StatusOS.cancelada: return Colors.red;
-      default: return AppColors.brandTeal;
+      case StatusOS.aguardandoOrcamento:
+        return AppColors.orange;
+      case StatusOS.aprovado:
+        return AppColors.brandGreen;
+      case StatusOS.emProducao:
+        return AppColors.purple;
+      case StatusOS.prontaParaRetirada:
+        return AppColors.brandGreen;
+      case StatusOS.entregue:
+        return AppColors.steel;
+      case StatusOS.cancelada:
+        return Colors.red;
+      default:
+        return AppColors.brandTeal;
     }
   }
 }
@@ -296,7 +646,12 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title.toUpperCase(),
-      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5), letterSpacing: 0.5),
+      style: GoogleFonts.outfit(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+        letterSpacing: 0.5,
+      ),
     );
   }
 }
@@ -318,13 +673,24 @@ class _InfoRow extends StatelessWidget {
             width: 120,
             child: Text(
               label,
-              style: TextStyle(fontWeight: FontWeight.w500, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 13),
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.55),
+                fontSize: 13,
+              ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 13,
+              ),
             ),
           ),
         ],

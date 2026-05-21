@@ -1,23 +1,26 @@
 // AdminChatConversationScreen — Conversa aberta do atendimento admin
 //
 // Referência: ClaudeDesign/components/admin-mobile-screens-c.jsx → AdmMobileChatConversation
-//
-// Reutiliza: ChatService() existente para mensagens real-time
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/chat_service.dart';
 import '../../../core/models/chat_message.dart';
 
 class AdminChatConversationScreen extends StatefulWidget {
   final String clienteNome;
   final String clienteId;
+  final String? clienteTelefone;
 
   const AdminChatConversationScreen({
     super.key,
     required this.clienteNome,
     required this.clienteId,
+    this.clienteTelefone,
   });
 
   @override
@@ -30,48 +33,72 @@ class _AdminChatConversationScreenState
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   final List<ChatMessage> _messages = [];
-  // _agentResponding controlado pelo botão Assumir — futuro: emit via Socket
+  bool _loading = true;
+  bool _atendimentoHumano = false;
+  StreamSubscription<ChatMessage>? _msgSub;
 
   @override
   void initState() {
     super.initState();
-    // Em produção: ChatService().listenToConversation(widget.clienteId)
-    _addMockMessages();
+    _loadMessages();
+    _msgSub = ChatService().messageStream.listen((msg) {
+      final id = widget.clienteId;
+      if (msg.senderId == id ||
+          msg.receiverId == id ||
+          msg.clienteDbId == id) {
+        if (mounted) {
+          setState(() => _messages.add(msg));
+          _scrollToBottom();
+        }
+      }
+    });
   }
 
-  void _addMockMessages() {
-    // Mensagens mockadas para visualização
-    setState(() {
-      _messages.addAll([
-        ChatMessage(
-          id: '1',
-          senderId: widget.clienteId,
-          receiverId: 'admin',
-          text: 'oi, queria 1000 panfletos pro evento de sábado',
-          type: MessageType.text,
-          timestamp: DateTime.now().subtract(const Duration(minutes: 10)),
-          isFromRAG: false,
-        ),
-        ChatMessage(
-          id: '2',
-          senderId: 'agent',
-          receiverId: widget.clienteId,
-          text: 'Boa tarde, Mariana! 👋 Aqui é o agente da Autograph. 1.000 panfletos pro sábado dá tempo sim.',
-          type: MessageType.text,
-          timestamp: DateTime.now().subtract(const Duration(minutes: 9)),
-          isFromRAG: true,
-        ),
-        ChatMessage(
-          id: '3',
-          senderId: widget.clienteId,
-          receiverId: 'admin',
-          text: 'A5 frente e verso, couché tá bom 👍',
-          type: MessageType.text,
-          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-          isFromRAG: false,
-        ),
-      ]);
-    });
+  @override
+  void dispose() {
+    _msgSub?.cancel();
+    _msgCtrl.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMessages() async {
+    try {
+      final msgs = await ChatService().getMessages(widget.clienteId);
+      if (mounted) {
+        setState(() {
+          _messages
+            ..clear()
+            ..addAll(msgs);
+          _loading = false;
+        });
+        _scrollToBottom();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _assumir() async {
+    try {
+      await http.post(
+        Uri.parse(
+            '${AuthService().baseUrl}/conversas/${widget.clienteId}/assumir'),
+        headers: AuthService().authHeaders,
+      );
+      if (mounted) setState(() => _atendimentoHumano = true);
+    } catch (_) {}
+  }
+
+  Future<void> _devolverIa() async {
+    try {
+      await http.post(
+        Uri.parse(
+            '${AuthService().baseUrl}/conversas/${widget.clienteId}/devolver-ia'),
+        headers: AuthService().authHeaders,
+      );
+      if (mounted) setState(() => _atendimentoHumano = false);
+    } catch (_) {}
   }
 
   Future<void> _sendMessage() async {
@@ -90,9 +117,11 @@ class _AdminChatConversationScreenState
       isFromRAG: false,
     );
 
-    setState(() => _messages.add(msg));
-    // Em produção: ChatService().sendMessage(widget.clienteId, text)
+    await ChatService().sendMessage(msg);
+    _scrollToBottom();
+  }
 
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
@@ -105,19 +134,18 @@ class _AdminChatConversationScreenState
   }
 
   @override
-  void dispose() {
-    _msgCtrl.dispose();
-    _scrollCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final headerBg = isDark ? const Color(0xFF1F2C33) : AGColors.brandTealDeep;
-    final chatBg = isDark ? const Color(0xFF0B141A) : const Color(0xFFEFEAE2);
-    final composerBg = isDark ? const Color(0xFF1F2C33) : const Color(0xFFF0F2F5);
+    final chatBg =
+        isDark ? const Color(0xFF0B141A) : const Color(0xFFEFEAE2);
+    final composerBg =
+        isDark ? const Color(0xFF1F2C33) : const Color(0xFFF0F2F5);
     final composerInput = isDark ? const Color(0xFF2A3942) : Colors.white;
+
+    final telefoneExibido = widget.clienteTelefone != null
+        ? '+${widget.clienteTelefone}'
+        : 'WhatsApp';
 
     return Scaffold(
       body: Column(
@@ -140,9 +168,9 @@ class _AdminChatConversationScreenState
                           color: Colors.white, size: 20),
                       onPressed: () => Navigator.maybePop(context),
                     ),
-                    // Avatar
                     Container(
-                      width: 36, height: 36,
+                      width: 36,
+                      height: 36,
                       decoration: const BoxDecoration(
                         color: AGColors.brandGreen,
                         shape: BoxShape.circle,
@@ -174,7 +202,7 @@ class _AdminChatConversationScreenState
                             ),
                           ),
                           Text(
-                            'Online · +55 11 8421-3344',
+                            telefoneExibido,
                             style: GoogleFonts.inter(
                                 fontSize: 11, color: AGColors.muted),
                           ),
@@ -186,7 +214,7 @@ class _AdminChatConversationScreenState
                   ],
                 ),
 
-                // ── Barra admin: badge + botão Assumir
+                // ── Barra admin: badge + botão Assumir/Devolver
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -201,10 +229,15 @@ class _AdminChatConversationScreenState
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('🤖', style: TextStyle(fontSize: 11)),
+                          Text(
+                            _atendimentoHumano ? '👤' : '🤖',
+                            style: const TextStyle(fontSize: 11),
+                          ),
                           const SizedBox(width: 5),
                           Text(
-                            'AGENTE RESPONDENDO',
+                            _atendimentoHumano
+                                ? 'VOCÊ RESPONDENDO'
+                                : 'AGENTE RESPONDENDO',
                             style: GoogleFonts.inter(
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
@@ -217,16 +250,20 @@ class _AdminChatConversationScreenState
                     ),
                     const Spacer(),
                     GestureDetector(
-                      onTap: () {},
+                      onTap:
+                          _atendimentoHumano ? _devolverIa : _assumir,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AGColors.brandGreen,
-                          borderRadius: BorderRadius.circular(AGRadius.full),
+                          color: _atendimentoHumano
+                              ? AGColors.accentOrange
+                              : AGColors.brandGreen,
+                          borderRadius:
+                              BorderRadius.circular(AGRadius.full),
                         ),
                         child: Text(
-                          'Assumir',
+                          _atendimentoHumano ? 'Devolver IA' : 'Assumir',
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -244,26 +281,39 @@ class _AdminChatConversationScreenState
 
           // ── Mensagens
           Expanded(
-            child: Container(
-              color: chatBg,
-              child: ListView.builder(
-                controller: _scrollCtrl,
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                itemCount: _messages.length,
-                itemBuilder: (ctx, i) {
-                  final m = _messages[i];
-                  // Agente e admin ficam à direita; cliente à esquerda
-                  final isOut = m.isFromAdmin ||
-                      m.isFromRAG ||
-                      m.senderId == AuthService().currentUser?.id;
-                  return _AdminChatBubble(
-                    message: m,
-                    isOutgoing: isOut,
-                    isDark: isDark,
-                  );
-                },
-              ),
-            ),
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: AGColors.brandGreen))
+                : Container(
+                    color: chatBg,
+                    child: _messages.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Sem mensagens ainda',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, color: AGColors.stone),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollCtrl,
+                            padding:
+                                const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            itemCount: _messages.length,
+                            itemBuilder: (ctx, i) {
+                              final m = _messages[i];
+                              final isOut = m.isFromAdmin ||
+                                  m.isFromRAG ||
+                                  m.senderId ==
+                                      AuthService().currentUser?.id;
+                              return _AdminChatBubble(
+                                message: m,
+                                isOutgoing: isOut,
+                                isDark: isDark,
+                              );
+                            },
+                          ),
+                  ),
           ),
 
           // ── Composer
@@ -281,7 +331,8 @@ class _AdminChatConversationScreenState
                   child: Container(
                     decoration: BoxDecoration(
                       color: composerInput,
-                      borderRadius: BorderRadius.circular(AGRadius.full),
+                      borderRadius:
+                          BorderRadius.circular(AGRadius.full),
                     ),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
@@ -289,9 +340,7 @@ class _AdminChatConversationScreenState
                       controller: _msgCtrl,
                       style: GoogleFonts.inter(
                           fontSize: 14,
-                          color: isDark
-                              ? AGColors.onDark
-                              : AGColors.ink),
+                          color: isDark ? AGColors.onDark : AGColors.ink),
                       decoration: InputDecoration(
                         hintText: 'Mensagem como atendente…',
                         hintStyle: GoogleFonts.inter(
@@ -300,6 +349,7 @@ class _AdminChatConversationScreenState
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
                       ),
+                      onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
                 ),
@@ -307,7 +357,8 @@ class _AdminChatConversationScreenState
                 GestureDetector(
                   onTap: _sendMessage,
                   child: Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: const BoxDecoration(
                       color: AGColors.brandGreen,
                       shape: BoxShape.circle,
@@ -325,32 +376,34 @@ class _AdminChatConversationScreenState
   }
 }
 
-// ── Bubble ────────────────────────────────────────────────────────
 class _AdminChatBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isOutgoing;
   final bool isDark;
 
   const _AdminChatBubble({
-    required this.message, required this.isOutgoing, required this.isDark,
+    required this.message,
+    required this.isOutgoing,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bubbleIn = isDark ? const Color(0xFF202C33) : Colors.white;
-    final bubbleOut = isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3);
-    final textIn = isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
+    final bubbleIn =
+        isDark ? const Color(0xFF202C33) : Colors.white;
+    final bubbleOut =
+        isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3);
+    final textIn =
+        isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
     final metaColor = const Color(0xFF667781);
 
-    // Declarar isAgent ANTES de usar
     final isAgent = message.isFromRAG;
-
-    // Agente: verde igual ao outgoing; humano recebido: branco/dark
     final bg = isAgent
         ? (isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3))
         : (isOutgoing ? bubbleOut : bubbleIn);
     final textColor = textIn;
-    final align = isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final align =
+        isOutgoing ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final radius = isOutgoing
         ? const BorderRadius.only(
             topLeft: Radius.circular(10),
@@ -397,7 +450,7 @@ class _AdminChatBubble extends StatelessWidget {
 
           Container(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.72),
+                maxWidth: MediaQuery.of(context).size.width * 0.72),
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
             decoration: BoxDecoration(color: bg, borderRadius: radius),
             child: Column(
@@ -405,12 +458,13 @@ class _AdminChatBubble extends StatelessWidget {
               children: [
                 Text(
                   message.text ?? '',
-                  style: GoogleFonts.inter(fontSize: 14, color: textColor),
+                  style:
+                      GoogleFonts.inter(fontSize: 14, color: textColor),
                 ),
                 const SizedBox(height: 2),
                 Text(hour,
-                    style: GoogleFonts.inter(
-                        fontSize: 10, color: metaColor)),
+                    style:
+                        GoogleFonts.inter(fontSize: 10, color: metaColor)),
               ],
             ),
           ),

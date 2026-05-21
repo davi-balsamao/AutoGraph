@@ -7,6 +7,10 @@ import {
 } from '../states';
 import { io } from '../../server';
 import { notificationService } from '../../services/notification.service';
+import { OsRepository } from '../../repositories/os.repository';
+import { StatusOS } from '@prisma/client';
+
+const osRepo = new OsRepository();
 
 const MENSAGEM_ESPERA =
   'Estou revisando seu orçamento e já te retorno por aqui em instantes.';
@@ -62,6 +66,20 @@ export class AguardarAprovacaoAdminHandler implements StateHandler {
         proposta,
       });
       console.log(`📢 [SOCKET] emit 'proposta-pendente' enviado.`);
+
+      // Cria registro de OS no banco para aparecer no Kanban admin
+      const novaOs = await osRepo.create({
+        clienteId: sessao.clienteId,
+        status: StatusOS.AGUARDANDO_ORCAMENTO,
+        especificacoes: {
+          produto: proposta.especificacoes.produto,
+          requisitos: proposta.especificacoes.requisitos,
+          orcamento: proposta.orcamento,
+        },
+      });
+      context.osId = novaOs.id;
+      io.emit('os-nova', novaOs);
+      console.log(`📋 [KANBAN] OS ${novaOs.id.slice(0, 8)} criada — aguardando aprovação admin.`);
 
       notificationService
         .sendToAdmins(

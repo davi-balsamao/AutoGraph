@@ -62,7 +62,7 @@ export class OsController {
       });
 
       // Emite evento Socket.io para notificar administradores em tempo real
-      io.emit('new-os', novaOs);
+      io.emit('os-nova', novaOs);
 
       // Notificar administradores via FCM
       notificationService.sendToAdmins(

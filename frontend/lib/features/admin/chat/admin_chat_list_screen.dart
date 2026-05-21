@@ -1,14 +1,60 @@
 // AdminChatListScreen — Lista de conversas do atendimento (admin mobile)
 //
 // Referência: ClaudeDesign/components/admin-mobile-screens-a.jsx → AdmMobileChat
-//
-// Reutiliza: ChatService() existente para buscar conversas escaladas
 
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import '../../../core/theme/ag_tokens.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../core/services/chat_service.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
 import 'admin_chat_conversation_screen.dart';
+
+class _ConversaItem {
+  final String clienteId;
+  final String sessaoId;
+  final String clienteNome;
+  final String clienteTelefone;
+  final String? ultimaMensagem;
+  final DateTime ultimaMensagemEm;
+  final bool atendimentoHumano;
+  final String estadoAtual;
+
+  const _ConversaItem({
+    required this.clienteId,
+    required this.sessaoId,
+    required this.clienteNome,
+    required this.clienteTelefone,
+    this.ultimaMensagem,
+    required this.ultimaMensagemEm,
+    required this.atendimentoHumano,
+    required this.estadoAtual,
+  });
+
+  factory _ConversaItem.fromJson(Map<String, dynamic> json) {
+    return _ConversaItem(
+      clienteId: json['clienteId'] as String,
+      sessaoId: json['sessaoId'] as String,
+      clienteNome: json['clienteNome'] as String? ?? 'Desconhecido',
+      clienteTelefone: json['clienteTelefone'] as String? ?? '',
+      ultimaMensagem: json['ultimaMensagem'] as String?,
+      ultimaMensagemEm: json['ultimaMensagemEm'] != null
+          ? DateTime.parse(json['ultimaMensagemEm'] as String)
+          : DateTime.now(),
+      atendimentoHumano: json['atendimentoHumano'] as bool? ?? false,
+      estadoAtual: json['estadoAtual'] as String? ?? '',
+    );
+  }
+
+  String get initials {
+    final parts = clienteNome.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return clienteNome.isNotEmpty ? clienteNome[0].toUpperCase() : '?';
+  }
+}
 
 class AdminChatListScreen extends StatefulWidget {
   const AdminChatListScreen({super.key});
@@ -19,25 +65,61 @@ class AdminChatListScreen extends StatefulWidget {
 
 class _AdminChatListScreenState extends State<AdminChatListScreen> {
   int _tabIndex = 0;
-
-  // Dados mockados — substitua por ChatService().getConversations()
-  static final _conversations = [
-    _Conv('Mariana Costa', 'MC', 'já te mando a arte', 'agora', 0, false, false),
-    _Conv('Eventos Lume', 'EL', 'Posso fazer 3×2m? Qual o preço?', '2 min', 2, true, false),
-    _Conv('Café Trilho', 'CT', '[agente] Orçamento enviado - R\$ 124', '12 min', 0, false, false),
-    _Conv('Studio Norte', 'SN', 'Tá errado, a cor da capa ficou...', '1h', 1, true, true),
-    _Conv('Padaria Estrela', 'PE', '[agente] Pagamento confirmado', '2h', 0, false, false),
-    _Conv('Clínica Anna', 'CA', 'Obrigada, gostamos de tudo!', '3h', 0, false, false),
-    _Conv('Colégio Vértice', 'CV', '[agente] Prova digital enviada', 'ontem', 0, false, false),
-  ];
+  List<_ConversaItem> _convs = [];
+  bool _loading = true;
+  StreamSubscription? _convSub;
 
   static const _tabLabels = ['Todas', 'Humano', 'Agente'];
-  static const _tabCounts = [24, 3, 21];
 
-  List<_Conv> get _filtered {
-    if (_tabIndex == 1) return _conversations.where((c) => c.escalada).toList();
-    if (_tabIndex == 2) return _conversations.where((c) => !c.escalada).toList();
-    return _conversations;
+  List<_ConversaItem> get _filtered {
+    if (_tabIndex == 1) return _convs.where((c) => c.atendimentoHumano).toList();
+    if (_tabIndex == 2) return _convs.where((c) => !c.atendimentoHumano).toList();
+    return _convs;
+  }
+
+  int get _totalCount => _convs.length;
+  int get _humanoCount => _convs.where((c) => c.atendimentoHumano).length;
+  int get _agenteCount => _convs.where((c) => !c.atendimentoHumano).length;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _convSub = ChatService().conversaEventStream.listen((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _convSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${AuthService().baseUrl}/conversas'),
+        headers: AuthService().authHeaders,
+      );
+      if (res.statusCode == 200 && mounted) {
+        final List<dynamic> data = jsonDecode(res.body);
+        setState(() {
+          _convs = data.map((e) => _ConversaItem.fromJson(Map<String, dynamic>.from(e))).toList();
+          _loading = false;
+        });
+      } else if (mounted) {
+        setState(() => _loading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _formatTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'agora';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    return 'ontem';
   }
 
   @override
@@ -48,6 +130,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
     final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
     final borderColor = isDark ? AGColors.hairlineDark : AGColors.hairlineSoft;
     final surfaceBg = isDark ? AGColors.surfaceDark : AGColors.surfaceSoft;
+    final tabCounts = [_totalCount, _humanoCount, _agenteCount];
 
     return Scaffold(
       backgroundColor: bg,
@@ -57,7 +140,6 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
             bottom: false,
             child: Column(
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
                   child: Row(
@@ -74,9 +156,8 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                                   letterSpacing: -0.3,
                                 )),
                             Text(
-                              '${_tabCounts[0]} escaladas · ${_tabCounts[2]} com agente',
-                              style: GoogleFonts.inter(
-                                  fontSize: 11, color: mutedColor),
+                              '$_totalCount ativas · $_humanoCount com humano',
+                              style: GoogleFonts.inter(fontSize: 11, color: mutedColor),
                             ),
                           ],
                         ),
@@ -88,14 +169,12 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                   ),
                 ),
 
-                // Tabs Todas / Humano / Agente
                 Container(
                   decoration: BoxDecoration(
                     color: surfaceBg,
                     border: Border(bottom: BorderSide(color: borderColor)),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Row(
                     children: List.generate(3, (i) {
                       final isActive = i == _tabIndex;
@@ -103,14 +182,10 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                         onTap: () => setState(() => _tabIndex = i),
                         child: Container(
                           margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isActive
-                                ? AGColors.brandTealDeep
-                                : Colors.transparent,
-                            borderRadius:
-                                BorderRadius.circular(AGRadius.full),
+                            color: isActive ? AGColors.brandTealDeep : Colors.transparent,
+                            borderRadius: BorderRadius.circular(AGRadius.full),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -120,30 +195,24 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: isActive
-                                      ? Colors.white
-                                      : mutedColor,
+                                  color: isActive ? Colors.white : mutedColor,
                                 ),
                               ),
                               const SizedBox(width: 5),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 5, vertical: 1),
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
                                   color: isActive
                                       ? Colors.white.withValues(alpha: 0.15)
                                       : borderColor,
-                                  borderRadius:
-                                      BorderRadius.circular(AGRadius.full),
+                                  borderRadius: BorderRadius.circular(AGRadius.full),
                                 ),
                                 child: Text(
-                                  '${_tabCounts[i]}',
+                                  '${tabCounts[i]}',
                                   style: GoogleFonts.inter(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
-                                    color: isActive
-                                        ? Colors.white
-                                        : mutedColor,
+                                    color: isActive ? Colors.white : mutedColor,
                                   ),
                                 ),
                               ),
@@ -158,34 +227,43 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
             ),
           ),
 
-          // Lista de conversas
           Expanded(
-            child: ListView.separated(
-              padding: EdgeInsets.only(
-                bottom: 100 + MediaQuery.of(context).padding.bottom),
-              itemCount: _filtered.length,
-              separatorBuilder: (_, i) =>
-                  Divider(height: 1, color: borderColor),
-              itemBuilder: (ctx, i) {
-                final c = _filtered[i];
-                return _ConvTile(
-                  conv: c,
-                  isDark: isDark,
-                  textColor: textColor,
-                  mutedColor: mutedColor,
-                  bg: bg,
-                  onTap: () => Navigator.push(
-                    ctx,
-                    MaterialPageRoute(
-                      builder: (_) => AdminChatConversationScreen(
-                        clienteNome: c.nome,
-                        clienteId: c.initials,
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: AGColors.brandGreen))
+                : _filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Nenhuma conversa ativa',
+                          style: GoogleFonts.inter(fontSize: 14, color: AGColors.stone),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: EdgeInsets.only(
+                            bottom: 100 + MediaQuery.of(context).padding.bottom),
+                        itemCount: _filtered.length,
+                        separatorBuilder: (_, __) => Divider(height: 1, color: borderColor),
+                        itemBuilder: (ctx, i) {
+                          final c = _filtered[i];
+                          return _ConvTile(
+                            conv: c,
+                            isDark: isDark,
+                            textColor: textColor,
+                            mutedColor: mutedColor,
+                            bg: bg,
+                            timeLabel: _formatTime(c.ultimaMensagemEm),
+                            onTap: () => Navigator.push(
+                              ctx,
+                              MaterialPageRoute(
+                                builder: (_) => AdminChatConversationScreen(
+                                  clienteNome: c.clienteNome,
+                                  clienteId: c.clienteId,
+                                  clienteTelefone: c.clienteTelefone,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -193,26 +271,21 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
   }
 }
 
-// ── Data model (mockado) ──────────────────────────────────────────
-class _Conv {
-  final String nome, initials, preview, time;
-  final int unread;
-  final bool escalada, urgente;
-
-  const _Conv(this.nome, this.initials, this.preview, this.time,
-      this.unread, this.escalada, this.urgente);
-}
-
-// ── Tile ──────────────────────────────────────────────────────────
 class _ConvTile extends StatelessWidget {
-  final _Conv conv;
+  final _ConversaItem conv;
   final bool isDark;
   final Color textColor, mutedColor, bg;
+  final String timeLabel;
   final VoidCallback onTap;
 
   const _ConvTile({
-    required this.conv, required this.isDark, required this.textColor,
-    required this.mutedColor, required this.bg, required this.onTap,
+    required this.conv,
+    required this.isDark,
+    required this.textColor,
+    required this.mutedColor,
+    required this.bg,
+    required this.timeLabel,
+    required this.onTap,
   });
 
   @override
@@ -224,9 +297,9 @@ class _ConvTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            // Avatar
             Container(
-              width: 40, height: 40,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: isDark
                     ? AGColors.surfaceDark
@@ -239,9 +312,7 @@ class _ConvTile extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? AGColors.brandGreen
-                        : AGColors.brandGreenDark,
+                    color: isDark ? AGColors.brandGreen : AGColors.brandGreenDark,
                   ),
                 ),
               ),
@@ -255,80 +326,43 @@ class _ConvTile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(conv.nome,
+                      Text(conv.clienteNome,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: textColor,
                           )),
                       const Spacer(),
-                      Text(conv.time,
-                          style: GoogleFonts.inter(
-                              fontSize: 11, color: mutedColor)),
+                      Text(timeLabel,
+                          style: GoogleFonts.inter(fontSize: 11, color: mutedColor)),
                     ],
                   ),
 
                   const SizedBox(height: 3),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conv.preview,
-                          style: GoogleFonts.inter(
-                              fontSize: 12, color: mutedColor),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (conv.unread > 0) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 18, height: 18,
-                          decoration: const BoxDecoration(
-                            color: AGColors.brandGreen,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${conv.unread}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: AGColors.onPrimary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    conv.ultimaMensagem ?? 'Sem mensagens',
+                    style: GoogleFonts.inter(fontSize: 12, color: mutedColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
 
-                  if (conv.escalada) ...[
+                  if (conv.atendimentoHumano) ...[
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: conv.urgente
-                                ? const Color(0xFFFFEBEB)
-                                : AGColors.warningBg,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            conv.urgente ? 'URGENTE' : 'ESCALADA',
-                            style: GoogleFonts.inter(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: conv.urgente
-                                  ? AGColors.danger
-                                  : AGColors.warningText,
-                            ),
-                          ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AGColors.warningBg,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        'HUMANO',
+                        style: GoogleFonts.inter(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: AGColors.warningText,
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ],

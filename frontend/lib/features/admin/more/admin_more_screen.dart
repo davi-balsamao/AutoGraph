@@ -188,7 +188,7 @@ class AdminMoreScreen extends StatelessWidget {
                 icon: Icons.grid_view_rounded,
                 iconColor: AGColors.accentOrange,
                 label: 'Catálogo',
-                sub: '10 SKUs · margem média 68%',
+                sub: 'Produtos disponíveis',
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -202,7 +202,7 @@ class AdminMoreScreen extends StatelessWidget {
                 icon: Icons.people_outline_rounded,
                 iconColor: AGColors.accentPurple,
                 label: 'Usuários',
-                sub: '287 cadastrados',
+                sub: 'Clientes e equipe',
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -248,7 +248,7 @@ class AdminMoreScreen extends StatelessWidget {
                 icon: Icons.shield_outlined,
                 iconColor: AGColors.accentOrange,
                 label: 'Permissões e equipe',
-                sub: '4 usuários',
+                sub: 'Controle de acesso',
                 onTap: () {},
                 textColor: textColor,
                 mutedColor: mutedColor,

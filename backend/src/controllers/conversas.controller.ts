@@ -10,6 +10,39 @@ const clienteRepo = new ClienteRepository();
 const ESTADOS_VALIDOS = Object.values(ConversationState);
 
 export class ConversasController {
+  // GET /api/conversas — lista sessões ativas com último preview
+  async list(_req: Request, res: Response) {
+    try {
+      const sessoes = await prisma.sessaoAtendimento.findMany({
+        where: { ativa: true },
+        include: {
+          cliente: {
+            include: { mensagens: { orderBy: { criadoEm: 'desc' }, take: 1 } }
+          }
+        },
+        orderBy: { atualizadoEm: 'desc' }
+      });
+
+      const result = sessoes.map((s: any) => {
+        const payload = s.cliente.mensagens[0]?.payload as any;
+        return {
+          clienteId: s.clienteId,
+          sessaoId: s.id,
+          clienteNome: s.cliente.nome,
+          clienteTelefone: s.cliente.telefone,
+          ultimaMensagem: payload?.text ?? null,
+          ultimaMensagemEm: s.cliente.mensagens[0]?.criadoEm ?? s.atualizadoEm,
+          atendimentoHumano: s.cliente.atendimentoHumano,
+          estadoAtual: s.estadoAtual,
+        };
+      });
+
+      return res.json(result);
+    } catch (error) {
+      return res.status(500).json({ error: 'Erro ao listar conversas.' });
+    }
+  }
+
   // POST /api/conversas/:userId/assumir
   async assumir(req: Request, res: Response) {
     try {

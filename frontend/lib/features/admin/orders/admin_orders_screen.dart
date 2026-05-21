@@ -38,6 +38,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     }
   }
 
+  int get _pedidosMes {
+    final now = DateTime.now();
+    return _orders.where((o) => o.criadoEm.year == now.year && o.criadoEm.month == now.month).length;
+  }
+
+  String get _mesAtual {
+    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    final now = DateTime.now();
+    return '${meses[now.month - 1]} ${now.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -79,7 +90,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                               color: mutedColor, size: 20),
                         ],
                       ),
-                      Text('847 em 2025 · R\$ 124.380 totais',
+                      Text('${_orders.length} pedidos totais',
                           style: GoogleFonts.inter(
                               fontSize: 11, color: mutedColor)),
                     ],
@@ -93,13 +104,13 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      _MiniKpi('PEDIDOS MÊS', '187', '↑ 24',
+                      _MiniKpi('PEDIDOS MÊS', '$_pedidosMes', 'este mês',
                           AGColors.brandGreenMid, cardBg, borderColor,
                           textColor, mutedColor),
-                      _MiniKpi('RECEITA MÊS', 'R\$ 28,1k', '↑ R\$ 3,2k',
-                          AGColors.brandGreenMid, cardBg, borderColor,
+                      _MiniKpi('RECEITA MÊS', 'R\$ —', 'sem dados',
+                          mutedColor, cardBg, borderColor,
                           textColor, mutedColor),
-                      _MiniKpi('TICKET MÉDIO', 'R\$ 150', 'estimado',
+                      _MiniKpi('TICKET MÉDIO', 'R\$ —', 'sem dados',
                           mutedColor, cardBg, borderColor,
                           textColor, mutedColor),
                     ],
@@ -113,7 +124,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
-                    children: ['Maio 2025 ▾', 'Status: todos ▾', 'Produto: todos ▾']
+                    children: ['$_mesAtual ▾', 'Status: todos ▾', 'Produto: todos ▾']
                         .map((f) => Container(
                               margin: const EdgeInsets.only(right: 8),
                               padding: const EdgeInsets.symmetric(
@@ -217,11 +228,13 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusBadge = switch (os.status) {
-      StatusOS.emProducao         => AdmBadge('EM PRODUÇÃO', AdmBadgeStyle.orange),
-      StatusOS.aguardandoOrcamento => AdmBadge('AGUARD.', AdmBadgeStyle.gray),
-      StatusOS.entregue           => AdmBadge('ENTREGUE', AdmBadgeStyle.soft),
-      StatusOS.cancelada          => AdmBadge('CANCELADA', AdmBadgeStyle.danger),
-      _                           => AdmBadge('APROVADO', AdmBadgeStyle.blue),
+      StatusOS.aguardandoOrcamento  => AdmBadge('AGUARD.', AdmBadgeStyle.gray),
+      StatusOS.aprovado             => AdmBadge('APROVADO', AdmBadgeStyle.blue),
+      StatusOS.emProducao           => AdmBadge('EM PRODUÇÃO', AdmBadgeStyle.orange),
+      StatusOS.prontaParaRetirada   => AdmBadge('PRONTA', AdmBadgeStyle.blue),
+      StatusOS.entregue             => AdmBadge('ENTREGUE', AdmBadgeStyle.soft),
+      StatusOS.cancelada            => AdmBadge('CANCELADA', AdmBadgeStyle.danger),
+      _                             => AdmBadge('CRIADA', AdmBadgeStyle.gray),
     };
 
     return Container(
