@@ -11,7 +11,13 @@
       "Bash(echo \"EXIT=$?\")",
       "PowerShell(Set-Location C:\\\\Davi\\\\AutoGraph\\\\backend; npx tsc --noEmit; \"EXIT=$LASTEXITCODE\")",
       "PowerShell(try { $r = Invoke-WebRequest -Uri 'http://localhost:3000/health' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop; \"STATUS=$\\($r.StatusCode\\) BODY=$\\($r.Content\\)\" } catch { \"ERROR: $\\($_.Exception.Message\\)\" })",
-      "Bash(curl -s -o /dev/null -m 2 -w \"%{http_code}\\\\n\" http://127.0.0.1:3000/)"
+      "Bash(curl -s -o /dev/null -m 2 -w \"%{http_code}\\\\n\" http://127.0.0.1:3000/)",
+      "Bash(flutter analyze *)",
+      "PowerShell(taskkill /f /im dart.exe 2>$null; taskkill /f /im flutter.exe 2>$null; Write-Host \"Processos encerrados. Verificando...\"; Start-Sleep -Seconds 1; $dart = Get-Process dart -ErrorAction SilentlyContinue; $fl = Get-Process flutter -ErrorAction SilentlyContinue; if \\(-not $dart -and -not $fl\\) { Write-Host \"OK — nenhum processo dart/flutter rodando.\" } else { Write-Host \"Ainda há processos: dart=$\\($dart.Count\\) flutter=$\\($fl.Count\\)\" })",
+      "Bash(git commit -m ' *)",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix: corrigir import os_details + warnings admin_more_screen *)"
     ]
   }
 }
