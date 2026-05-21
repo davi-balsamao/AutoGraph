@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Autograph — App Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --c-brand-green: #00ed64;
+    --c-brand-green-dark: #00684a;
+    --c-brand-green-mid: #00a35c;
+    --c-brand-green-soft: #c3f0d2;
+    --c-brand-teal-deep: #001e2b;
+    --c-brand-teal: #003d4f;
+    --c-brand-teal-mid: #00684a;
+    --c-on-primary: #001e2b;
+    --c-accent-purple: #7b3ff2;
+    --c-accent-orange: #fa6e39;
+    --c-accent-pink: #f06bb8;
+    --c-accent-blue: #3d4f9f;
+    --c-canvas: #ffffff;
+    --c-canvas-dark: #001e2b;
+    --c-surface: #f9fbfa;
+    --c-surface-soft: #f4f7f6;
+    --c-surface-feature: #e3fcef;
+    --c-hairline: #e1e5e8;
+    --c-hairline-soft: #eceff1;
+    --c-hairline-strong: #c1ccd6;
+    --c-hairline-dark: #1c2d38;
+    --c-ink: #001e2b;
+    --c-charcoal: #1c2d38;
+    --c-slate: #3d4f5b;
+    --c-steel: #5c6c7a;
+    --c-stone: #7c8c9a;
+    --c-muted: #a8b3bc;
+    --c-on-dark: #ffffff;
+    --c-on-dark-muted: #a8b3bc;
+    --font-display: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  }
+  html, body { margin: 0; padding: 0; font-family: var(--font-display); }
+  body { background: #f0eee9; }
+
+  @keyframes ag-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: .4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+  }
+  @keyframes ag-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ag-msg-in { animation: ag-fade-in .35s ease-out both; }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="app-ui.jsx"></script>
+<script type="text/babel" src="app-screens.jsx"></script>
+<script type="text/babel" src="app-screens-b.jsx"></script>
+<script type="text/babel" src="app-screens-auth.jsx"></script>
+<script type="text/babel" src="app-main.jsx"></script>
+
+</body>
+</html>
