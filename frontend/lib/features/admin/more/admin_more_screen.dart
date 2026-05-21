@@ -168,6 +168,8 @@ class AdminMoreScreen extends StatelessWidget {
           // ── Áreas do painel
           _SectionHeader('ÁREAS DO PAINEL', textColor),
           _MenuCard(
+            cardBg: cardBg,
+            borderColor: borderColor,
             children: [
               _MenuRow(
                 icon: Icons.trending_up_rounded,
@@ -213,8 +215,6 @@ class AdminMoreScreen extends StatelessWidget {
                 isLast: true,
               ),
             ],
-            cardBg: cardBg,
-            borderColor: borderColor,
           ),
 
           const SizedBox(height: 12),
@@ -222,6 +222,8 @@ class AdminMoreScreen extends StatelessWidget {
           // ── Configurações
           _SectionHeader('CONFIGURAÇÕES', textColor),
           _MenuCard(
+            cardBg: cardBg,
+            borderColor: borderColor,
             children: [
               _MenuRow(
                 icon: Icons.notifications_outlined,
@@ -264,8 +266,6 @@ class AdminMoreScreen extends StatelessWidget {
                 isLast: true,
               ),
             ],
-            cardBg: cardBg,
-            borderColor: borderColor,
           ),
 
           const SizedBox(height: 12),
@@ -347,7 +347,6 @@ class _MenuCard extends StatelessWidget {
   final List<Widget> children;
 
   const _MenuCard({
-    super.key,
     required this.cardBg,
     required this.borderColor,
     required this.children,

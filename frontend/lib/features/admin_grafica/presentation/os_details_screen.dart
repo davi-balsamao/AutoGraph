@@ -6,7 +6,7 @@ import '../../../core/services/os_service.dart';
 import '../../../core/utils/snackbar_util.dart';
 import '../../../core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
-import '../../admin_chat/presentation/admin_chat_conversation_screen.dart';
+import '../../admin/chat/admin_chat_conversation_screen.dart';
 
 class OsDetailsScreen extends StatefulWidget {
   final OrdemServico os;
