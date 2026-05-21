@@ -42,11 +42,15 @@ class ThemeNotifier extends ChangeNotifier {
     }
   }
 
+  /// Cicla entre light → dark → system (auto) → light
   void toggleTheme() {
-    if (_themeMode == ThemeMode.light || _themeMode == ThemeMode.system) {
-      setThemeMode(ThemeMode.dark);
-    } else {
-      setThemeMode(ThemeMode.light);
+    switch (_themeMode) {
+      case ThemeMode.light:
+        setThemeMode(ThemeMode.dark);
+      case ThemeMode.dark:
+        setThemeMode(ThemeMode.system);
+      case ThemeMode.system:
+        setThemeMode(ThemeMode.light);
     }
   }
 }
