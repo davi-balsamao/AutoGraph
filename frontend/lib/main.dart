@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'core/theme/app_theme.dart';
+import 'core/theme/ag_tokens.dart';
 import 'core/theme/theme_notifier.dart';
 import 'core/routes/app_routes.dart';
 import 'core/services/push_notification_service.dart';
@@ -43,8 +43,8 @@ class AutoGraphApp extends StatelessWidget {
         return MaterialApp(
           title: 'AutoGraph',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
+          theme: AGTheme.light(),
+          darkTheme: AGTheme.dark(),
           themeMode: themeNotifier.themeMode,
           initialRoute: AppRoutes.landing,
           onGenerateRoute: AppRouter.onGenerateRoute,
