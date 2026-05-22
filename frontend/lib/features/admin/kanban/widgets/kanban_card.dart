@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/ag_tokens.dart';
 import '../../../../core/models/ordem_servico.dart';
 import '../../shared/adm_badge.dart';
+import 'status_picker_sheet.dart';
+import '../../../../core/services/os_service.dart';
 
 class KanbanCard extends StatelessWidget {
   final OrdemServico os;
@@ -33,6 +35,28 @@ class KanbanCard extends StatelessWidget {
 
   bool get _isLocked => os.status == StatusOS.aguardandoOrcamento;
 
+  void _mostrarMenuStatus(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatusPickerSheet(
+        currentStatus: os.status,
+        onSelected: (novoStatus) async {
+          Navigator.pop(ctx);
+          try {
+            await OsService().updateStatus(os.id, novoStatus);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Erro ao atualizar status: $e')),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -50,6 +74,7 @@ class KanbanCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: () => _mostrarMenuStatus(context),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
@@ -67,7 +92,7 @@ class KanbanCard extends StatelessWidget {
                 AdmBadge(produto, _tagStyle(produto)),
                 const SizedBox(width: 8),
                 Text(
-                  '#${os.id.substring(0, 6).toUpperCase()}',
+                  '#${os.id.substring(0, 8).toUpperCase()}',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 11, color: mutedColor),
                 ),

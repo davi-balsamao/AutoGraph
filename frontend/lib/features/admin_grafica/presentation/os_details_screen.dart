@@ -233,7 +233,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'OS #${widget.os.id.split('-').last.toUpperCase()}',
+                    'OS #${widget.os.id.substring(0, 8).toUpperCase()}',
                     style: GoogleFonts.outfit(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,

@@ -320,7 +320,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   letterSpacing: -0.3,
                                 )),
                             Text(
-                              '${_all.length} OSs ativas · arraste pra mudar status',
+                              '${_all.length} OSs ativas · toque longo num card pra mudar status',
                               style: GoogleFonts.inter(
                                   fontSize: 11, color: mutedColor),
                             ),
