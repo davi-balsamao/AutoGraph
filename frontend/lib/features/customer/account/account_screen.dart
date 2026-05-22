@@ -50,35 +50,12 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  double _calculateOrderValue(OrdemServico os) {
-    final String productName = os.produtoResumo.toLowerCase();
-    final int qty = (os.especificacoes['quantidade'] ?? os.especificacoes['qtd'] ?? 1) as int;
-    double pricePerUnit = 12.0; // default
-    if (productName.contains('a5')) {
-      pricePerUnit = 0.12;
-    } else if (productName.contains('a6')) {
-      pricePerUnit = 0.06;
-    } else if (productName.contains('lona') || productName.contains('440g')) {
-      pricePerUnit = 49.00;
-    } else if (productName.contains('oxford')) {
-      pricePerUnit = 79.00;
-    } else if (productName.contains('bloco')) {
-      pricePerUnit = 12.00;
-    } else if (productName.contains('panfleto')) {
-      pricePerUnit = 0.12;
-    } else if (productName.contains('banner')) {
-      pricePerUnit = 49.00;
-    } else {
-      pricePerUnit = 15.00;
-    }
-    return pricePerUnit * qty;
-  }
 
   double get _totalSpent {
     double total = 0.0;
     for (final os in _orders) {
       if (os.status != StatusOS.cancelada) {
-        total += _calculateOrderValue(os);
+        total += os.total;
       }
     }
     return total;
@@ -470,9 +447,7 @@ class _AccountScreenState extends State<AccountScreen> {
               _MenuRow('Dados pessoais', Icons.person_outline_rounded,
                   textColor, mutedColor, borderColor, () => _showPersonalDataDialog(context, user, textColor, mutedColor, cardBg, borderColor)),
               _MenuRow('Endereços', Icons.location_on_outlined,
-                  textColor, mutedColor, borderColor, () => _showAddressesDialog(context, textColor, mutedColor, cardBg, borderColor)),
-              _MenuRow('Formas de pagamento', Icons.credit_card_outlined,
-                  textColor, mutedColor, null, () => _showPaymentMethodsDialog(context, textColor, mutedColor, cardBg, borderColor), isLast: true),
+                  textColor, mutedColor, null, () => _showAddressesDialog(context, textColor, mutedColor, cardBg, borderColor), isLast: true),
             ],
           ),
 
