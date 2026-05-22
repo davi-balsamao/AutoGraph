@@ -39,7 +39,16 @@ export class ProdutoController {
       if (!nome || precoBase === undefined) {
         return res.status(400).json({ error: 'Nome e precoBase são obrigatórios.' });
       }
-      const produto = await produtoRepo.create({ nome, descricao, imagemUrl, precoBase: Number(precoBase) });
+      let finalImagemUrl = imagemUrl;
+      if (req.file) {
+        finalImagemUrl = `/uploads/${req.file.filename}`;
+      }
+      const produto = await produtoRepo.create({
+        nome,
+        descricao,
+        imagemUrl: finalImagemUrl,
+        precoBase: Number(precoBase),
+      });
       return res.status(201).json(produto);
     } catch (error) {
       console.error('❌ Erro ao criar Produto:', error);
@@ -51,7 +60,16 @@ export class ProdutoController {
     try {
       const id = req.params.id as string;
       const { nome, descricao, precoBase, imagemUrl } = req.body;
-      const produto = await produtoRepo.update(id, { nome, descricao, imagemUrl, precoBase: precoBase ? Number(precoBase) : undefined });
+      let finalImagemUrl = imagemUrl;
+      if (req.file) {
+        finalImagemUrl = `/uploads/${req.file.filename}`;
+      }
+      const produto = await produtoRepo.update(id, {
+        nome,
+        descricao,
+        imagemUrl: finalImagemUrl,
+        precoBase: precoBase ? Number(precoBase) : undefined,
+      });
       return res.json(produto);
     } catch (error) {
       console.error('❌ Erro ao atualizar Produto:', error);

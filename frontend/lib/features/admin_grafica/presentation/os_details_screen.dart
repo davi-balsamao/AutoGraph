@@ -146,7 +146,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
           body: jsonEncode({
             'proposta': {
               'orcamento': {
-                if (novoTotal != null) 'total': novoTotal,
+                'total': ?novoTotal,
                 if (novoPrazo.isNotEmpty) 'prazo': novoPrazo,
               }
             }

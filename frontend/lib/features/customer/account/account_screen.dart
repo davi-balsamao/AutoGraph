@@ -21,7 +21,6 @@ class AccountScreen extends StatelessWidget {
     final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
     final cardBg = isDark ? AGColors.canvasDark : AGColors.canvas;
     final borderColor = isDark ? AGColors.hairlineDark : AGColors.hairline;
-    final surfaceBg = isDark ? AGColors.surfaceDark : AGColors.surfaceSoft;
 
     final user = AuthService().currentUser;
     final nome = user?.nome ?? 'Usuário';

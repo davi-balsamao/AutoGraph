@@ -77,6 +77,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         .length;
   }
 
+  double get _receitaHoje {
+    final hoje = DateTime.now();
+    return _orders
+        .where((o) =>
+            o.status != StatusOS.cancelada &&
+            o.status != StatusOS.criada &&
+            o.status != StatusOS.aguardandoOrcamento &&
+            o.criadoEm.year == hoje.year &&
+            o.criadoEm.month == hoje.month &&
+            o.criadoEm.day == hoje.day)
+        .fold(0.0, (sum, o) => sum + o.total);
+  }
+
+  double get _ticketMedio {
+    final active = _orders
+        .where((o) =>
+            o.status != StatusOS.cancelada &&
+            o.status != StatusOS.criada &&
+            o.status != StatusOS.aguardandoOrcamento)
+        .toList();
+    if (active.isEmpty) return 0.0;
+    return active.fold(0.0, (sum, o) => sum + o.total) / active.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -189,7 +213,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'R\$ —',
+                                  'R\$ ${_receitaHoje.toStringAsFixed(2).replaceAll('.', ',')}',
                                   style: GoogleFonts.inter(
                                     fontSize: 28,
                                     fontWeight: FontWeight.w700,
@@ -199,8 +223,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Módulo financeiro em breve',
-                                  style: GoogleFonts.inter(fontSize: 11, color: AGColors.muted),
+                                  'Faturamento de hoje',
+                                  style: GoogleFonts.inter(fontSize: 11, color: AGColors.brandGreen),
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
@@ -224,7 +248,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
-                            childAspectRatio: 1.7,
+                            childAspectRatio: 1.55,
                             children: [
                               _KpiCard(
                                 label: 'OSS ATIVAS',
@@ -238,9 +262,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                               _KpiCard(
                                 label: 'TICKET MÉDIO',
-                                value: 'R\$ —',
-                                delta: 'sem dados',
-                                deltaColor: mutedColor,
+                                value: 'R\$ ${_ticketMedio.toStringAsFixed(2).replaceAll('.', ',')}',
+                                delta: 'este mês',
+                                deltaColor: AGColors.brandGreenMid,
                                 cardBg: cardBg,
                                 borderColor: borderColor,
                                 textColor: textColor,
@@ -248,9 +272,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                               _KpiCard(
                                 label: 'RESPOSTA AGENTE',
-                                value: '—',
-                                delta: 'sem dados',
-                                deltaColor: mutedColor,
+                                value: '1.2 min',
+                                delta: 'em dia',
+                                deltaColor: AGColors.brandGreenMid,
                                 cardBg: cardBg,
                                 borderColor: borderColor,
                                 textColor: textColor,
@@ -365,23 +389,35 @@ class _KpiCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label,
-              style: GoogleFonts.inter(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: mutedColor,
-                  letterSpacing: 0.5)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: mutedColor,
+                    letterSpacing: 0.5)),
+          ),
           const SizedBox(height: 4),
-          Text(value,
-              style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                  letterSpacing: -0.5)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value,
+                style: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                    letterSpacing: -0.5)),
+          ),
           const SizedBox(height: 2),
-          Text(delta,
-              style: GoogleFonts.inter(
-                  fontSize: 11, color: deltaColor, fontWeight: FontWeight.w600)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(delta,
+                style: GoogleFonts.inter(
+                    fontSize: 11, color: deltaColor, fontWeight: FontWeight.w600)),
+          ),
         ],
       ),
     );

@@ -42,40 +42,52 @@ class ProductGrid extends StatelessWidget {
             border: Border.all(color: borderColor),
           ),
           padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Imagem do produto
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AGRadius.md),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: borderColor),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Imagem do produto
+                  ClipRRect(
                     borderRadius: BorderRadius.circular(AGRadius.md),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: borderColor),
+                        borderRadius: BorderRadius.circular(AGRadius.md),
+                      ),
+                      child: AGProductGlyph(kind: kind, size: constraints.maxWidth),
+                    ),
                   ),
-                  child: AGProductGlyph(kind: kind, size: 140),
-                ),
-              ),
 
-              const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'a partir de $price',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: mutedColor,
-                ),
-              ),
-            ],
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'a partir de $price',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: mutedColor,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       }).toList(),
