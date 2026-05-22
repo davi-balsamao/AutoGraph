@@ -301,23 +301,33 @@ class _ProductRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'R\$ ${prod.precoBase.toStringAsFixed(prod.precoBase < 10 ? 2 : 0)}',
-                      style: GoogleFonts.inter(
-                        fontSize: 13, fontWeight: FontWeight.w700,
-                        color: textColor,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            'R\$ ${prod.precoBase.toStringAsFixed(prod.precoBase < 10 ? 2 : 0)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13, fontWeight: FontWeight.w700,
+                              color: textColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'margem 65%',
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 11, color: AGColors.brandGreenMid,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'margem 65%',
-                      style: GoogleFonts.inter(
-                        fontSize: 11, color: AGColors.brandGreenMid,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
+                    const SizedBox(width: 4),
                     Text('0 vendas',
                         style: GoogleFonts.inter(
                             fontSize: 11, color: mutedColor)),

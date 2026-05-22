@@ -5,32 +5,42 @@ async function main() {
 
   const produtos = [
     {
-      nome: 'Cartões de Visita',
-      descricao: 'Couchê 300g, 4x4 cores, Verniz Total Frente.',
-      precoBase: 85.00
+      nome: 'Panfleto A5',
+      descricao: 'Papel Couché 115g · Formato A5 · 4x4 cores',
+      precoBase: 0.12
     },
     {
-      nome: 'Panfletos 10x14cm',
-      descricao: 'Couchê 90g, 4x0 cores, 1000 unidades.',
-      precoBase: 120.00
+      nome: 'Panfleto A6',
+      descricao: 'Papel Couché 115g · Formato A6 · 4x4 cores',
+      precoBase: 0.06
     },
     {
-      nome: 'Banner Lona',
-      descricao: 'Lona 440g, com acabamento em madeira e corda.',
-      precoBase: 45.00
+      nome: 'Banner Lona 440g',
+      descricao: 'Lona 440g · Acabamento em bastão e cordão',
+      precoBase: 49.00
+    },
+    {
+      nome: 'Banner Oxford',
+      descricao: 'Tecido Oxford sublimado · Acabamento premium',
+      precoBase: 79.00
+    },
+    {
+      nome: 'Bloco 50fls 1 via',
+      descricao: 'Bloco de anotações · 50 folhas · 1 via',
+      precoBase: 12.00
     },
     {
       nome: 'Apostila Espiral',
-      descricao: 'Impressão laser PB, capa colorida, encadernação espiral.',
-      precoBase: 0.15
+      descricao: 'Espiral, wire-o ou costurada',
+      precoBase: 18.00
     }
   ];
 
+  await prisma.produto.deleteMany();
+
   for (const p of produtos) {
-    await prisma.produto.upsert({
-      where: { nome: p.nome },
-      update: {},
-      create: p
+    await prisma.produto.create({
+      data: p
     });
   }
 
