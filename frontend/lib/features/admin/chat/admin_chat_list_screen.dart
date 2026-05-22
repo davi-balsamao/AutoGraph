@@ -175,52 +175,55 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                     border: Border(bottom: BorderSide(color: borderColor)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Row(
-                    children: List.generate(3, (i) {
-                      final isActive = i == _tabIndex;
-                      return GestureDetector(
-                        onTap: () => setState(() => _tabIndex = i),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isActive ? AGColors.brandTealDeep : Colors.transparent,
-                            borderRadius: BorderRadius.circular(AGRadius.full),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _tabLabels[i],
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isActive ? Colors.white : mutedColor,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: isActive
-                                      ? Colors.white.withValues(alpha: 0.15)
-                                      : borderColor,
-                                  borderRadius: BorderRadius.circular(AGRadius.full),
-                                ),
-                                child: Text(
-                                  '${tabCounts[i]}',
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(3, (i) {
+                        final isActive = i == _tabIndex;
+                        return GestureDetector(
+                          onTap: () => setState(() => _tabIndex = i),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isActive ? AGColors.brandTealDeep : Colors.transparent,
+                              borderRadius: BorderRadius.circular(AGRadius.full),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _tabLabels[i],
                                   style: GoogleFonts.inter(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                     color: isActive ? Colors.white : mutedColor,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 5),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: isActive
+                                        ? Colors.white.withValues(alpha: 0.15)
+                                        : borderColor,
+                                    borderRadius: BorderRadius.circular(AGRadius.full),
+                                  ),
+                                  child: Text(
+                                    '${tabCounts[i]}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: isActive ? Colors.white : mutedColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    }),
+                        );
+                      }),
+                    ),
                   ),
                 ),
               ],
@@ -241,7 +244,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                         padding: EdgeInsets.only(
                             bottom: 100 + MediaQuery.of(context).padding.bottom),
                         itemCount: _filtered.length,
-                        separatorBuilder: (_, __) => Divider(height: 1, color: borderColor),
+                        separatorBuilder: (_, _) => Divider(height: 1, color: borderColor),
                         itemBuilder: (ctx, i) {
                           final c = _filtered[i];
                           return _ConvTile(

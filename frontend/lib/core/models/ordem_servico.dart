@@ -123,4 +123,15 @@ class OrdemServico {
     final produto = (especificacoes['produtoNome'] ?? especificacoes['produto']) as String?;
     return produto ?? 'Produto personalizado';
   }
+
+  /// Valor total da OS
+  double get total {
+    if (especificacoes.containsKey('orcamento') && especificacoes['orcamento'] is Map) {
+      final orc = especificacoes['orcamento'];
+      if (orc['total'] != null) {
+        return double.tryParse(orc['total'].toString()) ?? 0.0;
+      }
+    }
+    return 0.0;
+  }
 }

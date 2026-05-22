@@ -7,6 +7,12 @@ import { StatusOS } from '@prisma/client';
 import { io } from '../server';
 import { prisma } from '../config/prisma';
 import { notificationService } from '../services/notification.service';
+import { stateService } from '../services/state.service';
+import { ragService } from '../services/rag.service';
+import { conversationService } from '../services/conversation.service';
+import { runHandlerChain } from '../fsm/state-router';
+import { ConversationState, parseContext } from '../fsm/states';
+import { HandlerDeps } from '../fsm/handler.types';
 
 const osRepo = new OsRepository();
 const mensagemRepo = new MensagemRepository();
@@ -97,15 +103,117 @@ export class OsController {
 
       const osAtualizada = await osRepo.updateStatus(id, status as StatusOS);
 
-      // Compatibilidade com o Kanban antigo/atual da branch local.
+      // Compatibilidade com Kanban antigo/atual.
       io.emit('kanban_atualizado', osAtualizada);
 
       // Evento usado pelas telas novas em tempo real.
       io.emit('os-atualizada', osAtualizada);
 
+      // Sincroniza aprovação do orçamento pelo Kanban com a FSM da conversa ativa.
+      if (status === 'APROVADO') {
+        try {
+          const sessao = await prisma.sessaoAtendimento.findFirst({
+            where: { clienteId: osAtualizada.clienteId, ativa: true },
+            include: { cliente: true },
+          });
+
+          if (sessao && sessao.estadoAtual === ConversationState.AGUARDAR_APROVACAO_ADMIN) {
+            const ctx = parseContext(sessao.contexto);
+
+            if (ctx.osId === osAtualizada.id) {
+              if (ctx.propostaPendente) {
+                ctx.orcamento = ctx.propostaPendente.orcamento;
+                delete ctx.propostaPendente;
+              }
+
+              delete ctx.aguardandoFollowupEnviado;
+
+              const transicionada = await stateService.transition(
+                sessao.id,
+                ConversationState.APRESENTAR_ORCAMENTO,
+                ctx
+              );
+
+              const history = await conversationService.getFormattedHistorySince(
+                transicionada.clienteId,
+                transicionada.criadoEm
+              );
+
+              const deps: HandlerDeps = {
+                ragService,
+                conversationHistory: history || '',
+                clienteNome: sessao.cliente.nome,
+                clienteTelefone: sessao.cliente.telefone,
+              };
+
+              const chain = await runHandlerChain(transicionada, '', deps);
+              const resposta = chain.responseParts.join('\n').trim();
+
+              if (resposta) {
+                const msgBot = await mensagemRepo.create({
+                  usuarioId: sessao.clienteId,
+                  payload: { text: resposta },
+                  origem: 'BOT',
+                });
+
+                io.emit('message', {
+                  id: msgBot.id.toString(),
+                  senderId: 'bot',
+                  receiverId: sessao.cliente.telefone,
+                  text: resposta,
+                  type: 'text',
+                  timestamp: new Date().toISOString(),
+                  isFromRAG: true,
+                });
+
+                await whatsappService.sendMessage(sessao.cliente.telefone, resposta);
+              }
+
+              io.emit('proposta-aprovada', {
+                sessaoId: sessao.id,
+                clienteId: sessao.clienteId,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao sincronizar aprovação com FSM:', err);
+        }
+      }
+
+      // Sincroniza recusa/cancelamento do orçamento pelo Kanban com a FSM.
+      if (status === StatusOS.CANCELADA) {
+        try {
+          const sessao = await prisma.sessaoAtendimento.findFirst({
+            where: { clienteId: osAtualizada.clienteId, ativa: true },
+            include: { cliente: true },
+          });
+
+          if (sessao && sessao.estadoAtual === ConversationState.AGUARDAR_APROVACAO_ADMIN) {
+            const ctx = parseContext(sessao.contexto);
+
+            if (ctx.osId === osAtualizada.id) {
+              ctx.estadoSalvoTakeover = sessao.estadoAtual;
+              delete ctx.propostaPendente;
+              delete ctx.aguardandoFollowupEnviado;
+
+              await stateService.transition(sessao.id, ConversationState.ESCALAR_HUMANO, ctx);
+              await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
+
+              io.emit('proposta-rejeitada', {
+                sessaoId: sessao.id,
+                clienteId: sessao.clienteId,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao sincronizar recusa com FSM:', err);
+        }
+      }
+
       const statusNomes: Record<string, string> = {
         CRIADA: 'Criado',
         AGUARDANDO_ORCAMENTO: 'Aguardando Orçamento',
+        APROVADO: 'Aprovado',
         EM_PRODUCAO: 'Em Produção',
         PRONTA_PARA_RETIRADA: 'Pronto para Retirada',
         ENTREGUE: 'Entregue',
@@ -143,10 +251,11 @@ export class OsController {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
       const { observacoes, especificacoes } = req.body;
 
-      const osAtualizada = await osRepo.updateData(id, {
-        observacoes,
-        especificacoes,
-      });
+      const updatePayload: any = {};
+      if (observacoes !== undefined) updatePayload.observacoes = observacoes;
+      if (especificacoes !== undefined) updatePayload.especificacoes = especificacoes;
+
+      const osAtualizada = await osRepo.updateData(id, updatePayload);
 
       io.emit('kanban_atualizado', osAtualizada);
       io.emit('os-atualizada', osAtualizada);

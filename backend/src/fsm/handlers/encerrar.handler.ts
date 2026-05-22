@@ -14,6 +14,11 @@
 
 import { HandlerDeps, HandlerResult, StateHandler } from '../handler.types';
 import { ConversationState, SessaoRecord } from '../states';
+import { OsRepository } from '../../repositories/os.repository';
+import { StatusOS } from '@prisma/client';
+import { io } from '../../server';
+
+const osRepo = new OsRepository();
 
 function formatarOsId(osId?: string): string | null {
   if (!osId) return null;
@@ -35,6 +40,20 @@ export class EncerrarHandler implements StateHandler {
     sessao: SessaoRecord,
     deps: HandlerDeps
   ): Promise<HandlerResult> {
+    const osId = sessao.contexto.osId;
+    if (osId) {
+      try {
+        const os = await osRepo.findById(osId);
+        if (os && (os.status === StatusOS.CRIADA || os.status === StatusOS.AGUARDANDO_ORCAMENTO)) {
+          const osAtualizada = await osRepo.updateStatus(osId, StatusOS.CANCELADA);
+          io.emit('os-atualizada', osAtualizada);
+          console.log(`📋 [KANBAN] OS ${osId.slice(0, 8)} cancelada pelo encerramento da conversa.`);
+        }
+      } catch (err) {
+        console.error('❌ Erro ao cancelar OS no encerramento:', err);
+      }
+    }
+
     return {
       response: montarResposta(deps.clienteNome, sessao.contexto.osId),
       nextState: ConversationState.ENCERRAR,

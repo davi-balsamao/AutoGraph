@@ -15,6 +15,9 @@ import 'widgets/typing_indicator.dart';
 import 'widgets/quote_card.dart';
 import 'widgets/proof_card.dart';
 import 'widgets/composer_bar.dart';
+import '../../../core/services/os_service.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../core/models/ordem_servico.dart';
 
 // ─── Modelo de evento do script ──────────────────────────────────
 enum _ChatEventType { outgoing, incoming, typing, quote, proof }
@@ -136,6 +139,53 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
   }
 
+  Future<void> _handleQuoteAction(String quoteId, bool approved) async {
+    final client = AuthService().currentUser;
+    if (client == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Você precisa estar logado.')),
+      );
+      return;
+    }
+
+    try {
+      final items = await OsService().fetchOrdensServico();
+      final clientOrders = items.where((o) => o.clienteId == client.id).toList();
+      if (clientOrders.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Nenhuma ordem de serviço encontrada para este cliente.')),
+          );
+        }
+        return;
+      }
+
+      clientOrders.sort((a, b) => b.criadoEm.compareTo(a.criadoEm));
+      final latest = clientOrders.first;
+
+      final targetStatus = approved ? StatusOS.aprovado : StatusOS.cancelada;
+      await OsService().updateStatus(latest.id, targetStatus);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              approved
+                  ? 'Orçamento aprovado! O pedido foi enviado para produção.'
+                  : 'Orçamento recusado. O pedido foi cancelado.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar orçamento: $e')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _scrollCtrl.dispose();
@@ -247,6 +297,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         value: event.quoteValue!,
                         time: event.time!,
                         isDark: isDark,
+                        onApprove: () => _handleQuoteAction(event.quoteId!, true),
+                        onReject: () => _handleQuoteAction(event.quoteId!, false),
                       ),
                     _ChatEventType.proof => ProofCard(
                         time: event.time!,

@@ -24,7 +24,7 @@ class _AdminShellState extends State<AdminShell> {
   AdminTab _currentTab = AdminTab.geral;
 
   // Badges que virão de streams em produção (chat escalados, aprovações pendentes)
-  final Map<AdminTab, int> _badges = {AdminTab.chat: 3};
+  final Map<AdminTab, int> _badges = {};
 
   int get _index => switch (_currentTab) {
     AdminTab.geral   => 0,

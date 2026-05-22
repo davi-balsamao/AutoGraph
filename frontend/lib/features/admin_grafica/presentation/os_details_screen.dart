@@ -57,7 +57,6 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   bool _isSaving = false;
   bool _isApproving = false;
   bool _isRejecting = false;
-  bool _isTransitioning = false;
   String? _sessaoId;
   late StatusOS _statusAtual;
 
@@ -132,38 +131,53 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   }
 
   Future<void> _aprovar() async {
-    if (_sessaoId == null) return;
     setState(() => _isApproving = true);
     try {
       final novoTotal = double.tryParse(_totalCtrl.text.replaceAll(',', '.'));
       final novoPrazo = _prazoCtrl.text.trim();
 
-      // Salva edições de orçamento antes de aprovar
-      if (novoTotal != null || novoPrazo.isNotEmpty) {
-        await http.patch(
-          Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId'),
-          headers: AuthService().authHeaders,
-          body: jsonEncode({
-            'proposta': {
-              'orcamento': {
-                if (novoTotal != null) 'total': novoTotal,
-                if (novoPrazo.isNotEmpty) 'prazo': novoPrazo,
+      if (_sessaoId != null) {
+        // Salva edições de orçamento antes de aprovar
+        if (novoTotal != null || novoPrazo.isNotEmpty) {
+          await http.patch(
+            Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId'),
+            headers: AuthService().authHeaders,
+            body: jsonEncode({
+              'proposta': {
+                'orcamento': {
+                  'total': ?novoTotal,
+                  if (novoPrazo.isNotEmpty) 'prazo': novoPrazo,
+                }
               }
-            }
-          }),
+            }),
+          );
+        }
+
+        final res = await http.post(
+          Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId/aprovar'),
+          headers: AuthService().authHeaders,
         );
+
+        if (res.statusCode == 200 && mounted) {
+          SnackbarUtil.showSuccess(context, 'Proposta aprovada! Orçamento enviado ao cliente.');
+          Navigator.maybePop(context);
+          return;
+        }
       }
 
-      final res = await http.post(
-        Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId/aprovar'),
-        headers: AuthService().authHeaders,
-      );
-
-      if (res.statusCode == 200 && mounted) {
-        SnackbarUtil.showSuccess(context, 'Proposta aprovada! Orçamento enviado ao cliente.');
+      // Fallback
+      await OsService().updateStatus(widget.os.id, StatusOS.aprovado);
+      if (novoTotal != null || novoPrazo.isNotEmpty) {
+        final specsMap = Map<String, dynamic>.from(widget.os.especificacoes);
+        specsMap['orcamento'] = {
+          'total': ?novoTotal,
+          if (novoPrazo.isNotEmpty) 'prazo': novoPrazo,
+        };
+        await OsService().updateOS(widget.os.id, especificacoes: specsMap);
+      }
+      if (mounted) {
+        SnackbarUtil.showSuccess(context, 'Ordem de serviço aprovada com sucesso!');
         Navigator.maybePop(context);
-      } else if (mounted) {
-        SnackbarUtil.showError(context, 'Erro ao aprovar: ${res.statusCode}');
       }
     } catch (e) {
       if (mounted) SnackbarUtil.showError(context, 'Falha ao aprovar: $e');
@@ -173,67 +187,31 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   }
 
   Future<void> _rejeitar() async {
-    if (_sessaoId == null) return;
     setState(() => _isRejecting = true);
     try {
-      final res = await http.post(
-        Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId/rejeitar'),
-        headers: AuthService().authHeaders,
-        body: jsonEncode({'motivo': 'Rejeitado pelo admin'}),
-      );
-      if (res.statusCode == 200 && mounted) {
-        SnackbarUtil.showSuccess(context, 'Proposta rejeitada. Sessão escalada para atendimento humano.');
+      if (_sessaoId != null) {
+        final res = await http.post(
+          Uri.parse('${AuthService().baseUrl}/propostas/$_sessaoId/rejeitar'),
+          headers: AuthService().authHeaders,
+          body: jsonEncode({'motivo': 'Rejeitado pelo admin'}),
+        );
+        if (res.statusCode == 200 && mounted) {
+          SnackbarUtil.showSuccess(context, 'Proposta rejeitada. Sessão escalada para atendimento humano.');
+          Navigator.maybePop(context);
+          return;
+        }
+      }
+
+      // Fallback
+      await OsService().updateStatus(widget.os.id, StatusOS.cancelada);
+      if (mounted) {
+        SnackbarUtil.showSuccess(context, 'Ordem de serviço cancelada com sucesso!');
         Navigator.maybePop(context);
-      } else if (mounted) {
-        SnackbarUtil.showError(context, 'Erro ao rejeitar: ${res.statusCode}');
       }
     } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Falha ao rejeitar: $e');
+      if (mounted) SnackbarUtil.showError(context, 'Falha ao recusar: $e');
     } finally {
       if (mounted) setState(() => _isRejecting = false);
-    }
-  }
-
-  /// Avança a OS para o próximo status do fluxo de produção.
-  Future<void> _mudarStatus(StatusOS novoStatus) async {
-    setState(() => _isTransitioning = true);
-    try {
-      await OsService().updateStatus(widget.os.id, novoStatus);
-      if (mounted) {
-        setState(() => _statusAtual = novoStatus);
-        SnackbarUtil.showSuccess(context, 'Status atualizado para ${novoStatus.label}.');
-      }
-    } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Falha ao atualizar status: $e');
-    } finally {
-      if (mounted) setState(() => _isTransitioning = false);
-    }
-  }
-
-  /// Retorna o próximo status do fluxo, ou null se status terminal.
-  StatusOS? get _proximoStatus {
-    switch (_statusAtual) {
-      case StatusOS.aprovado:
-        return StatusOS.emProducao;
-      case StatusOS.emProducao:
-        return StatusOS.prontaParaRetirada;
-      case StatusOS.prontaParaRetirada:
-        return StatusOS.entregue;
-      default:
-        return null;
-    }
-  }
-
-  String _labelTransicao(StatusOS proximo) {
-    switch (proximo) {
-      case StatusOS.emProducao:
-        return '▶  INICIAR PRODUÇÃO';
-      case StatusOS.prontaParaRetirada:
-        return '✓  MARCAR COMO PRONTA';
-      case StatusOS.entregue:
-        return '📦  MARCAR COMO ENTREGUE';
-      default:
-        return proximo.label.toUpperCase();
     }
   }
 
@@ -284,7 +262,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'OS #${widget.os.id.split('-').last.toUpperCase()}',
+                    'OS #${widget.os.id.substring(0, 8).toUpperCase()}',
                     style: GoogleFonts.outfit(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -409,119 +387,56 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               _buildRequisitosList(cs),
               const SizedBox(height: 24),
               // Botões Aprovar / Recusar
-              if (_sessaoId != null) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _isApproving || _isRejecting ? null : _aprovar,
-                        icon: _isApproving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.check_circle_outline),
-                        label: const Text('APROVAR'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.brandGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          textStyle: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isApproving || _isRejecting ? null : _aprovar,
+                      icon: _isApproving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_circle_outline),
+                      label: const Text('APROVAR'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.brandGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        textStyle: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _isApproving || _isRejecting ? null : _rejeitar,
-                        icon: _isRejecting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.cancel_outlined),
-                        label: const Text('RECUSAR'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          textStyle: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isApproving || _isRejecting ? null : _rejeitar,
+                      icon: _isRejecting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.cancel_outlined),
+                      label: const Text('RECUSAR'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        textStyle: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Aprovar envia o orçamento ao cliente via WhatsApp.\nRecusar escala para atendimento humano.',
-                  style: GoogleFonts.outfit(
-                      fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
-                  textAlign: TextAlign.center,
-                ),
-              ] else
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(
-                    'Carregando dados da proposta…',
-                    style: GoogleFonts.outfit(
-                        fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              const SizedBox(height: 32),
-            ],
-
-            // ── Botão de transição de status (para OSs já aprovadas em diante)
-            if (_proximoStatus != null) ...[
-              _SectionHeader(title: 'Mover para Próximo Status'),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isTransitioning
-                      ? null
-                      : () => _mudarStatus(_proximoStatus!),
-                  icon: _isTransitioning
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.arrow_forward_rounded),
-                  label: Text(_labelTransicao(_proximoStatus!)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.brandGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
+                ],
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _isTransitioning
-                      ? null
-                      : () => _mudarStatus(StatusOS.cancelada),
-                  icon: const Icon(Icons.cancel_outlined, size: 18),
-                  label: const Text('CANCELAR OS'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    textStyle: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
+              Text(
+                'Aprovar envia o orçamento ao cliente via WhatsApp.\nRecusar cancela ou escala a sessão para atendimento humano.',
+                style: GoogleFonts.outfit(
+                    fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
             ],
@@ -650,6 +565,59 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
               ),
             ],
 
+            // Botão geral de Cancelar OS
+            if (widget.os.status != StatusOS.cancelada && widget.os.status != StatusOS.entregue) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isSaving ? null : () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Confirmar Cancelamento'),
+                        content: const Text('Tem certeza que deseja cancelar esta Ordem de Serviço?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Voltar'),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Cancelar Pedido'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm != true) return;
+
+                    setState(() => _isSaving = true);
+                    try {
+                      await OsService().updateStatus(widget.os.id, StatusOS.cancelada);
+                      if (context.mounted) {
+                        SnackbarUtil.showSuccess(context, 'Ordem de serviço cancelada com sucesso!');
+                        Navigator.maybePop(context);
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        SnackbarUtil.showError(context, 'Erro ao cancelar ordem de serviço: $e');
+                      }
+                    } finally {
+                      if (context.mounted) setState(() => _isSaving = false);
+                    }
+                  },
+                  icon: const Icon(Icons.cancel, color: Colors.red),
+                  label: const Text('CANCELAR ORDEM DE SERVIÇO', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 80),
           ],
         ),
@@ -657,9 +625,8 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
     );
   }
 
-  /// Renderiza todos os campos do `especificacoes` (exceto os já mostrados
-  /// nas seções específicas: requisitos, orcamento, arte_url) em formato
-  /// chave-valor amigável.
+  /// Renderiza os campos do `especificacoes` em formato chave-valor amigável,
+  /// expandindo `requisitos` (specs coletadas pelo agente) como pares pergunta→resposta.
   Widget _buildDetalhesPedido(ColorScheme cs) {
     const keysParaIgnorar = {
       'requisitos',
@@ -669,9 +636,25 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
       'enderecoEntrega',
       'referenciaEntrega',
     };
-    final entries = widget.os.especificacoes.entries
-        .where((e) => !keysParaIgnorar.contains(e.key))
-        .toList();
+
+    final entries = <MapEntry<String, dynamic>>[];
+
+    // Expande requisitos (pergunta → resposta) antes dos demais campos
+    final requisitos = widget.os.especificacoes['requisitos'];
+    if (requisitos is List) {
+      for (final r in requisitos) {
+        if (r is Map && r['pergunta'] != null) {
+          entries.add(MapEntry(r['pergunta'] as String, r['resposta'] ?? '—'));
+        }
+      }
+    }
+
+    // Demais campos, excluindo os já exibidos em outras seções
+    entries.addAll(
+      widget.os.especificacoes.entries
+          .where((e) => !keysParaIgnorar.contains(e.key))
+          .toList(),
+    );
 
     if (entries.isEmpty) {
       return Container(

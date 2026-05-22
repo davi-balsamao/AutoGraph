@@ -63,12 +63,12 @@ class ProductListCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(AGRadius.md),
               child: Container(
-                width: 96,
+                width: 80,
                 decoration: BoxDecoration(
                   border: Border.all(color: borderColor),
                   borderRadius: BorderRadius.circular(AGRadius.md),
                 ),
-                child: AGProductGlyph(kind: kind, size: 130),
+                child: AGProductGlyph(kind: kind, size: 80),
               ),
             ),
 
@@ -126,14 +126,19 @@ class ProductListCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        price,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: priceColor,
+                      Expanded(
+                        child: Text(
+                          price,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: priceColor,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),

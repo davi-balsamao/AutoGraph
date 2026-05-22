@@ -8,11 +8,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/widgets/ag_product_glyph.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
-import 'widgets/filter_pill_row.dart';
 import 'widgets/product_list_card.dart';
+import '../../../core/services/os_service.dart';
+import '../../../core/services/auth_service.dart';
+import '../../../core/services/produto_service.dart';
+import '../../../core/models/produto.dart';
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -22,53 +26,232 @@ class CatalogScreen extends StatefulWidget {
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  String _selectedFilter = 'Tudo';
+  List<Produto> _produtos = [];
+  bool _isLoading = true;
   String _search = '';
 
-  static const _allProducts = [
-    (
-      AGProductKind.panfleto,
-      'Panfletos',
-      'Mais pedido',
-      AGProductTag.green,
-      'A6, A5, A4 · couché ou offset · 4×4',
-      'R\$ 89/milheiro',
-    ),
-    (
-      AGProductKind.banner,
-      'Banners',
-      'Eventos',
-      AGProductTag.orange,
-      'Lona 440g, oxford ou vinil adesivo',
-      'R\$ 49/m²',
-    ),
-    (
-      AGProductKind.bloco,
-      'Blocos',
-      'Comércio',
-      AGProductTag.purple,
-      '1 ou 2 vias, numerado, carbonado',
-      'R\$ 12/unidade',
-    ),
-    (
-      AGProductKind.apostila,
-      'Apostilas',
-      'Escolar',
-      AGProductTag.blue,
-      'Espiral, wire-o ou costurada',
-      'R\$ 18/unidade',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadProdutos();
+  }
 
-  List<dynamic> get _filtered {
-    return _allProducts.where((p) {
+  Future<void> _loadProdutos() async {
+    try {
+      final produtos = await ProdutoService().fetchProdutos();
+      if (mounted) {
+        setState(() {
+          _produtos = produtos;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<Produto> get _filtered {
+    return _produtos.where((p) {
       final matchesSearch = _search.isEmpty ||
-          p.$2.toLowerCase().contains(_search.toLowerCase()) ||
-          p.$5.toLowerCase().contains(_search.toLowerCase());
-      // Filtro por categoria — expandir conforme necessário
-      final matchesFilter = _selectedFilter == 'Tudo' || true;
-      return matchesSearch && matchesFilter;
+          p.nome.toLowerCase().contains(_search.toLowerCase()) ||
+          (p.descricao?.toLowerCase().contains(_search.toLowerCase()) ?? false);
+      return matchesSearch;
     }).toList();
+  }
+
+  AGProductKind _inferKind(String nome) {
+    final lower = nome.toLowerCase();
+    if (lower.contains('panfleto')) return AGProductKind.panfleto;
+    if (lower.contains('banner') || lower.contains('lona')) return AGProductKind.banner;
+    if (lower.contains('bloco')) return AGProductKind.bloco;
+    if (lower.contains('apostila')) return AGProductKind.apostila;
+    return AGProductKind.panfleto; // default
+  }
+
+  String _inferTagLabel(AGProductKind kind) {
+    switch (kind) {
+      case AGProductKind.panfleto: return 'Mais pedido';
+      case AGProductKind.banner: return 'Eventos';
+      case AGProductKind.bloco: return 'Comércio';
+      case AGProductKind.apostila: return 'Escolar';
+    }
+  }
+
+  AGProductTag _inferTagColor(AGProductKind kind) {
+    switch (kind) {
+      case AGProductKind.panfleto: return AGProductTag.green;
+      case AGProductKind.banner: return AGProductTag.orange;
+      case AGProductKind.bloco: return AGProductTag.purple;
+      case AGProductKind.apostila: return AGProductTag.blue;
+    }
+  }
+
+  String _formatPrice(double preco) {
+    return 'R\$ ${preco.toStringAsFixed(2).replaceAll('.', ',')}';
+  }
+
+  Future<void> _fazerPedido(BuildContext context, Produto product) async {
+    final title = product.nome;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AGColors.surfaceDark : AGColors.canvas;
+    final textColor = isDark ? AGColors.onDark : AGColors.ink;
+    final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
+    final borderColor = isDark ? AGColors.hairlineDarkStr : AGColors.hairline;
+
+    final qtyCtrl = TextEditingController(text: '1000');
+    final obsCtrl = TextEditingController();
+    PlatformFile? selectedFile;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: bg,
+              title: Text('Fazer Pedido de $title', style: TextStyle(color: textColor)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Quantidade', style: TextStyle(color: mutedColor, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(),
+                      ),
+                      style: TextStyle(color: textColor),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Arte do Pedido (opcional)', style: TextStyle(color: mutedColor, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () async {
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.any,
+                        );
+                        if (result != null && result.files.isNotEmpty) {
+                          setStateDialog(() {
+                            selectedFile = result.files.first;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? AGColors.surfaceDark : AGColors.surfaceSoft,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selectedFile != null ? AGColors.brandGreen : borderColor,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selectedFile != null ? Icons.check_circle_outline : Icons.cloud_upload_outlined,
+                              color: selectedFile != null ? AGColors.brandGreen : mutedColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                selectedFile != null ? selectedFile!.name : 'Selecionar arquivo...',
+                                style: TextStyle(
+                                  color: selectedFile != null ? textColor : mutedColor,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (selectedFile != null)
+                              GestureDetector(
+                                onTap: () {
+                                  setStateDialog(() {
+                                    selectedFile = null;
+                                  });
+                                },
+                                child: const Icon(Icons.close, size: 18, color: Colors.red),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Observações', style: TextStyle(color: mutedColor, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: obsCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(),
+                      ),
+                      style: TextStyle(color: textColor),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AGColors.brandGreen),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Confirmar', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    final qty = int.tryParse(qtyCtrl.text) ?? 1000;
+    final obs = obsCtrl.text.trim();
+    final client = AuthService().currentUser;
+
+    if (client == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você precisa estar logado para fazer um pedido.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      await OsService().createOrdemServico(
+        clienteId: client.id,
+        especificacoes: {
+          'produtoNome': title,
+          'quantidade': qty,
+        },
+        observacoes: obs.isNotEmpty ? obs : null,
+        file: selectedFile,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pedido criado com sucesso!')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao criar pedido: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -115,7 +298,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '4 produtos · preço fechado por tiragem',
+                        '${_produtos.length} produtos · preço fechado por tiragem',
                         style: GoogleFonts.inter(
                             fontSize: 13, color: mutedColor),
                       ),
@@ -159,41 +342,38 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   ),
                 ),
 
-                // Filter pills
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                  child: FilterPillRow(
-                    selected: _selectedFilter,
-                    onSelect: (f) => setState(() => _selectedFilter = f),
-                  ),
-                ),
+
               ],
             ),
           ),
 
           // Lista de produtos
           Expanded(
-            child: ListView.separated(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 16,
-                bottom: 100 + MediaQuery.of(context).padding.bottom,
-              ),
-              itemCount: _filtered.length,
-              separatorBuilder: (_, i) => const SizedBox(height: 12),
-              itemBuilder: (context, i) {
-                final p = _filtered[i];
-                return ProductListCard(
-                  kind: p.$1 as AGProductKind,
-                  title: p.$2 as String,
-                  tagLabel: p.$3 as String,
-                  tagColor: p.$4 as AGProductTag,
-                  description: p.$5 as String,
-                  price: p.$6 as String,
-                );
-              },
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.separated(
+                    padding: EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      top: 16,
+                      bottom: 100 + MediaQuery.of(context).padding.bottom,
+                    ),
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, i) => const SizedBox(height: 12),
+                    itemBuilder: (context, i) {
+                      final p = _filtered[i];
+                      final kind = _inferKind(p.nome);
+                      return ProductListCard(
+                        kind: kind,
+                        title: p.nome,
+                        tagLabel: _inferTagLabel(kind),
+                        tagColor: _inferTagColor(kind),
+                        description: p.descricao ?? '',
+                        price: 'a partir de ${_formatPrice(p.precoBase)}',
+                        onTap: () => _fazerPedido(context, p),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

@@ -57,7 +57,7 @@ describe('AguardarAprovacaoHandler', () => {
   it('chama RAG quando sinal do cliente é ambíguo (sem repetir orçamento)', async () => {
     const sessao = makeSessao({ contexto: ctx });
     const rag = makeRagMock('Posso te ajudar com algo mais sobre o orçamento?');
-    const r = await aguardarAprovacaoHandler.handle('hmm vou pensar', sessao, makeDeps({ ragService: rag }));
+    const r = await aguardarAprovacaoHandler.handle('vou ver com meu sócio', sessao, makeDeps({ ragService: rag }));
 
     expect(r.nextState).toBe(ConversationState.AGUARDAR_APROVACAO);
     expect(r.chainNext).toBeUndefined();

@@ -9,13 +9,14 @@ import '../../../../core/theme/ag_tokens.dart';
 import '../../../../core/widgets/ag_product_glyph.dart';
 
 class ProductGrid extends StatelessWidget {
-  const ProductGrid({super.key});
+  final ValueChanged<String>? onTapProduct;
+  const ProductGrid({super.key, this.onTapProduct});
 
   static const _products = [
-    (AGProductKind.panfleto, 'Panfletos',  'R\$ 89/mil'),
-    (AGProductKind.banner,   'Banners',    'R\$ 49/m²'),
-    (AGProductKind.bloco,    'Blocos',     'R\$ 12/un.'),
-    (AGProductKind.apostila, 'Apostilas',  'R\$ 18/un.'),
+    (AGProductKind.panfleto, 'Panfleto A5',  'R\$ 0,12'),
+    (AGProductKind.banner,   'Banner Lona 440g', 'R\$ 49,00'),
+    (AGProductKind.bloco,    'Bloco 50fls 1 via', 'R\$ 12,00'),
+    (AGProductKind.banner,   'Banner Oxford', 'R\$ 79,00'),
   ];
 
   @override
@@ -35,47 +36,60 @@ class ProductGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       children: _products.map((p) {
         final (kind, label, price) = p;
-        return Container(
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(AGRadius.xl - 4),
-            border: Border.all(color: borderColor),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Imagem do produto
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AGRadius.md),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: borderColor),
+        return GestureDetector(
+          onTap: () => onTapProduct?.call(label),
+          child: Container(
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(AGRadius.xl - 4),
+              border: Border.all(color: borderColor),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Imagem do produto
+                Expanded(
+                  child: ClipRRect(
                     borderRadius: BorderRadius.circular(AGRadius.md),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: borderColor),
+                        borderRadius: BorderRadius.circular(AGRadius.md),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: AGProductGlyph(kind: kind, size: 140),
+                      ),
+                    ),
                   ),
-                  child: AGProductGlyph(kind: kind, size: 140),
                 ),
-              ),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'a partir de $price',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: mutedColor,
+                const SizedBox(height: 2),
+                Text(
+                  'a partir de $price',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: mutedColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       }).toList(),
