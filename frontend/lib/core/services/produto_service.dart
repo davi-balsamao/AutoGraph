@@ -18,7 +18,7 @@ class ProdutoService {
   factory ProdutoService() => _instance;
   ProdutoService._internal();
 
-  final String baseUrl = 'http://localhost:3000/api/produtos';
+  final String baseUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api/produtos';
 
   Future<List<Produto>> fetchProdutos() async {
     try {

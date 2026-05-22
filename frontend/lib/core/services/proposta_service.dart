@@ -14,7 +14,7 @@ class PropostaService {
   factory PropostaService() => _instance;
   PropostaService._internal();
 
-  final String baseUrl = 'http://localhost:3000/api';
+  final String baseUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
 
   Future<List<PropostaPendente>> listarPendentes() async {
     try {
@@ -100,7 +100,7 @@ class ConversaService {
   factory ConversaService() => _instance;
   ConversaService._internal();
 
-  final String baseUrl = 'http://localhost:3000/api';
+  final String baseUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
 
   Future<void> assumir(String userId) async {
     final res = await http.post(Uri.parse('$baseUrl/conversas/$userId/assumir'));

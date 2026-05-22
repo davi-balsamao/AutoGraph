@@ -29,7 +29,7 @@ class AuthService extends ChangeNotifier {
   };
 
   String get baseUrl {
-    return 'http://localhost:3000/api';
+    return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
   }
 
   /// Realiza login com e-mail e senha.

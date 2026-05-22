@@ -41,11 +41,7 @@ class ChatService {
   factory ChatService() => _instance;
 
   String get _baseUrl {
-    if (kIsWeb) return 'http://localhost:3000/api';
-    try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:3000/api';
-    } catch (_) {}
-    return 'http://localhost:3000/api';
+    return 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
   }
 
   late io.Socket _socket;
@@ -68,7 +64,7 @@ class ChatService {
   }
 
   void _initSocket() {
-    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+    const String serverUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev';
 
     final token = AuthService().token;
     _socket = io.io(serverUrl, io.OptionBuilder()

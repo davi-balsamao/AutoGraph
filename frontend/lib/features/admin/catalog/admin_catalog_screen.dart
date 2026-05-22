@@ -627,7 +627,7 @@ AGProductKind _getKind(String name) {
 
 Widget _buildProductImage(String? url, AGProductKind fallbackKind) {
   if (url != null && url.isNotEmpty) {
-    final fullUrl = url.startsWith('/') ? 'http://localhost:3000$url' : url;
+    final fullUrl = url.startsWith('/') ? 'https://prescribe-ocean-tiptoeing.ngrok-free.dev$url' : url;
     return Image.network(
       fullUrl,
       fit: BoxFit.cover,

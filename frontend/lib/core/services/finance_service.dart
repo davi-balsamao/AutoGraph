@@ -63,7 +63,7 @@ class FinanceService {
   factory FinanceService() => _instance;
   FinanceService._internal();
 
-  final String baseUrl = 'http://localhost:3000/api';
+  final String baseUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
 
   Future<FinanceSummary> fetchSummary({String? period}) async {
     try {
