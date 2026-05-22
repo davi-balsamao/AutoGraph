@@ -4,12 +4,14 @@
 //
 // Reutiliza: OsService().fetchOrdensServico()
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/services/os_service.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
 import '../../../core/models/ordem_servico.dart';
+import '../../../core/services/chat_service.dart';
 import '../shared/adm_badge.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   late String _selectedMes;
   StatusOS? _selectedStatus;
   String _selectedProduto = 'Todos';
+  StreamSubscription<OsEvent>? _osSub;
 
   @override
   void initState() {
@@ -33,6 +36,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     _selectedMes = '${meses[now.month - 1]} ${now.year}';
     _load();
+    _osSub = ChatService().osEventStream.listen((event) {
+      if (event.tipo == OsEventTipo.nova || event.tipo == OsEventTipo.atualizada) {
+        _load();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _osSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
