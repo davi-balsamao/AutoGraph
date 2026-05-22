@@ -38,7 +38,7 @@ class AuthService extends ChangeNotifier {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
         body: jsonEncode({'email': email, 'senha': senha}),
       ).timeout(const Duration(seconds: 5));
 
@@ -107,7 +107,7 @@ class AuthService extends ChangeNotifier {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
         body: jsonEncode({
           'nome': nome,
           'email': email,
@@ -166,7 +166,7 @@ class AuthService extends ChangeNotifier {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/auth/users'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
       ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
@@ -200,7 +200,7 @@ class AuthService extends ChangeNotifier {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/auth/users/$id'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
         body: jsonEncode({
           'nome': nome,
           'email': email,

@@ -22,7 +22,10 @@ class ProdutoService {
 
   Future<List<Produto>> fetchProdutos() async {
     try {
-      final response = await http.get(Uri.parse(baseUrl));
+      final response = await http.get(
+        Uri.parse(baseUrl),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Produto.fromJson(json)).toList();
@@ -47,6 +50,7 @@ class ProdutoService {
     try {
       final uri = Uri.parse(baseUrl);
       final request = http.MultipartRequest('POST', uri);
+      request.headers['ngrok-skip-browser-warning'] = 'true';
 
       request.fields['nome'] = nome;
       if (descricao != null && descricao.isNotEmpty) {
@@ -100,6 +104,7 @@ class ProdutoService {
     try {
       final uri = Uri.parse('$baseUrl/$id');
       final request = http.MultipartRequest('PUT', uri);
+      request.headers['ngrok-skip-browser-warning'] = 'true';
 
       if (nome != null) request.fields['nome'] = nome;
       if (descricao != null) request.fields['descricao'] = descricao;
@@ -142,7 +147,10 @@ class ProdutoService {
 
   Future<ProdutoRegrasCatalogo> fetchRegrasProdutos() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/regras'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/regras'),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         return ProdutoRegrasCatalogo.fromJson(data);
