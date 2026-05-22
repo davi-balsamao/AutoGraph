@@ -286,18 +286,25 @@ class _ProductRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(prod.nome,
-                    style: GoogleFonts.inter(
-                      fontSize: 14, fontWeight: FontWeight.w600,
-                      color: textColor,
-                    )),
+                Text(
+                  prod.nome,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Text('SKU-${prod.id.substring(0, 5).toUpperCase()} · 24h',
-                        style: GoogleFonts.inter(
-                            fontSize: 11, color: mutedColor)),
-                  ],
+                Text(
+                  'SKU-${prod.id.length > 5 ? prod.id.substring(0, 5).toUpperCase() : prod.id.toUpperCase()} · 24h · 0 vendas',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: mutedColor,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Row(
@@ -317,10 +324,6 @@ class _ProductRow extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const Spacer(),
-                    Text('0 vendas',
-                        style: GoogleFonts.inter(
-                            fontSize: 11, color: mutedColor)),
                   ],
                 ),
               ],
