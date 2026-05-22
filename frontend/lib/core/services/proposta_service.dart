@@ -18,7 +18,10 @@ class PropostaService {
 
   Future<List<PropostaPendente>> listarPendentes() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/propostas'));
+      final res = await http.get(
+        Uri.parse('$baseUrl/propostas'),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
       if (res.statusCode != 200) {
         throw PropostaServiceException(
           'Erro ao listar propostas: ${res.statusCode}',
@@ -48,7 +51,7 @@ class PropostaService {
       };
       final res = await http.patch(
         Uri.parse('$baseUrl/propostas/$sessaoId'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
         body: jsonEncode(body),
       );
       if (res.statusCode != 200) {
@@ -64,7 +67,10 @@ class PropostaService {
 
   Future<void> aprovar(String sessaoId) async {
     try {
-      final res = await http.post(Uri.parse('$baseUrl/propostas/$sessaoId/aprovar'));
+      final res = await http.post(
+        Uri.parse('$baseUrl/propostas/$sessaoId/aprovar'),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
       if (res.statusCode != 200) {
         throw PropostaServiceException(
           'Erro ao aprovar proposta: ${res.statusCode}',
@@ -80,7 +86,7 @@ class PropostaService {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/propostas/$sessaoId/rejeitar'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
         body: jsonEncode({if (motivo != null && motivo.isNotEmpty) 'motivo': motivo}),
       );
       if (res.statusCode != 200) {
@@ -103,21 +109,30 @@ class ConversaService {
   final String baseUrl = 'https://prescribe-ocean-tiptoeing.ngrok-free.dev/api';
 
   Future<void> assumir(String userId) async {
-    final res = await http.post(Uri.parse('$baseUrl/conversas/$userId/assumir'));
+    final res = await http.post(
+      Uri.parse('$baseUrl/conversas/$userId/assumir'),
+      headers: {'ngrok-skip-browser-warning': 'true'},
+    );
     if (res.statusCode != 200) {
       throw PropostaServiceException('Erro ao assumir conversa: ${res.statusCode}');
     }
   }
 
   Future<void> devolverIa(String userId) async {
-    final res = await http.post(Uri.parse('$baseUrl/conversas/$userId/devolver-ia'));
+    final res = await http.post(
+      Uri.parse('$baseUrl/conversas/$userId/devolver-ia'),
+      headers: {'ngrok-skip-browser-warning': 'true'},
+    );
     if (res.statusCode != 200) {
       throw PropostaServiceException('Erro ao devolver conversa: ${res.statusCode}');
     }
   }
 
   Future<Map<String, dynamic>> status(String userId) async {
-    final res = await http.get(Uri.parse('$baseUrl/conversas/$userId/status'));
+    final res = await http.get(
+      Uri.parse('$baseUrl/conversas/$userId/status'),
+      headers: {'ngrok-skip-browser-warning': 'true'},
+    );
     if (res.statusCode != 200) {
       throw PropostaServiceException('Erro ao buscar status: ${res.statusCode}');
     }

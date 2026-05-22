@@ -54,7 +54,7 @@ class OsService {
 
       final response = await http.patch(
         Uri.parse('$baseUrl/os/$id'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
         body: jsonEncode(body),
       );
 
@@ -82,12 +82,18 @@ class OsService {
   }
 
   Future<void> startTimer(String id) async {
-    final response = await http.patch(Uri.parse('$baseUrl/os/$id/timer/start'));
+    final response = await http.patch(
+      Uri.parse('$baseUrl/os/$id/timer/start'),
+      headers: {'ngrok-skip-browser-warning': 'true'},
+    );
     if (response.statusCode != 200) throw OsServiceException('Erro ao iniciar timer');
   }
 
   Future<void> stopTimer(String id) async {
-    final response = await http.patch(Uri.parse('$baseUrl/os/$id/timer/stop'));
+    final response = await http.patch(
+      Uri.parse('$baseUrl/os/$id/timer/stop'),
+      headers: {'ngrok-skip-browser-warning': 'true'},
+    );
     if (response.statusCode != 200) throw OsServiceException('Erro ao parar timer');
   }
 
@@ -100,6 +106,7 @@ class OsService {
     try {
       final uri = Uri.parse('$baseUrl/os');
       final request = http.MultipartRequest('POST', uri);
+      request.headers['ngrok-skip-browser-warning'] = 'true';
 
       request.fields['clienteId'] = clienteId;
       request.fields['especificacoes'] = jsonEncode(especificacoes);

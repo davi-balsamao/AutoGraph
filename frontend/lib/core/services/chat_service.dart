@@ -179,6 +179,7 @@ class ChatService {
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/conversas/$clientId/mensagens?limit=200'),
+        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (res.statusCode == 200) {

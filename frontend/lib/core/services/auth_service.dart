@@ -25,6 +25,7 @@ class AuthService extends ChangeNotifier {
   /// Headers com JWT para todos os requests HTTP autenticados.
   Map<String, String> get authHeaders => {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     if (_token != null) 'Authorization': 'Bearer $_token',
   };
 
