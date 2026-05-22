@@ -2,11 +2,12 @@
  * Fluxo 11 · Múltiplas dúvidas antes de qualquer spec
  *
  * Cliente técnico quer entender laminação, gramaturas e sangria.
- * Passa por ESCLARECER_DUVIDA várias vezes antes de coletar specs.
+ * Durante COLETAR_ESPECIFICACOES, dúvidas técnicas são respondidas sem sair
+ * da coleta, preservando o contexto do pedido.
  *
  * Estados:
- * Boas-vindas → Identificar → Esclarecer → Esclarecer → Esclarecer →
- * Coletar specs → Validar arq. → AGUARDAR_APROVACAO_ADMIN
+ * Boas-vindas → Identificar → Coletar specs/dúvidas → Coletar specs →
+ * Validar arq. → AGUARDAR_APROVACAO_ADMIN
  */
 
 import {
@@ -52,8 +53,8 @@ describe('Fluxo 11 · Múltiplas dúvidas antes das specs', () => {
       PHONE,
       NAME,
       'Qual é a diferença entre laminação fosca e brilhosa?',
-      'ESCLARECER_DUVIDA',
-      'Esclarecer 1 – laminação',
+      'COLETAR_ESPECIFICACOES',
+      'Dúvida técnica 1 – laminação',
       30_000
     );
 
@@ -61,8 +62,8 @@ describe('Fluxo 11 · Múltiplas dúvidas antes das specs', () => {
       PHONE,
       NAME,
       'E sobre gramatura do papel: qual você recomenda para cartão de visita?',
-      'ESCLARECER_DUVIDA',
-      'Esclarecer 2 – gramatura',
+      'COLETAR_ESPECIFICACOES',
+      'Dúvida técnica 2 – gramatura',
       30_000
     );
 
@@ -70,8 +71,8 @@ describe('Fluxo 11 · Múltiplas dúvidas antes das specs', () => {
       PHONE,
       NAME,
       'O que é sangria no arquivo de arte? Como devo preparar?',
-      'ESCLARECER_DUVIDA',
-      'Esclarecer 3 – sangria',
+      'COLETAR_ESPECIFICACOES',
+      'Dúvida técnica 3 – sangria',
       30_000
     );
 
@@ -80,7 +81,7 @@ describe('Fluxo 11 · Múltiplas dúvidas antes das specs', () => {
       NAME,
       'Entendi tudo! Agora quero cartões de visita com laminação fosca.',
       'COLETAR_ESPECIFICACOES',
-      'Coletar specs'
+      'Retoma coleta de specs'
     );
 
     await turno(

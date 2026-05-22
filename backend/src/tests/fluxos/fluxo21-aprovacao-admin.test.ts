@@ -7,10 +7,11 @@
  * Fluxo coberto:
  * 1. Cliente conversa até VALIDAR_ARQUIVO
  * 2. Confirma arquivo → chain CALCULAR_ORCAMENTO → AGUARDAR_APROVACAO_ADMIN
- * 3. Cliente manda follow-up → bot responde "Estou revisando..."
- * 4. Admin POST /api/propostas/:sessaoId/aprovar
- * 5. FSM resume, manda orçamento ao cliente e muda para AGUARDAR_APROVACAO
- * 6. Cliente confirma + entrega + confirmação final → GERAR_OS cria OS
+ * 3. O.S. já existe com status AGUARDANDO_ORCAMENTO
+ * 4. Cliente manda follow-up → bot responde "Estou revisando..."
+ * 5. Admin POST /api/propostas/:sessaoId/aprovar
+ * 6. FSM resume, manda orçamento ao cliente e muda para AGUARDAR_APROVACAO
+ * 7. Cliente confirma + entrega + confirmação final → O.S. fica CRIADA
  */
 
 import {
@@ -95,7 +96,8 @@ describeOrSkip('Fluxo 21 · Aprovação Admin do orçamento', () => {
     expect(ctx?.propostaPendente.orcamento.total).toBeGreaterThan(0);
 
     const osAntes = await getLastOS(PHONE);
-    expect(osAntes).toBeNull();
+    expect(osAntes).not.toBeNull();
+    expect(osAntes!.status).toBe('AGUARDANDO_ORCAMENTO');
 
     await turno(
       'Pode calcular o orçamento?',
@@ -120,14 +122,14 @@ describeOrSkip('Fluxo 21 · Aprovação Admin do orçamento', () => {
 
     const approveText = await approveRes.text();
 
-console.log('\n[DEBUG aprovação admin]');
-console.log('  URL:', `${BASE_URL}/api/propostas/${sessaoId}/aprovar`);
-console.log('  Status:', approveRes.status);
-console.log('  Body:', approveText);
+    console.log('\n[DEBUG aprovação admin]');
+    console.log('  URL:', `${BASE_URL}/api/propostas/${sessaoId}/aprovar`);
+    console.log('  Status:', approveRes.status);
+    console.log('  Body:', approveText);
 
-expect(approveRes.ok).toBe(true);
+    expect(approveRes.ok).toBe(true);
 
-const approveBody = JSON.parse(approveText);
+    const approveBody = JSON.parse(approveText);
 
     expect(approveBody.estadoAtual).toBe('AGUARDAR_APROVACAO');
     expect(approveBody.mensagemEnviada).toMatch(/R\$|orçamento|valor/i);
