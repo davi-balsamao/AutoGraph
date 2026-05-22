@@ -11,6 +11,8 @@ class QuoteCard extends StatelessWidget {
   final double value;
   final String time;
   final bool isDark;
+  final VoidCallback? onApprove;
+  final VoidCallback? onReject;
 
   const QuoteCard({
     super.key,
@@ -18,6 +20,8 @@ class QuoteCard extends StatelessWidget {
     required this.value,
     required this.time,
     required this.isDark,
+    this.onApprove,
+    this.onReject,
   });
 
   @override
@@ -89,19 +93,22 @@ class QuoteCard extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Container(
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AGColors.brandGreen,
-                        borderRadius: BorderRadius.circular(AGRadius.full),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Aprovar',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AGColors.onPrimary,
+                    child: GestureDetector(
+                      onTap: onApprove,
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AGColors.brandGreen,
+                          borderRadius: BorderRadius.circular(AGRadius.full),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Aprovar',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AGColors.onPrimary,
+                            ),
                           ),
                         ),
                       ),
@@ -109,24 +116,25 @@ class QuoteCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(AGRadius.full),
-                        border: Border.all(
-                          color: isDark
-                              ? AGColors.hairlineDarkStr
-                              : AGColors.hairlineStrong,
+                    child: GestureDetector(
+                      onTap: onReject,
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(AGRadius.full),
+                          border: Border.all(
+                            color: Colors.red.withOpacity(0.5),
+                          ),
                         ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Ajustar',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
+                        child: Center(
+                          child: Text(
+                            'Cancelar',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red,
+                            ),
                           ),
                         ),
                       ),

@@ -13,6 +13,8 @@ import '../../../core/widgets/ag_product_glyph.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
 import 'widgets/filter_pill_row.dart';
 import 'widgets/product_list_card.dart';
+import '../../../core/services/os_service.dart';
+import '../../../core/services/auth_service.dart';
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -69,6 +71,95 @@ class _CatalogScreenState extends State<CatalogScreen> {
       final matchesFilter = _selectedFilter == 'Tudo' || true;
       return matchesSearch && matchesFilter;
     }).toList();
+  }
+
+  Future<void> _fazerPedido(BuildContext context, dynamic product) async {
+    final title = product.$2 as String;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AGColors.surfaceDark : AGColors.canvas;
+    final textColor = isDark ? AGColors.onDark : AGColors.ink;
+
+    final qtyCtrl = TextEditingController(text: '1000');
+    final obsCtrl = TextEditingController();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: bg,
+          title: Text('Fazer Pedido de $title', style: TextStyle(color: textColor)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: qtyCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Quantidade',
+                ),
+                style: TextStyle(color: textColor),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: obsCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Observações/Instruções',
+                ),
+                style: TextStyle(color: textColor),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AGColors.brandGreen),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Confirmar Pedido', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    final qty = int.tryParse(qtyCtrl.text) ?? 1000;
+    final obs = obsCtrl.text.trim();
+    final client = AuthService().currentUser;
+
+    if (client == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Você precisa estar logado para fazer um pedido.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      await OsService().createOrdemServico(
+        clienteId: client.id,
+        especificacoes: {
+          'produtoNome': title,
+          'quantidade': qty,
+        },
+        observacoes: obs.isNotEmpty ? obs : null,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pedido criado com sucesso!')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao criar pedido: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -191,6 +282,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   tagColor: p.$4 as AGProductTag,
                   description: p.$5 as String,
                   price: p.$6 as String,
+                  onTap: () => _fazerPedido(context, p),
                 );
               },
             ),

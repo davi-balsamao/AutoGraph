@@ -7,6 +7,12 @@ import { StatusOS } from '@prisma/client';
 import { io } from '../server';
 import { prisma } from '../config/prisma';
 import { notificationService } from '../services/notification.service';
+import { stateService } from '../services/state.service';
+import { ragService } from '../services/rag.service';
+import { conversationService } from '../services/conversation.service';
+import { runHandlerChain } from '../fsm/state-router';
+import { ConversationState, parseContext } from '../fsm/states';
+import { HandlerDeps } from '../fsm/handler.types';
 
 const osRepo = new OsRepository();
 const mensagemRepo = new MensagemRepository();
@@ -104,6 +110,93 @@ export class OsController {
         return res.status(400).json({ error: 'Status inválido.' });
       }
       const osAtualizada = await osRepo.updateStatus(id, status as StatusOS);
+
+      // Sincroniza a alteração do status com a FSM da conversa ativa do cliente
+      if (status === StatusOS.APROVADO) {
+        try {
+          const sessao = await prisma.sessaoAtendimento.findFirst({
+            where: { clienteId: osAtualizada.clienteId, ativa: true },
+            include: { cliente: true }
+          });
+          if (sessao && sessao.estadoAtual === ConversationState.AGUARDAR_APROVACAO_ADMIN) {
+            const ctx = parseContext(sessao.contexto);
+            if (ctx.osId === osAtualizada.id) {
+              if (ctx.propostaPendente) {
+                ctx.orcamento = ctx.propostaPendente.orcamento;
+                delete ctx.propostaPendente;
+              }
+              delete ctx.aguardandoFollowupEnviado;
+
+              const transicionada = await stateService.transition(
+                sessao.id,
+                ConversationState.APRESENTAR_ORCAMENTO,
+                ctx
+              );
+
+              const history = await conversationService.getFormattedHistorySince(
+                transicionada.clienteId,
+                transicionada.criadoEm
+              );
+
+              const deps: HandlerDeps = {
+                ragService,
+                conversationHistory: history || '',
+                clienteNome: sessao.cliente.nome,
+                clienteTelefone: sessao.cliente.telefone,
+              };
+
+              const chain = await runHandlerChain(transicionada, '', deps);
+              const resposta = chain.responseParts.join('\n').trim();
+
+              if (resposta) {
+                const msgBot = await mensagemRepo.create({
+                  usuarioId: sessao.clienteId,
+                  payload: { text: resposta },
+                  origem: 'BOT',
+                });
+                io.emit('message', {
+                  id: msgBot.id.toString(),
+                  senderId: 'bot',
+                  receiverId: sessao.cliente.telefone,
+                  text: resposta,
+                  type: 'text',
+                  timestamp: new Date().toISOString(),
+                  isFromRAG: true,
+                });
+                await whatsappService.sendMessage(sessao.cliente.telefone, resposta);
+              }
+
+              io.emit('proposta-aprovada', { sessaoId: sessao.id, clienteId: sessao.clienteId });
+            }
+          }
+        } catch (err) {
+          console.error('❌ Erro ao sincronizar aprovação com FSM:', err);
+        }
+      }
+
+      if (status === StatusOS.CANCELADA) {
+        try {
+          const sessao = await prisma.sessaoAtendimento.findFirst({
+            where: { clienteId: osAtualizada.clienteId, ativa: true },
+            include: { cliente: true }
+          });
+          if (sessao && sessao.estadoAtual === ConversationState.AGUARDAR_APROVACAO_ADMIN) {
+            const ctx = parseContext(sessao.contexto);
+            if (ctx.osId === osAtualizada.id) {
+              ctx.estadoSalvoTakeover = sessao.estadoAtual;
+              delete ctx.propostaPendente;
+              delete ctx.aguardandoFollowupEnviado;
+
+              await stateService.transition(sessao.id, ConversationState.ESCALAR_HUMANO, ctx);
+              await clienteRepo.updateAtendimentoStatus(sessao.clienteId, true);
+
+              io.emit('proposta-rejeitada', { sessaoId: sessao.id, clienteId: sessao.clienteId });
+            }
+          }
+        } catch (err) {
+          console.error('❌ Erro ao sincronizar recusa com FSM:', err);
+        }
+      }
 
       // Mapeamento de status amigável para a notificação
       const statusNomes: Record<string, string> = {

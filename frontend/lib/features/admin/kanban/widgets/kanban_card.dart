@@ -11,8 +11,16 @@ import '../../shared/adm_badge.dart';
 class KanbanCard extends StatelessWidget {
   final OrdemServico os;
   final VoidCallback? onTap;
+  final VoidCallback? onApprove;
+  final VoidCallback? onReject;
 
-  const KanbanCard({super.key, required this.os, this.onTap});
+  const KanbanCard({
+    super.key,
+    required this.os,
+    this.onTap,
+    this.onApprove,
+    this.onReject,
+  });
 
   static AdmBadgeStyle _tagStyle(String produto) {
     final p = produto.toLowerCase();
@@ -133,6 +141,37 @@ class KanbanCard extends StatelessWidget {
             ),
 
             const SizedBox(height: 10),
+
+            if (os.status == StatusOS.aguardandoOrcamento || os.status == StatusOS.criada) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onReject,
+                    icon: const Icon(Icons.close, size: 12),
+                    label: const Text('Recusar', style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: onApprove,
+                    icon: const Icon(Icons.check, size: 12, color: Colors.white),
+                    label: const Text('Aprovar', style: TextStyle(fontSize: 11, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AGColors.brandGreen,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
 
             // Footer: timer + valor
             Row(

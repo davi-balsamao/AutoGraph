@@ -48,6 +48,22 @@ export class ValidarArquivoHandler implements StateHandler {
       };
     }
 
+    if (SEM_ARTE_RE.test(msg)) {
+      return {
+        response: ORIENTACAO_SEM_ARTE,
+        nextState: ConversationState.VALIDAR_ARQUIVO,
+        updatedContext: context,
+      };
+    }
+
+    if (ENVIA_DEPOIS_RE.test(msg)) {
+      return {
+        response: 'Tudo bem! Quando a arte estiver pronta, é só me enviar que eu retomo daqui.',
+        nextState: ConversationState.AGUARDAR_RETORNO,
+        updatedContext: context,
+      };
+    }
+
     if (ARTE_PRONTA_RE.test(msg)) {
       context.validacaoArteOk = true;
       return {
@@ -66,22 +82,6 @@ export class ValidarArquivoHandler implements StateHandler {
         nextState: ConversationState.ESCLARECER_DUVIDA,
         updatedContext: context,
         chainNext: ConversationState.ESCLARECER_DUVIDA,
-      };
-    }
-
-    if (ENVIA_DEPOIS_RE.test(msg)) {
-      return {
-        response: 'Tudo bem! Quando a arte estiver pronta, é só me enviar que eu retomo daqui.',
-        nextState: ConversationState.AGUARDAR_RETORNO,
-        updatedContext: context,
-      };
-    }
-
-    if (SEM_ARTE_RE.test(msg)) {
-      return {
-        response: ORIENTACAO_SEM_ARTE,
-        nextState: ConversationState.VALIDAR_ARQUIVO,
-        updatedContext: context,
       };
     }
 

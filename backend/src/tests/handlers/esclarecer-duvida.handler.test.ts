@@ -4,6 +4,7 @@ import { makeDeps, makeEntities, makeRagMock, makeSessao } from './helpers';
 jest.mock('../../services/entity-extraction.service', () => ({
   entityExtractionService: {
     extract: jest.fn(),
+    extractRegex: jest.fn(),
     identificarProdutoNaMensagem: jest.fn(),
   },
 }));
@@ -14,6 +15,7 @@ const { entityExtractionService } = require('../../services/entity-extraction.se
 describe('EsclarecerDuvidaHandler', () => {
   beforeEach(() => {
     (entityExtractionService.extract as jest.Mock).mockResolvedValue(makeEntities());
+    (entityExtractionService.extractRegex as jest.Mock).mockReturnValue(makeEntities());
   });
 
   it('permanece em ESCLARECER_DUVIDA enquanto cliente pergunta', async () => {
@@ -41,6 +43,9 @@ describe('EsclarecerDuvidaHandler', () => {
 
   it('promove para COLETAR_ESPECIFICACOES quando há produto e cliente avança', async () => {
     (entityExtractionService.extract as jest.Mock).mockResolvedValue(
+      makeEntities({ produtoIdentificado: 'Panfletos' })
+    );
+    (entityExtractionService.extractRegex as jest.Mock).mockReturnValue(
       makeEntities({ produtoIdentificado: 'Panfletos' })
     );
     const sessao = makeSessao({
