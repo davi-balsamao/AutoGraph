@@ -120,6 +120,11 @@ class KanbanCard extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _mostrarMenuStatus(context),
+                  child: Icon(Icons.more_horiz, size: 18, color: mutedColor),
+                ),
               ],
             ),
 

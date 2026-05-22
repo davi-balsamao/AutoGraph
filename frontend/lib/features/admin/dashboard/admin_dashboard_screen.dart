@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/os_service.dart';
+import '../../../core/services/chat_service.dart';
 import '../../../core/models/ordem_servico.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
 
@@ -25,11 +26,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<OrdemServico> _orders = [];
   int _propostasCount = 0;
   bool _loading = true;
+  StreamSubscription<OsEvent>? _osSub;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _osSub = ChatService().osEventStream.listen((event) {
+      if (event.tipo == OsEventTipo.nova || event.tipo == OsEventTipo.atualizada) _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _osSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
