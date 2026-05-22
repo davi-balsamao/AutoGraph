@@ -468,11 +468,11 @@ class _AccountScreenState extends State<AccountScreen> {
             borderColor: borderColor,
             children: [
               _MenuRow('Dados pessoais', Icons.person_outline_rounded,
-                  textColor, mutedColor, borderColor, () => _showPersonalDataDialog(context, user, textColor, mutedColor, surfaceBg, borderColor)),
+                  textColor, mutedColor, borderColor, () => _showPersonalDataDialog(context, user, textColor, mutedColor, cardBg, borderColor)),
               _MenuRow('Endereços', Icons.location_on_outlined,
-                  textColor, mutedColor, borderColor, () => _showAddressesDialog(context, textColor, mutedColor, surfaceBg, borderColor)),
+                  textColor, mutedColor, borderColor, () => _showAddressesDialog(context, textColor, mutedColor, cardBg, borderColor)),
               _MenuRow('Formas de pagamento', Icons.credit_card_outlined,
-                  textColor, mutedColor, null, () => _showPaymentMethodsDialog(context, textColor, mutedColor, surfaceBg, borderColor), isLast: true),
+                  textColor, mutedColor, null, () => _showPaymentMethodsDialog(context, textColor, mutedColor, cardBg, borderColor), isLast: true),
             ],
           ),
 
@@ -511,7 +511,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   ),
                   Divider(height: 1, color: borderColor),
                   _MenuRow('Notificações', Icons.notifications_outlined,
-                      textColor, mutedColor, borderColor, () => _showNotificationsSettingsDialog(context, textColor, mutedColor, surfaceBg, borderColor)),
+                      textColor, mutedColor, borderColor, () => _showNotificationsSettingsDialog(context, textColor, mutedColor, cardBg, borderColor)),
                   _MenuRow('Fale conosco (WhatsApp)', Icons.support_agent_outlined,
                       textColor, mutedColor, borderColor, () async {
                     final Uri url = Uri.parse("https://wa.me/5511999990000");
@@ -524,7 +524,7 @@ class _AccountScreenState extends State<AccountScreen> {
                     }
                   }),
                   _MenuRow('Central de ajuda', Icons.help_outline_rounded,
-                      textColor, mutedColor, null, () => _showHelpCenterDialog(context, textColor, mutedColor, surfaceBg, borderColor), isLast: true),
+                      textColor, mutedColor, null, () => _showHelpCenterDialog(context, textColor, mutedColor, cardBg, borderColor), isLast: true),
                 ],
               ),
             ),
