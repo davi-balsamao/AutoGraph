@@ -109,8 +109,11 @@ class _AdminChatConversationScreenState
     final user = AuthService().currentUser;
     final msg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      senderId: user?.id ?? 'admin',
-      receiverId: widget.clienteId,
+      senderId: 'admin',
+      clienteDbId: widget.clienteId,
+      receiverId: (widget.clienteTelefone != null && widget.clienteTelefone!.isNotEmpty) 
+          ? widget.clienteTelefone! 
+          : widget.clienteId,
       text: text,
       type: MessageType.text,
       timestamp: DateTime.now(),

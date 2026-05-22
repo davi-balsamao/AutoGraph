@@ -90,6 +90,15 @@ io.on('connection', (socket) => {
               });
             }
           }
+
+          // 3. Salva a mensagem do Admin no banco de dados para persistência do histórico
+          await prisma.mensagens.create({
+            data: {
+              usuarioId: cliente.id,
+              origem: 'GERENTE',
+              payload: { text: data.text }
+            }
+          });
         }
         console.log(`🤫 IA desativada para o cliente ${data.receiverId} (Humano assumiu a conversa)`);
         
