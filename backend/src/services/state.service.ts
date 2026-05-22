@@ -1,3 +1,5 @@
+import { StatusOS } from '@prisma/client';
+import { OsRepository } from '../repositories/os.repository';
 import { sessaoRepository } from '../repositories/sessao.repository';
 import {
   ConversationContext,
@@ -5,6 +7,30 @@ import {
   parseContext,
   SessaoRecord,
 } from '../fsm/states';
+
+const osRepo = new OsRepository();
+
+/**
+ * Cancela OS órfã associada a uma sessão que está sendo encerrada/reiniciada.
+ * Só cancela se a OS estiver em AGUARDANDO_ORCAMENTO (criada para revisão admin).
+ * Emite Socket.io para o Kanban atualizar em tempo real.
+ *
+ * Importação tardia de `io` evita ciclo: state.service → server → state.service.
+ */
+async function cancelarOsOrfa(osId?: string) {
+  if (!osId) return;
+  try {
+    const os = await osRepo.findById(osId);
+    if (os && os.status === StatusOS.AGUARDANDO_ORCAMENTO) {
+      const cancelada = await osRepo.updateStatus(osId, StatusOS.CANCELADA);
+      const { io } = await import('../server');
+      io.emit('os-atualizada', cancelada);
+      console.log(`🗑️  [StateService] OS ${osId.substring(0, 8)} cancelada (sessão encerrada).`);
+    }
+  } catch (e) {
+    console.warn('⚠️  Falha ao cancelar OS órfã:', e);
+  }
+}
 
 export class StateService {
   async getOrCreateSession(clienteId: string): Promise<SessaoRecord> {
@@ -33,6 +59,12 @@ export class StateService {
   }
 
   async encerrar(sessaoId: string): Promise<void> {
+    // Antes de encerrar, cancela OS órfã se houver
+    const sessao = await sessaoRepository.findById(sessaoId);
+    if (sessao) {
+      const ctx = parseContext(sessao.contexto);
+      await cancelarOsOrfa(ctx.osId);
+    }
     await sessaoRepository.encerrar(sessaoId);
   }
 
@@ -40,6 +72,8 @@ export class StateService {
   async reiniciarSessao(clienteId: string): Promise<SessaoRecord> {
     const ativa = await sessaoRepository.findActiveByClienteId(clienteId);
     if (ativa) {
+      const ctx = parseContext(ativa.contexto);
+      await cancelarOsOrfa(ctx.osId);
       await sessaoRepository.encerrar(ativa.id);
     }
     const nova = await sessaoRepository.create(clienteId);

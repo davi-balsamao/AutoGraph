@@ -105,6 +105,9 @@ export class OsController {
       }
       const osAtualizada = await osRepo.updateStatus(id, status as StatusOS);
 
+      // Emite evento Socket.io para Kanban atualizar em tempo real
+      io.emit('os-atualizada', osAtualizada);
+
       // Mapeamento de status amigável para a notificação
       const statusNomes: Record<string, string> = {
         CRIADA: 'Criado',

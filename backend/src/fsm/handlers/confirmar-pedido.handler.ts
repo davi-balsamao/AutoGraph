@@ -66,6 +66,7 @@ export class ConfirmarPedidoHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     const { context } = await prepareContext(message, sessao, deps);
+    console.log(`🔖 [CONFIRMAR_PEDIDO] osId in=${sessao.contexto.osId?.slice(0, 8) ?? 'null'} prepared=${context.osId?.slice(0, 8) ?? 'null'}`);
 
     // Mensagem vazia (entrada via chain de COLETAR_DADOS_ENTREGA → CONFIRMAR_PEDIDO):
     // emite o resumo e aguarda o "confirmo" no próximo turno.
