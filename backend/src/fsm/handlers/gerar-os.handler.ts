@@ -47,7 +47,7 @@ export class GerarOsHandler implements StateHandler {
     if (context.osId) {
       // Caminho normal: OS foi criada em AGUARDAR_APROVACAO_ADMIN — atualiza em vez de criar nova
       await osRepo.updateData(context.osId, { especificacoes, mensagem_sugerida: mensagemSugerida });
-      os = await osRepo.updateStatus(context.osId, StatusOS.APROVADO);
+      os = await osRepo.updateStatus(context.osId, StatusOS.CRIADA);
       io.emit('os-atualizada', os);
     } else {
       // Fallback: sessões iniciadas sem ADMIN_APPROVAL_REQUIRED — cria OS agora
@@ -55,7 +55,7 @@ export class GerarOsHandler implements StateHandler {
         clienteId: sessao.clienteId,
         especificacoes,
         mensagem_sugerida: mensagemSugerida,
-        status: StatusOS.APROVADO,
+        status: StatusOS.CRIADA,
       } as Parameters<typeof osRepo.create>[0]);
       io.emit('os-nova', os);
     }
