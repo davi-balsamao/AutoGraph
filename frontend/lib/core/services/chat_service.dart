@@ -43,7 +43,7 @@ class ChatService {
   String get _baseUrl {
     if (kIsWeb) return 'http://localhost:3000/api';
     try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:3000/api';
+      if (Platform.isAndroid) return 'http://localhost:3000/api';
     } catch (_) {}
     return 'http://localhost:3000/api';
   }
@@ -68,7 +68,7 @@ class ChatService {
   }
 
   void _initSocket() {
-    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
+    const String serverUrl = kIsWeb ? 'http://localhost:3000' : 'http://localhost:3000';
 
     final token = AuthService().token;
     _socket = io.io(serverUrl, io.OptionBuilder()
