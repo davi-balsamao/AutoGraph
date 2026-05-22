@@ -22,10 +22,16 @@ class AdminOrdersScreen extends StatefulWidget {
 class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   List<OrdemServico> _orders = [];
   bool _loading = true;
+  late String _selectedMes;
+  StatusOS? _selectedStatus;
+  String _selectedProduto = 'Todos';
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    _selectedMes = '${meses[now.month - 1]} ${now.year}';
     _load();
   }
 
@@ -69,10 +75,73 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     return active.fold(0.0, (sum, o) => sum + o.total) / active.length;
   }
 
-  String get _mesAtual {
+  List<String> get _mesesDisponiveis {
+    final set = <String>{'Todos'};
     const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     final now = DateTime.now();
-    return '${meses[now.month - 1]} ${now.year}';
+    set.add('${meses[now.month - 1]} ${now.year}');
+    for (var o in _orders) {
+      set.add('${meses[o.criadoEm.month - 1]} ${o.criadoEm.year}');
+    }
+    return set.toList();
+  }
+
+  List<StatusOS?> get _statusDisponiveis => [null, ...StatusOS.values];
+
+  List<String> get _produtosDisponiveis {
+    final set = <String>{'Todos'};
+    for (var o in _orders) {
+      set.add(o.produtoResumo);
+    }
+    return set.toList();
+  }
+
+  List<OrdemServico> get _filteredOrders {
+    return _orders.where((o) {
+      const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      final mesOs = '${meses[o.criadoEm.month - 1]} ${o.criadoEm.year}';
+      if (_selectedMes != 'Todos' && mesOs != _selectedMes) return false;
+      if (_selectedStatus != null && o.status != _selectedStatus) return false;
+      if (_selectedProduto != 'Todos' && o.produtoResumo != _selectedProduto) return false;
+      return true;
+    }).toList();
+  }
+
+  Widget _buildFilterDropdown<T>({
+    required T value,
+    required List<T> items,
+    required ValueChanged<T?> onChanged,
+    required Color surfaceBg,
+    required Color borderColor,
+    required Color textColor,
+    String Function(T)? labelBuilder,
+  }) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: surfaceBg,
+        borderRadius: BorderRadius.circular(AGRadius.sm),
+        border: Border.all(color: borderColor),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: items.contains(value) ? value : items.first,
+          icon: Icon(Icons.arrow_drop_down, color: textColor, size: 16),
+          dropdownColor: surfaceBg,
+          isDense: true,
+          style: GoogleFonts.inter(fontSize: 12, color: textColor),
+          onChanged: onChanged,
+          items: items.map((item) {
+            final label = labelBuilder != null ? labelBuilder(item) : item.toString();
+            return DropdownMenuItem<T>(
+              value: item,
+              child: Text(label),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   @override
@@ -150,22 +219,36 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
-                    children: ['$_mesAtual ▾', 'Status: todos ▾', 'Produto: todos ▾']
-                        .map((f) => Container(
-                              margin: const EdgeInsets.only(right: 8),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: surfaceBg,
-                                borderRadius:
-                                    BorderRadius.circular(AGRadius.sm),
-                                border: Border.all(color: borderColor),
-                              ),
-                              child: Text(f,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 12, color: textColor)),
-                            ))
-                        .toList(),
+                    children: [
+                      _buildFilterDropdown<String>(
+                        value: _selectedMes,
+                        items: _mesesDisponiveis,
+                        onChanged: (val) => setState(() => _selectedMes = val!),
+                        surfaceBg: surfaceBg,
+                        borderColor: borderColor,
+                        textColor: textColor,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterDropdown<StatusOS?>(
+                        value: _selectedStatus,
+                        items: _statusDisponiveis,
+                        labelBuilder: (val) => val == null ? 'Status: todos' : 'Status: ${val.label}',
+                        onChanged: (val) => setState(() => _selectedStatus = val),
+                        surfaceBg: surfaceBg,
+                        borderColor: borderColor,
+                        textColor: textColor,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterDropdown<String>(
+                        value: _selectedProduto,
+                        items: _produtosDisponiveis,
+                        labelBuilder: (val) => val == 'Todos' ? 'Produto: todos' : 'Produto: $val',
+                        onChanged: (val) => setState(() => _selectedProduto = val!),
+                        surfaceBg: surfaceBg,
+                        borderColor: borderColor,
+                        textColor: textColor,
+                      ),
+                    ],
                   ),
                 ),
 
@@ -179,16 +262,16 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 ? const Center(
                     child: CircularProgressIndicator(
                         color: AGColors.brandGreen))
-                : _orders.isEmpty
+                : _filteredOrders.isEmpty
                     ? _EmptyState()
                     : ListView.builder(
                         padding: EdgeInsets.only(
                           left: 16, right: 16, top: 8,
                           bottom: 100 + MediaQuery.of(context).padding.bottom,
                         ),
-                        itemCount: _orders.length,
+                        itemCount: _filteredOrders.length,
                         itemBuilder: (ctx, i) => _OrderCard(
-                          os: _orders[i],
+                          os: _filteredOrders[i],
                           cardBg: cardBg,
                           borderColor: borderColor,
                           textColor: textColor,
@@ -256,10 +339,10 @@ class _OrderCard extends StatelessWidget {
     final statusBadge = switch (os.status) {
       StatusOS.aguardandoOrcamento  => AdmBadge('AGUARD.', AdmBadgeStyle.gray),
       StatusOS.aprovado             => AdmBadge('APROVADO', AdmBadgeStyle.blue),
-      StatusOS.emProducao           => AdmBadge('EM PRODUÇÃO', AdmBadgeStyle.orange),
-      StatusOS.prontaParaRetirada   => AdmBadge('PRONTA', AdmBadgeStyle.blue),
-      StatusOS.entregue             => AdmBadge('ENTREGUE', AdmBadgeStyle.soft),
-      StatusOS.cancelada            => AdmBadge('CANCELADA', AdmBadgeStyle.danger),
+      StatusOS.emProducao           => AdmBadge('PROGRESSO', AdmBadgeStyle.orange),
+      StatusOS.prontaParaRetirada   => AdmBadge('REVISÃO', AdmBadgeStyle.blue),
+      StatusOS.entregue             => AdmBadge('CONCLUÍDO', AdmBadgeStyle.soft),
+      StatusOS.cancelada            => AdmBadge('CANCELADO', AdmBadgeStyle.danger),
       _                             => AdmBadge('CRIADA', AdmBadgeStyle.gray),
     };
 

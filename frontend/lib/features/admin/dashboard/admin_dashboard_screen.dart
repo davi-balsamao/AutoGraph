@@ -259,7 +259,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
-                            childAspectRatio: 1.55,
+                            childAspectRatio: MediaQuery.of(context).size.width < 360 ? 1.3 : 1.55,
                             children: [
                               _KpiCard(
                                 label: 'OSS ATIVAS',
@@ -351,7 +351,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 _StatusRow('Em produção',
                                     _count(StatusOS.emProducao),
                                     AGColors.accentOrange, isDark, borderColor),
-                                _StatusRow('Pronta para retirada',
+                                _StatusRow('Revisão',
                                     _count(StatusOS.prontaParaRetirada),
                                     AGColors.accentPurple, isDark, borderColor),
                                 _StatusRow('Concluídas hoje',
