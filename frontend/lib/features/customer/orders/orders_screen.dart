@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/widgets/ag_product_glyph.dart';
 import '../../../core/services/os_service.dart';
@@ -31,35 +32,46 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _load() async {
+    setState(() => _loading = true);
     try {
-      final items = await OsService().fetchOrdensServico();
-      final currentUserId = AuthService().currentUser?.id;
-      if (mounted) {
-        setState(() {
-          _orders = items.where((o) => o.clienteId == currentUserId).toList();
-          _loading = false;
-        });
+      final list = await OsService().fetchOrdensServico();
+      final client = AuthService().currentUser;
+      if (client != null) {
+        // Filtrar apenas pedidos deste cliente
+        _orders = list.where((o) => o.clienteId == client.id).toList();
+      } else {
+        _orders = [];
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      _orders = [];
+    } finally {
+      setState(() => _loading = false);
     }
   }
 
   Future<void> _cancelarPedido(OrdemServico os) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? AGColors.surfaceDark : AGColors.canvas;
+    final textColor = isDark ? AGColors.onDark : AGColors.ink;
+
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Cancelamento'),
-        content: const Text('Deseja realmente cancelar este pedido?'),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: bg,
+        title: Text('Cancelar Pedido', style: TextStyle(color: textColor)),
+        content: Text(
+          'Deseja realmente cancelar este pedido? Esta ação não pode ser desfeita.',
+          style: TextStyle(color: textColor),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Não'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Voltar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sim, Cancelar', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: AGColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirmar Cancelamento', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -86,15 +98,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-  Future<void> _showAddOrderDialog() async {
+  Future<void> _showAddOrderDialog({String? initialProduct}) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AGColors.surfaceDark : AGColors.canvas;
     final textColor = isDark ? AGColors.onDark : AGColors.ink;
     final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
+    final borderColor = isDark ? AGColors.hairlineDarkStr : AGColors.hairline;
 
-    String selectedProduct = 'Panfletos';
+    String selectedProduct = initialProduct ?? 'Panfleto A5';
     final qtyCtrl = TextEditingController(text: '1000');
     final obsCtrl = TextEditingController();
+    PlatformFile? selectedFile;
 
     await showDialog(
       context: context,
@@ -115,17 +129,23 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     Text('Produto', style: TextStyle(color: mutedColor, fontSize: 12)),
                     const SizedBox(height: 4),
                     DropdownButtonFormField<String>(
-                      value: selectedProduct,
+                      initialValue: selectedProduct,
                       dropdownColor: bg,
                       style: TextStyle(color: textColor),
-                      items: ['Panfletos', 'Banners', 'Blocos', 'Apostilas'].map((p) {
+                      items: [
+                        'Panfleto A5',
+                        'Panfleto A6',
+                        'Banner Lona 440g',
+                        'Banner Oxford',
+                        'Bloco 50fls 1 via'
+                      ].map((p) {
                         return DropdownMenuItem<String>(
                           value: p,
                           child: Text(p, style: TextStyle(color: textColor, fontSize: 13)),
                         );
                       }).toList(),
                       onChanged: (val) {
-                        setStateDialog(() => selectedProduct = val ?? 'Panfletos');
+                        setStateDialog(() => selectedProduct = val ?? 'Panfleto A5');
                       },
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -142,6 +162,59 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Arte do Pedido (opcional)', style: TextStyle(color: mutedColor, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () async {
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.any,
+                        );
+                        if (result != null && result.files.isNotEmpty) {
+                          setStateDialog(() {
+                            selectedFile = result.files.first;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? AGColors.surfaceDark : AGColors.surfaceSoft,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selectedFile != null ? AGColors.brandGreen : borderColor,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selectedFile != null ? Icons.check_circle_outline : Icons.cloud_upload_outlined,
+                              color: selectedFile != null ? AGColors.brandGreen : mutedColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                selectedFile != null ? selectedFile!.name : 'Selecionar arquivo...',
+                                style: TextStyle(
+                                  color: selectedFile != null ? textColor : mutedColor,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (selectedFile != null)
+                              GestureDetector(
+                                onTap: () {
+                                  setStateDialog(() {
+                                    selectedFile = null;
+                                  });
+                                },
+                                child: const Icon(Icons.close, size: 18, color: Colors.red),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -183,6 +256,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           'quantidade': qty,
                         },
                         observacoes: obs.isNotEmpty ? obs : null,
+                        file: selectedFile,
                       );
                       if (mounted) {
                         ScaffoldMessenger.of(this.context).showSnackBar(
@@ -233,6 +307,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         icon: const Icon(Icons.add, color: AGColors.onPrimary),
         label: const Text('Novo Pedido', style: TextStyle(color: AGColors.onPrimary, fontWeight: FontWeight.w600)),
       ),
+      bottomNavigationBar: SizedBox(
+        height: 66 + MediaQuery.of(context).padding.bottom,
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -276,9 +353,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             style: GoogleFonts.inter(
                                 fontSize: 14, color: AGColors.stone)))
                     : ListView.builder(
-                        padding: EdgeInsets.only(
+                        padding: const EdgeInsets.only(
                           left: 20, right: 20, top: 8,
-                          bottom: 100 + MediaQuery.of(context).padding.bottom,
+                          bottom: 24,
                         ),
                         itemCount: _filtered.length,
                         itemBuilder: (ctx, i) => _OrderCard(
@@ -313,7 +390,7 @@ class _SegmentedControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final options = [
       (_OrderFilter.todos, 'Todos'),
-      (_OrderFilter.emAndamento, 'Em andamento'),
+      (_OrderFilter.emAndamento, 'Ativos'),
       (_OrderFilter.concluidos, 'Concluídos'),
     ];
 

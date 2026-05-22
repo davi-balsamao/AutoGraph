@@ -107,7 +107,10 @@ class ThemeToggleSwitch extends StatelessWidget {
             onTap: () => themeNotifier.setThemeMode(mode),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: EdgeInsets.symmetric(
+                horizontal: isActive ? 10 : 8,
+                vertical: 6,
+              ),
               decoration: BoxDecoration(
                 color: isActive ? activeBg : Colors.transparent,
                 borderRadius: BorderRadius.circular(AGRadius.full),
@@ -116,14 +119,16 @@ class ThemeToggleSwitch extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(icon, style: const TextStyle(fontSize: 11)),
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: AGType.microUppercase.copyWith(
-                      color: isActive ? activeText : inactiveText,
-                      letterSpacing: 0.2,
+                  if (isActive) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: AGType.microUppercase.copyWith(
+                        color: isActive ? activeText : inactiveText,
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

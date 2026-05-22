@@ -5,8 +5,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/ag_tokens.dart';
-import '../../../../core/routes/app_routes.dart';
 
 class AgentHeroCard extends StatefulWidget {
   const AgentHeroCard({super.key});
@@ -124,7 +124,16 @@ class _AgentHeroCardState extends State<AgentHeroCard>
 
               // CTA
               GestureDetector(
-                onTap: () => Navigator.pushNamed(context, AppRoutes.chat),
+                onTap: () async {
+                  final Uri url = Uri.parse("https://wa.me/5511999990000");
+                  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
+                      );
+                    }
+                  }
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 10),
@@ -139,7 +148,7 @@ class _AgentHeroCardState extends State<AgentHeroCard>
                           size: 14, color: AGColors.onPrimary),
                       const SizedBox(width: 6),
                       Text(
-                        'Conversar com o agente',
+                        'Fale conosco',
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,

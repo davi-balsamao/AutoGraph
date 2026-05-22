@@ -241,7 +241,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                         padding: EdgeInsets.only(
                             bottom: 100 + MediaQuery.of(context).padding.bottom),
                         itemCount: _filtered.length,
-                        separatorBuilder: (_, __) => Divider(height: 1, color: borderColor),
+                        separatorBuilder: (_, _) => Divider(height: 1, color: borderColor),
                         itemBuilder: (ctx, i) {
                           final c = _filtered[i];
                           return _ConvTile(

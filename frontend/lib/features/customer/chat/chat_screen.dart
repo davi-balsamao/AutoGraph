@@ -152,9 +152,11 @@ class _ChatScreenState extends State<ChatScreen> {
       final items = await OsService().fetchOrdensServico();
       final clientOrders = items.where((o) => o.clienteId == client.id).toList();
       if (clientOrders.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nenhuma ordem de serviço encontrada para este cliente.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Nenhuma ordem de serviço encontrada para este cliente.')),
+          );
+        }
         return;
       }
 

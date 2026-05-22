@@ -116,7 +116,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             body: jsonEncode({
               'proposta': {
                 'orcamento': {
-                  if (novoTotal != null) 'total': novoTotal,
+                  'total': ?novoTotal,
                   if (novoPrazo.isNotEmpty) 'prazo': novoPrazo,
                 }
               }
@@ -141,7 +141,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
       if (novoTotal != null || novoPrazo.isNotEmpty) {
         final specsMap = Map<String, dynamic>.from(widget.os.especificacoes);
         specsMap['orcamento'] = {
-          if (novoTotal != null) 'total': novoTotal,
+          'total': ?novoTotal,
           if (novoPrazo.isNotEmpty) 'prazo': novoPrazo,
         };
         await OsService().updateOS(widget.os.id, especificacoes: specsMap);
@@ -586,16 +586,16 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                     setState(() => _isSaving = true);
                     try {
                       await OsService().updateStatus(widget.os.id, StatusOS.cancelada);
-                      if (mounted) {
+                      if (context.mounted) {
                         SnackbarUtil.showSuccess(context, 'Ordem de serviço cancelada com sucesso!');
                         Navigator.maybePop(context);
                       }
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         SnackbarUtil.showError(context, 'Erro ao cancelar ordem de serviço: $e');
                       }
                     } finally {
-                      if (mounted) setState(() => _isSaving = false);
+                      if (context.mounted) setState(() => _isSaving = false);
                     }
                   },
                   icon: const Icon(Icons.cancel, color: Colors.red),

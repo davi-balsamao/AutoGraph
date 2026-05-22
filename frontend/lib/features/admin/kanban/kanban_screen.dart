@@ -140,7 +140,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           Text('Cliente', style: TextStyle(color: mutedColor, fontSize: 12)),
                           const SizedBox(height: 4),
                           DropdownButtonFormField<UserModel>(
-                            value: selectedClient,
+                            initialValue: selectedClient,
                             dropdownColor: bg,
                             style: TextStyle(color: textColor),
                             items: clients.map((c) {
@@ -161,7 +161,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           Text('Produto', style: TextStyle(color: mutedColor, fontSize: 12)),
                           const SizedBox(height: 4),
                           DropdownButtonFormField<String>(
-                            value: selectedProduct,
+                            initialValue: selectedProduct,
                             dropdownColor: bg,
                             style: TextStyle(color: textColor),
                             items: ['Panfletos', 'Banners', 'Blocos', 'Apostilas'].map((p) {
@@ -442,13 +442,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               setState(() => _loading = true);
                               try {
                                 await OsService().updateStatus(item.id, StatusOS.aprovado);
-                                if (mounted) {
+                                if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('OS aprovada com sucesso!')),
                                   );
                                 }
                               } catch (e) {
-                                if (mounted) {
+                                if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('Erro ao aprovar: $e')),
                                   );
@@ -482,13 +482,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               setState(() => _loading = true);
                               try {
                                 await OsService().updateStatus(item.id, StatusOS.cancelada);
-                                if (mounted) {
+                                if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(content: Text('OS recusada/cancelada com sucesso!')),
                                   );
                                 }
                               } catch (e) {
-                                if (mounted) {
+                                if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('Erro ao recusar: $e')),
                                   );

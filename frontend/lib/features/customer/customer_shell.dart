@@ -14,9 +14,13 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/ag_bottom_tab_bar.dart';
 import 'home/home_screen.dart';
 import 'catalog/catalog_screen.dart';
-import 'chat/chat_screen.dart';
 import 'orders/orders_screen.dart';
 import 'account/account_screen.dart';
+
+class TabSwitchNotification extends Notification {
+  final AGTab tab;
+  const TabSwitchNotification(this.tab);
+}
 
 class CustomerShell extends StatefulWidget {
   const CustomerShell({super.key});
@@ -28,88 +32,48 @@ class CustomerShell extends StatefulWidget {
 class _CustomerShellState extends State<CustomerShell> {
   AGTab _currentTab = AGTab.home;
 
-  // badge de notificação no chat (virá de Socket.io em implementação futura)
-  final Map<AGTab, int> _badges = {AGTab.chat: 2};
+  // badge de notificação no chat removido
+  final Map<AGTab, int> _badges = const {};
 
   int get _index => switch (_currentTab) {
     AGTab.home    => 0,
     AGTab.catalog => 1,
-    AGTab.chat    => 2,
-    AGTab.orders  => 3,
-    AGTab.account => 4,
+    AGTab.orders  => 2,
+    AGTab.account => 3,
+    _             => 0,
   };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _index,
-            children: const [
-              HomeScreen(),
-              CatalogScreen(),
-              ChatScreen(),
-              OrdersScreen(),
-              AccountScreen(),
-            ],
-          ),
-
-          // Bottom tab bar sobreposto (absolute bottom)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: AGBottomTabBar(
-              current: _currentTab,
-              badges: _badges,
-              onTap: (tab) => setState(() => _currentTab = tab),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Placeholder para telas ainda não implementadas
-class _PlaceholderTab extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _PlaceholderTab({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      backgroundColor: isDark
-          ? const Color(0xFF001017)
-          : const Color(0xFFFFFFFF),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      body: NotificationListener<TabSwitchNotification>(
+        onNotification: (notification) {
+          setState(() {
+            _currentTab = notification.tab;
+          });
+          return true;
+        },
+        child: Stack(
           children: [
-            Icon(icon, size: 48, color: const Color(0xFF7C8C9A)),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: isDark
-                    ? const Color(0xFFA8B3BC)
-                    : const Color(0xFF5C6C7A),
-              ),
+            IndexedStack(
+              index: _index,
+              children: const [
+                HomeScreen(),
+                CatalogScreen(),
+                OrdersScreen(),
+                AccountScreen(),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Em breve',
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark
-                    ? const Color(0xFF7C8C9A)
-                    : const Color(0xFF7C8C9A),
+
+            // Bottom tab bar sobreposto (absolute bottom)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: AGBottomTabBar(
+                current: _currentTab,
+                badges: _badges,
+                onTap: (tab) => setState(() => _currentTab = tab),
               ),
             ),
           ],

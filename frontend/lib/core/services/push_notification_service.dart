@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js' as js; // 👇 Importado para permitir chamadas nativas de JavaScript na Web sem quebrar o Mobile
 import 'package:firebase_core/firebase_core.dart';
+import 'web_notification_helper.dart'
+    if (dart.library.js_interop) 'web_notification_helper_web.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -119,24 +120,7 @@ class PushNotificationService {
           } else {
             // 👇 🌐 FLUXO WEB EM PRIMEIRO PLANO (FOREGROUND)
             // Força o navegador a criar uma notificação nativa HTML5 via JS Interop
-            try {
-              // Limpa quebras de linhas e aspas para evitar quebra do script JS
-              final String cleanTitle = notification.title?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
-              final String cleanBody = notification.body?.replaceAll('"', '\\"').replaceAll('\n', ' ') ?? '';
-              
-              js.context.callMethod('eval', [
-                '''
-                if (Notification.permission === "granted") {
-                  new Notification("$cleanTitle", {
-                    body: "$cleanBody",
-                    icon: "/icons/Icon-192.png"
-                  });
-                }
-                '''
-              ]);
-            } catch (e) {
-              debugPrint('⚠️ Erro ao disparar notificação nativa na Web (Foreground): $e');
-            }
+            showWebNotification(notification.title ?? '', notification.body ?? '');
           }
         }
       });
@@ -193,7 +177,7 @@ class PushNotificationService {
   ///
   /// Quando deixada vazia, a chamada simplesmente omite o parâmetro e o
   /// comportamento atual (sem push web funcional) é preservado.
-  static const String _webVapidKey = ''; // TODO: colar VAPID key do autograph-83959
+  static const String _webVapidKey = ''; // Nota: colar VAPID key do autograph-83959
 
   /// Sincroniza o token atual do dispositivo com o backend caso o usuário esteja logado
   Future<void> syncTokenWithBackend() async {

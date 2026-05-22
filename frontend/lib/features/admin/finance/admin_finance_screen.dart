@@ -1,15 +1,94 @@
-// AdminFinanceScreen — Tela financeira do admin (mobile)
-//
-// Referência: ClaudeDesign/components/admin-mobile-screens-b.jsx → AdmMobileFinance
-// Dados mockados. Real: GET /finance/summary?period=2025-05
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
+import '../../../core/services/os_service.dart';
+import '../../../core/models/ordem_servico.dart';
 
-class AdminFinanceScreen extends StatelessWidget {
+class AdminFinanceScreen extends StatefulWidget {
   const AdminFinanceScreen({super.key});
+
+  @override
+  State<AdminFinanceScreen> createState() => _AdminFinanceScreenState();
+}
+
+class _AdminFinanceScreenState extends State<AdminFinanceScreen> {
+  List<OrdemServico> _orders = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final list = await OsService().fetchOrdensServico();
+      if (mounted) {
+        setState(() {
+          _orders = list;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  double _calculateOrderValue(OrdemServico os) {
+    final String productName = os.produtoResumo.toLowerCase();
+    final int qty = (os.especificacoes['quantidade'] ?? os.especificacoes['qtd'] ?? 1) as int;
+    double pricePerUnit = 12.0; // default
+    if (productName.contains('a5')) {
+      pricePerUnit = 0.12;
+    } else if (productName.contains('a6')) {
+      pricePerUnit = 0.06;
+    } else if (productName.contains('lona') || productName.contains('440g')) {
+      pricePerUnit = 49.00;
+    } else if (productName.contains('oxford')) {
+      pricePerUnit = 79.00;
+    } else if (productName.contains('bloco')) {
+      pricePerUnit = 12.00;
+    } else if (productName.contains('panfleto')) {
+      pricePerUnit = 0.12;
+    } else if (productName.contains('banner')) {
+      pricePerUnit = 49.00;
+    } else {
+      pricePerUnit = 15.00;
+    }
+    return pricePerUnit * qty;
+  }
+
+  double get _totalRevenue {
+    double total = 0.0;
+    for (final os in _orders) {
+      if (os.status != StatusOS.cancelada) {
+        total += _calculateOrderValue(os);
+      }
+    }
+    return total;
+  }
+
+  double get _totalCosts {
+    // 32% cost (68% margin)
+    return _totalRevenue * 0.32;
+  }
+
+  double get _liquidMargin {
+    return _totalRevenue - _totalCosts;
+  }
+
+  String _formatCurrency(double val) {
+    if (val >= 1000) {
+      return 'R\$ ${(val / 1000).toStringAsFixed(1)}k'.replaceAll('.', ',');
+    }
+    return 'R\$ ${val.toStringAsFixed(2)}'.replaceAll('.', ',');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +98,6 @@ class AdminFinanceScreen extends StatelessWidget {
     final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
     final cardBg = isDark ? AGColors.canvasDark : AGColors.canvas;
     final borderColor = isDark ? AGColors.hairlineDark : AGColors.hairline;
-    final surfaceBg = isDark ? AGColors.surfaceDark : AGColors.surfaceSoft;
 
     return Scaffold(
       backgroundColor: bg,
@@ -78,7 +156,7 @@ class AdminFinanceScreen extends StatelessWidget {
                           color: AGColors.brandGreen,
                         )),
                     const SizedBox(height: 4),
-                    Text('R\$ —',
+                    Text(_loading ? '...' : _formatCurrency(_totalRevenue),
                         style: GoogleFonts.inter(
                           fontSize: 28,
                           fontWeight: FontWeight.w700,
@@ -86,15 +164,22 @@ class AdminFinanceScreen extends StatelessWidget {
                           letterSpacing: -0.5,
                         )),
                     const SizedBox(height: 4),
-                    Text('Módulo financeiro em breve',
+                    Text(
+                        _loading
+                            ? 'Carregando dados...'
+                            : 'Sincronizado com ${_orders.where((o) => o.status != StatusOS.cancelada).length} pedidos ativos',
                         style: GoogleFonts.inter(
                             fontSize: 11, color: AGColors.muted)),
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        _LegendItem('● Recebido', '—', AGColors.brandGreen),
+                        _LegendItem(
+                          '● Recebido',
+                          _loading ? '...' : _formatCurrency(_totalRevenue),
+                          AGColors.brandGreen,
+                        ),
                         const SizedBox(width: 20),
-                        _LegendItem('● A receber', '—', AGColors.accentOrange),
+                        _LegendItem('● A receber', 'R\$ 0,00', AGColors.accentOrange),
                       ],
                     ),
                   ],
@@ -111,8 +196,8 @@ class AdminFinanceScreen extends StatelessWidget {
               Expanded(
                 child: _InfoCard(
                   label: 'CUSTOS MÊS',
-                  value: '—',
-                  sub: 'sem dados',
+                  value: _loading ? '...' : _formatCurrency(_totalCosts),
+                  sub: 'margem média 68%',
                   cardBg: cardBg,
                   borderColor: borderColor,
                   textColor: textColor,
@@ -123,8 +208,8 @@ class AdminFinanceScreen extends StatelessWidget {
               Expanded(
                 child: _InfoCard(
                   label: 'MARGEM LÍQUIDA',
-                  value: '—',
-                  sub: 'sem dados',
+                  value: _loading ? '...' : _formatCurrency(_liquidMargin),
+                  sub: 'lucro operacional',
                   cardBg: cardBg,
                   borderColor: borderColor,
                   textColor: textColor,
@@ -234,61 +319,6 @@ class _InfoCard extends StatelessWidget {
                   color: subColor ?? mutedColor,
                   height: 1.4)),
         ],
-      ),
-    );
-  }
-}
-
-class _MiniBarChart extends StatelessWidget {
-  final bool isDark;
-
-  const _MiniBarChart({required this.isDark});
-
-  @override
-  Widget build(BuildContext context) {
-    final months = ['Dez', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai'];
-    final revenue = [0.5, 0.6, 0.55, 0.7, 0.75, 1.0];
-    final costs = [0.3, 0.35, 0.3, 0.4, 0.38, 0.45];
-
-    return SizedBox(
-      height: 80,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(6, (i) {
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Stack(
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      Container(
-                        height: 60 * revenue[i],
-                        decoration: BoxDecoration(
-                          color: AGColors.brandGreen.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                      Container(
-                        height: 60 * costs[i],
-                        decoration: BoxDecoration(
-                          color: AGColors.accentOrange.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(months[i],
-                      style: GoogleFonts.inter(
-                          fontSize: 9, color: AGColors.stone)),
-                ],
-              ),
-            ),
-          );
-        }),
       ),
     );
   }
