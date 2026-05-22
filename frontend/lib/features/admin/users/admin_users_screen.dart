@@ -10,6 +10,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
 import '../shared/adm_badge.dart';
+import 'admin_user_edit_sheet.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -165,11 +166,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         Divider(height: 1, color: borderColor),
                     itemBuilder: (ctx, i) {
                       final u = _filtered[i];
-                      return _UserTile(
-                        user: u,
-                        textColor: textColor,
-                        mutedColor: mutedColor,
-                        isDark: isDark,
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => AdminUserEditSheet.show(context, u, _load),
+                        child: _UserTile(
+                          user: u,
+                          textColor: textColor,
+                          mutedColor: mutedColor,
+                          isDark: isDark,
+                        ),
                       );
                     },
                   ),
