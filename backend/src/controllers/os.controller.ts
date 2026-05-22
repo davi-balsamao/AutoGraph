@@ -217,6 +217,8 @@ export class OsController {
         { osId: osAtualizada.id, status: osAtualizada.status, type: 'os_status' }
       ).catch(err => console.error('❌ Erro ao enviar push de status:', err));
 
+      io.emit('os-atualizada', osAtualizada);
+
       return res.json(osAtualizada);
     } catch (error) {
       return res.status(500).json({ error: 'Erro ao atualizar status.' });
@@ -243,6 +245,8 @@ export class OsController {
         `Seu pedido #${osAtualizada.id.substring(0, 8)} recebeu novas especificações ou observações.`,
         { osId: osAtualizada.id, type: 'os_update' }
       ).catch(err => console.error('❌ Erro ao enviar push de alteração de dados:', err));
+
+      io.emit('os-atualizada', osAtualizada);
 
       return res.json(osAtualizada);
     } catch (error) {
