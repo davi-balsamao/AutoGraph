@@ -27,7 +27,7 @@ describe('EncerrarHandler', () => {
   });
 
   it('inclui número da O.S. quando contexto tem osId', async () => {
-    mockOsFindById.mockResolvedValue({ id: 'abcdef1234567890', status: StatusOS.APROVADO });
+    mockOsFindById.mockResolvedValue({ id: 'abcdef1234567890', status: StatusOS.CRIADA });
     
     const sessao = makeSessao({
       contexto: { osId: 'abcdef1234567890', produto: 'Panfletos' },
