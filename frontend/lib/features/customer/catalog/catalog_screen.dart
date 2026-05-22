@@ -12,6 +12,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/widgets/ag_product_glyph.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
+import 'widgets/product_list_card.dart';
 import '../../../core/services/os_service.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/produto_service.dart';
@@ -27,6 +28,7 @@ class CatalogScreen extends StatefulWidget {
 class _CatalogScreenState extends State<CatalogScreen> {
   List<Produto> _produtos = [];
   bool _isLoading = true;
+  String _search = '';
 
   @override
   void initState() {
