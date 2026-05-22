@@ -14,9 +14,13 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/ag_bottom_tab_bar.dart';
 import 'home/home_screen.dart';
 import 'catalog/catalog_screen.dart';
-import 'chat/chat_screen.dart';
 import 'orders/orders_screen.dart';
 import 'account/account_screen.dart';
+
+class TabSwitchNotification extends Notification {
+  final AGTab tab;
+  const TabSwitchNotification(this.tab);
+}
 
 class CustomerShell extends StatefulWidget {
   const CustomerShell({super.key});
@@ -28,45 +32,52 @@ class CustomerShell extends StatefulWidget {
 class _CustomerShellState extends State<CustomerShell> {
   AGTab _currentTab = AGTab.home;
 
-  // badge de notificação no chat (virá de Socket.io em implementação futura)
-  final Map<AGTab, int> _badges = {AGTab.chat: 2};
+  // badge de notificação no chat removido
+  final Map<AGTab, int> _badges = const {};
 
   int get _index => switch (_currentTab) {
     AGTab.home    => 0,
     AGTab.catalog => 1,
-    AGTab.chat    => 2,
-    AGTab.orders  => 3,
-    AGTab.account => 4,
+    AGTab.orders  => 2,
+    AGTab.account => 3,
+    _             => 0,
   };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _index,
-            children: const [
-              HomeScreen(),
-              CatalogScreen(),
-              ChatScreen(),
-              OrdersScreen(),
-              AccountScreen(),
-            ],
-          ),
-
-          // Bottom tab bar sobreposto (absolute bottom)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: AGBottomTabBar(
-              current: _currentTab,
-              badges: _badges,
-              onTap: (tab) => setState(() => _currentTab = tab),
+      body: NotificationListener<TabSwitchNotification>(
+        onNotification: (notification) {
+          setState(() {
+            _currentTab = notification.tab;
+          });
+          return true;
+        },
+        child: Stack(
+          children: [
+            IndexedStack(
+              index: _index,
+              children: const [
+                HomeScreen(),
+                CatalogScreen(),
+                OrdersScreen(),
+                AccountScreen(),
+              ],
             ),
-          ),
-        ],
+
+            // Bottom tab bar sobreposto (absolute bottom)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: AGBottomTabBar(
+                current: _currentTab,
+                badges: _badges,
+                onTap: (tab) => setState(() => _currentTab = tab),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -124,7 +124,7 @@ class QuoteCard extends StatelessWidget {
                           color: Colors.transparent,
                           borderRadius: BorderRadius.circular(AGRadius.full),
                           border: Border.all(
-                            color: Colors.red.withOpacity(0.5),
+                            color: Colors.red.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Center(

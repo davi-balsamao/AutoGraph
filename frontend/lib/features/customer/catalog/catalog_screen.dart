@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/ag_tokens.dart';
 import '../../../core/widgets/ag_product_glyph.dart';
 import '../../../core/widgets/ag_theme_toggle.dart';
@@ -30,35 +31,43 @@ class _CatalogScreenState extends State<CatalogScreen> {
   static const _allProducts = [
     (
       AGProductKind.panfleto,
-      'Panfletos',
+      'Panfleto A5',
       'Mais pedido',
       AGProductTag.green,
-      'A6, A5, A4 · couché ou offset · 4×4',
-      'R\$ 89/milheiro',
+      'Papel Couché 115g · Formato A5 · 4x4 cores',
+      'R\$ 0,12 /unidade',
+    ),
+    (
+      AGProductKind.panfleto,
+      'Panfleto A6',
+      'Mais pedido',
+      AGProductTag.green,
+      'Papel Couché 115g · Formato A6 · 4x4 cores',
+      'R\$ 0,06 /unidade',
     ),
     (
       AGProductKind.banner,
-      'Banners',
+      'Banner Lona 440g',
       'Eventos',
       AGProductTag.orange,
-      'Lona 440g, oxford ou vinil adesivo',
-      'R\$ 49/m²',
+      'Lona 440g · Acabamento em bastão e cordão',
+      'R\$ 49,00 /m²',
+    ),
+    (
+      AGProductKind.banner,
+      'Banner Oxford',
+      'Premium',
+      AGProductTag.orange,
+      'Tecido Oxford sublimado · Acabamento premium',
+      'R\$ 79,00 /m²',
     ),
     (
       AGProductKind.bloco,
-      'Blocos',
+      'Bloco 50fls 1 via',
       'Comércio',
       AGProductTag.purple,
-      '1 ou 2 vias, numerado, carbonado',
-      'R\$ 12/unidade',
-    ),
-    (
-      AGProductKind.apostila,
-      'Apostilas',
-      'Escolar',
-      AGProductTag.blue,
-      'Espiral, wire-o ou costurada',
-      'R\$ 18/unidade',
+      'Bloco de anotações · 50 folhas · 1 via',
+      'R\$ 12,00 /unidade',
     ),
   ];
 
@@ -78,48 +87,118 @@ class _CatalogScreenState extends State<CatalogScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? AGColors.surfaceDark : AGColors.canvas;
     final textColor = isDark ? AGColors.onDark : AGColors.ink;
+    final mutedColor = isDark ? AGColors.onDarkMuted : AGColors.steel;
+    final borderColor = isDark ? AGColors.hairlineDarkStr : AGColors.hairline;
 
     final qtyCtrl = TextEditingController(text: '1000');
     final obsCtrl = TextEditingController();
+    PlatformFile? selectedFile;
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: bg,
-          title: Text('Fazer Pedido de $title', style: TextStyle(color: textColor)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: qtyCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantidade',
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: bg,
+              title: Text('Fazer Pedido de $title', style: TextStyle(color: textColor)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Quantidade', style: TextStyle(color: mutedColor, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(),
+                      ),
+                      style: TextStyle(color: textColor),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Arte do Pedido (opcional)', style: TextStyle(color: mutedColor, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () async {
+                        final result = await FilePicker.platform.pickFiles(
+                          type: FileType.any,
+                        );
+                        if (result != null && result.files.isNotEmpty) {
+                          setStateDialog(() {
+                            selectedFile = result.files.first;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark ? AGColors.surfaceDark : AGColors.surfaceSoft,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selectedFile != null ? AGColors.brandGreen : borderColor,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selectedFile != null ? Icons.check_circle_outline : Icons.cloud_upload_outlined,
+                              color: selectedFile != null ? AGColors.brandGreen : mutedColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                selectedFile != null ? selectedFile!.name : 'Selecionar arquivo...',
+                                style: TextStyle(
+                                  color: selectedFile != null ? textColor : mutedColor,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (selectedFile != null)
+                              GestureDetector(
+                                onTap: () {
+                                  setStateDialog(() {
+                                    selectedFile = null;
+                                  });
+                                },
+                                child: const Icon(Icons.close, size: 18, color: Colors.red),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Observações', style: TextStyle(color: mutedColor, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: obsCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(),
+                      ),
+                      style: TextStyle(color: textColor),
+                    ),
+                  ],
                 ),
-                style: TextStyle(color: textColor),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: obsCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Observações/Instruções',
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancelar'),
                 ),
-                style: TextStyle(color: textColor),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AGColors.brandGreen),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Confirmar Pedido', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AGColors.brandGreen),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Confirmar', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -147,6 +226,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
           'quantidade': qty,
         },
         observacoes: obs.isNotEmpty ? obs : null,
+        file: selectedFile,
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -206,7 +286,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '4 produtos · preço fechado por tiragem',
+                        '5 produtos · preço fechado por tiragem',
                         style: GoogleFonts.inter(
                             fontSize: 13, color: mutedColor),
                       ),

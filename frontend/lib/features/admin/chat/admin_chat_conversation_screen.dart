@@ -105,8 +105,6 @@ class _AdminChatConversationScreenState
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
     _msgCtrl.clear();
-
-    final user = AuthService().currentUser;
     final msg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       senderId: 'admin',

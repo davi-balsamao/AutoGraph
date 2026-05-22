@@ -37,7 +37,6 @@ class AGBottomTabBar extends StatelessWidget {
   static const _tabs = [
     (AGTab.home,    'Início',      _TabIcon.home),
     (AGTab.catalog, 'Catálogo',   _TabIcon.shop),
-    (AGTab.chat,    'Atendimento', _TabIcon.chat),
     (AGTab.orders,  'Pedidos',     _TabIcon.orders),
     (AGTab.account, 'Conta',       _TabIcon.account),
   ];
