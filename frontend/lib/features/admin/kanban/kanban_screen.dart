@@ -98,6 +98,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     String selectedProduct = 'Panfletos';
     final qtyCtrl = TextEditingController(text: '1000');
     final priceCtrl = TextEditingController(text: '150');
+    final detalhesCtrl = TextEditingController();
     final obsCtrl = TextEditingController();
 
     await showDialog(
@@ -144,6 +145,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           Text('Cliente', style: TextStyle(color: mutedColor, fontSize: 12)),
                           const SizedBox(height: 4),
                           DropdownButtonFormField<UserModel>(
+                            isExpanded: true,
                             value: selectedClient,
                             dropdownColor: bg,
                             style: TextStyle(color: textColor),
@@ -165,6 +167,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                           Text('Produto', style: TextStyle(color: mutedColor, fontSize: 12)),
                           const SizedBox(height: 4),
                           DropdownButtonFormField<String>(
+                            isExpanded: true,
                             value: selectedProduct,
                             dropdownColor: bg,
                             style: TextStyle(color: textColor),
@@ -225,7 +228,19 @@ class _KanbanScreenState extends State<KanbanScreen> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Text('Observações', style: TextStyle(color: mutedColor, fontSize: 12)),
+                          Text('Especificações (Tamanho, Cores, Material, etc)', style: TextStyle(color: mutedColor, fontSize: 12)),
+                          const SizedBox(height: 4),
+                          TextField(
+                            controller: detalhesCtrl,
+                            maxLines: 2,
+                            style: TextStyle(color: textColor),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text('Observações (Opcional)', style: TextStyle(color: mutedColor, fontSize: 12)),
                           const SizedBox(height: 4),
                           TextField(
                             controller: obsCtrl,
@@ -259,6 +274,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               especificacoes: {
                                 'produtoNome': selectedProduct,
                                 'quantidade': qty,
+                                'detalhes': detalhesCtrl.text.trim(),
                                 'orcamento': {
                                   'total': price,
                                   'prazo': '3 dias úteis',
@@ -324,7 +340,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   letterSpacing: -0.3,
                                 )),
                             Text(
-                              '${_ativas.length} OSs ativas · toque longo num card pra mudar status',
+                              'Toque longo num card pra mudar status',
                               style: GoogleFonts.inter(
                                   fontSize: 11, color: mutedColor),
                             ),
