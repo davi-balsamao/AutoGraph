@@ -625,9 +625,8 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
     );
   }
 
-  /// Renderiza todos os campos do `especificacoes` (exceto os já mostrados
-  /// nas seções específicas: requisitos, orcamento, arte_url) em formato
-  /// chave-valor amigável.
+  /// Renderiza os campos do `especificacoes` em formato chave-valor amigável,
+  /// expandindo `requisitos` (specs coletadas pelo agente) como pares pergunta→resposta.
   Widget _buildDetalhesPedido(ColorScheme cs) {
     const keysParaIgnorar = {
       'requisitos',
@@ -637,9 +636,25 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
       'enderecoEntrega',
       'referenciaEntrega',
     };
-    final entries = widget.os.especificacoes.entries
-        .where((e) => !keysParaIgnorar.contains(e.key))
-        .toList();
+
+    final entries = <MapEntry<String, dynamic>>[];
+
+    // Expande requisitos (pergunta → resposta) antes dos demais campos
+    final requisitos = widget.os.especificacoes['requisitos'];
+    if (requisitos is List) {
+      for (final r in requisitos) {
+        if (r is Map && r['pergunta'] != null) {
+          entries.add(MapEntry(r['pergunta'] as String, r['resposta'] ?? '—'));
+        }
+      }
+    }
+
+    // Demais campos, excluindo os já exibidos em outras seções
+    entries.addAll(
+      widget.os.especificacoes.entries
+          .where((e) => !keysParaIgnorar.contains(e.key))
+          .toList(),
+    );
 
     if (entries.isEmpty) {
       return Container(
