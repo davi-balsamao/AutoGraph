@@ -483,7 +483,7 @@ export class ColetarEspecificacoesHandler implements StateHandler {
 
         return {
           response: ragResult.answer,
-          nextState: ConversationState.ESCLARECER_DUVIDA,
+          nextState: ConversationState.COLETAR_ESPECIFICACOES,
           updatedContext: context,
         };
       } catch (error) {
