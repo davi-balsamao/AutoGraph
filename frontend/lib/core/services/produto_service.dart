@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/produto.dart';
 import '../models/produto_regras.dart';
 
@@ -35,21 +37,45 @@ class ProdutoService {
     }
   }
 
-  Future<Produto> createProduto(String nome, String? descricao, double precoBase, {String? imagemUrl}) async {
+  Future<Produto> createProduto(
+    String nome,
+    String? descricao,
+    double precoBase, {
+    String? imagemUrl,
+    PlatformFile? file,
+  }) async {
     try {
-      final body = <String, dynamic>{
-        'nome': nome,
-        'descricao': descricao,
-        'precoBase': precoBase,
-      };
-      if (imagemUrl != null && imagemUrl.isNotEmpty) {
-        body['imagemUrl'] = imagemUrl;
+      final uri = Uri.parse(baseUrl);
+      final request = http.MultipartRequest('POST', uri);
+
+      request.fields['nome'] = nome;
+      if (descricao != null && descricao.isNotEmpty) {
+        request.fields['descricao'] = descricao;
       }
-      final response = await http.post(
-        Uri.parse(baseUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
+      request.fields['precoBase'] = precoBase.toString();
+      if (imagemUrl != null && imagemUrl.isNotEmpty) {
+        request.fields['imagemUrl'] = imagemUrl;
+      }
+
+      if (file != null) {
+        if (kIsWeb && file.bytes != null) {
+          request.files.add(http.MultipartFile.fromBytes(
+            'imagem',
+            file.bytes!,
+            filename: file.name,
+          ));
+        } else if (file.path != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'imagem',
+            file.path!,
+            filename: file.name,
+          ));
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         return Produto.fromJson(jsonDecode(response.body));
       } else if (response.statusCode == 503) {
@@ -63,20 +89,44 @@ class ProdutoService {
     }
   }
 
-  Future<Produto> updateProduto(String id, {String? nome, String? descricao, double? precoBase, String? imagemUrl}) async {
+  Future<Produto> updateProduto(
+    String id, {
+    String? nome,
+    String? descricao,
+    double? precoBase,
+    String? imagemUrl,
+    PlatformFile? file,
+  }) async {
     try {
-      final body = <String, dynamic>{};
-      if (nome != null) body['nome'] = nome;
-      if (descricao != null) body['descricao'] = descricao;
-      if (precoBase != null) body['precoBase'] = precoBase;
+      final uri = Uri.parse('$baseUrl/$id');
+      final request = http.MultipartRequest('PUT', uri);
+
+      if (nome != null) request.fields['nome'] = nome;
+      if (descricao != null) request.fields['descricao'] = descricao;
+      if (precoBase != null) request.fields['precoBase'] = precoBase.toString();
       if (imagemUrl != null && imagemUrl.isNotEmpty) {
-        body['imagemUrl'] = imagemUrl;
+        request.fields['imagemUrl'] = imagemUrl;
       }
-      final response = await http.put(
-        Uri.parse('$baseUrl/$id'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
+
+      if (file != null) {
+        if (kIsWeb && file.bytes != null) {
+          request.files.add(http.MultipartFile.fromBytes(
+            'imagem',
+            file.bytes!,
+            filename: file.name,
+          ));
+        } else if (file.path != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'imagem',
+            file.path!,
+            filename: file.name,
+          ));
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
       if (response.statusCode == 200) {
         return Produto.fromJson(jsonDecode(response.body));
       } else if (response.statusCode == 503) {

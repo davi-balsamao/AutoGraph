@@ -551,24 +551,32 @@ class _OrderCard extends StatelessWidget {
                 final done = i <= _step;
                 final current = i == _step;
                 return Expanded(
-                  child: Text(
-                    _steps[i],
-                    style: GoogleFonts.inter(
-                      fontSize: 9,
-                      fontWeight: current
-                          ? FontWeight.w700
-                          : FontWeight.w400,
-                      color: done
-                          ? (isDark
-                              ? AGColors.brandGreen
-                              : AGColors.brandGreenDark)
-                          : mutedColor,
-                    ),
-                    textAlign: i == 0
-                        ? TextAlign.left
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: i == 0
+                        ? Alignment.centerLeft
                         : i == 3
-                            ? TextAlign.right
-                            : TextAlign.center,
+                            ? Alignment.centerRight
+                            : Alignment.center,
+                    child: Text(
+                      _steps[i],
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: current
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                        color: done
+                            ? (isDark
+                                ? AGColors.brandGreen
+                                : AGColors.brandGreenDark)
+                            : mutedColor,
+                      ),
+                      textAlign: i == 0
+                          ? TextAlign.left
+                          : i == 3
+                              ? TextAlign.right
+                              : TextAlign.center,
+                    ),
                   ),
                 );
               }),

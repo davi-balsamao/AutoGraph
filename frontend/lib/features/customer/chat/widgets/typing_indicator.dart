@@ -71,7 +71,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
           children: List.generate(3, (i) {
             return AnimatedBuilder(
               animation: _anims[i],
-              builder: (_, __) => Transform.translate(
+              builder: (_, _) => Transform.translate(
                 offset: Offset(0, _anims[i].value),
                 child: Container(
                   width: 7,

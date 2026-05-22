@@ -12,6 +12,7 @@ import produtoRoutes from './routes/produto.routes';
 import notificationRoutes from './routes/notification.routes';
 import propostasRoutes from './routes/propostas.routes';
 import conversasRoutes from './routes/conversas.routes';
+import financeRoutes from './routes/finance.routes';
 import { prisma } from './config/prisma';
 import { cronService } from './services/cron.service';
 import { whatsappService } from './services/whatsapp.service'; 
@@ -125,6 +126,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/propostas', propostasRoutes);
 app.use('/api/conversas', conversasRoutes);
+app.use('/api/finance', financeRoutes);
 
 // Rotas de Produtos
 app.use('/api/produtos', produtoRoutes);

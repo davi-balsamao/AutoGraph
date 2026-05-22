@@ -119,14 +119,40 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
 
 /**
  * GET /api/auth/users
- * Retorna todos os usuários cadastrados no sistema.
+ * Retorna todos os usuários cadastrados no sistema com seu respectivo LTV.
  */
 authRoutes.get('/users', async (req: Request, res: Response) => {
   try {
     const usuarios = await prisma.usuario.findMany({
       orderBy: { nome: 'asc' },
+      include: {
+        ordensDeServico: {
+          select: {
+            status: true,
+            especificacoes: true
+          }
+        }
+      }
     });
-    return res.json(usuarios);
+
+    const result = usuarios.map(u => {
+      let ltv = 0;
+      u.ordensDeServico.forEach(os => {
+        if (['APROVADO', 'EM_PRODUCAO', 'PRONTA_PARA_RETIRADA', 'ENTREGUE'].includes(os.status)) {
+          const specs = os.especificacoes as any;
+          if (specs && specs.orcamento && specs.orcamento.total !== undefined) {
+            ltv += Number(specs.orcamento.total) || 0;
+          }
+        }
+      });
+      const { ordensDeServico, ...userWithoutOrders } = u;
+      return {
+        ...userWithoutOrders,
+        ltv
+      };
+    });
+
+    return res.json(result);
   } catch (error) {
     console.error('❌ Erro ao listar usuários:', error);
     return res.status(500).json({ error: 'Erro interno.' });

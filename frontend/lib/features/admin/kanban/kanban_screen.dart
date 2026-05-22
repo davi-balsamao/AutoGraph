@@ -73,13 +73,17 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
   }
 
+  /// OSs visíveis no Kanban: exclui canceladas (órfãs limpas pelo backend).
+  List<OrdemServico> get _ativas =>
+      _all.where((o) => o.status != StatusOS.cancelada).toList();
+
   List<OrdemServico> get _filtered {
-    if (_all.isEmpty) return [];
+    if (_ativas.isEmpty) return [];
     final currentStatus = _statusTabs[_tabIndex].$1;
     if (currentStatus == StatusOS.aguardandoOrcamento) {
-      return _all.where((o) => o.status == StatusOS.criada || o.status == StatusOS.aguardandoOrcamento).toList();
+      return _ativas.where((o) => o.status == StatusOS.criada || o.status == StatusOS.aguardandoOrcamento).toList();
     }
-    return _all.where((o) => o.status == currentStatus).toList();
+    return _ativas.where((o) => o.status == currentStatus).toList();
   }
 
   Future<void> _showCreateOsDialog() async {
@@ -285,6 +289,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         );
       },
     );
+=======
   }
 
   @override
@@ -320,7 +325,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   letterSpacing: -0.3,
                                 )),
                             Text(
-                              '${_all.length} OSs ativas · toque longo num card pra mudar status',
+                              '${_ativas.length} OSs ativas · toque longo num card pra mudar status',
                               style: GoogleFonts.inter(
                                   fontSize: 11, color: mutedColor),
                             ),

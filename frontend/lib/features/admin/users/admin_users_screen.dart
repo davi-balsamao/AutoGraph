@@ -38,14 +38,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
   }
 
-  List<UserModel> get _filtered => _search.isEmpty
-      ? _users.where((u) => u.isCliente).toList()
-      : _users
-          .where((u) =>
-              u.isCliente &&
-              (u.nome.toLowerCase().contains(_search.toLowerCase()) ||
-               (u.telefone.contains(_search))))
-          .toList();
+  List<UserModel> get _filtered {
+    final list = _search.isEmpty
+        ? _users.where((u) => u.isCliente).toList()
+        : _users
+            .where((u) =>
+                u.isCliente &&
+                (u.nome.toLowerCase().contains(_search.toLowerCase()) ||
+                 (u.telefone.contains(_search))))
+            .toList();
+    list.sort((a, b) => b.ltv.compareTo(a.ltv));
+    return list;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +285,7 @@ class _UserTile extends StatelessWidget {
                     style: GoogleFonts.inter(
                         fontSize: 12, color: mutedColor)),
                 const SizedBox(height: 2),
-                Text('R\$ —',
+                Text('R\$ ${user.ltv.toStringAsFixed(2).replaceAll('.', ',')}',
                     style: GoogleFonts.inter(
                       fontSize: 12, fontWeight: FontWeight.w600,
                       color: isDark

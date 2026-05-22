@@ -1,4 +1,3 @@
-/// Modelo de usuário retornado pela API de autenticação.
 class UserModel {
   final String id;
   final String nome;
@@ -9,6 +8,7 @@ class UserModel {
   final String? enderecoCompleto;
   final String? enderecoReferencia;
   final bool atendimentoHumano;
+  final double ltv;
 
   const UserModel({
     required this.id,
@@ -20,6 +20,7 @@ class UserModel {
     this.enderecoCompleto,
     this.enderecoReferencia,
     this.atendimentoHumano = false,
+    this.ltv = 0.0,
   });
 
   bool get isAdmin => role == 'GERENTE';
@@ -36,6 +37,7 @@ class UserModel {
       enderecoCompleto: json['enderecoCompleto'] as String?,
       enderecoReferencia: json['enderecoReferencia'] as String?,
       atendimentoHumano: json['atendimentoHumano'] as bool? ?? false,
+      ltv: json['ltv'] != null ? double.tryParse(json['ltv'].toString()) ?? 0.0 : 0.0,
     );
   }
 
@@ -49,5 +51,6 @@ class UserModel {
         'enderecoCompleto': enderecoCompleto,
         'enderecoReferencia': enderecoReferencia,
         'atendimentoHumano': atendimentoHumano,
+        'ltv': ltv,
       };
 }

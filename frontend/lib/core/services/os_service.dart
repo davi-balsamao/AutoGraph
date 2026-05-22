@@ -70,7 +70,7 @@ class OsService {
     try {
       final response = await http.patch(
         Uri.parse('$baseUrl/os/$id/status'),
-        headers: {'Content-Type': 'application/json'},
+        headers: AuthService().authHeaders,
         body: jsonEncode({'status': status.value}),
       );
       if (response.statusCode != 200) {

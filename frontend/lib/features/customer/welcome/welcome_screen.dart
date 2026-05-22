@@ -83,128 +83,141 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
           // ── Conteúdo principal
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 40, 28, 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ── Linha superior: logo animado + toggle
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      AnimatedBuilder(
-                        animation: _ctrl,
-                        builder: (_, child) => FadeTransition(
-                          opacity: _fade,
-                          child: ScaleTransition(scale: _scale, child: child),
-                        ),
-                        child: const AGLogoMark(
-                          size: 56,
-                          bg: AGColors.brandGreen,
-                          stroke: AGColors.brandTealDeep,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(28, 40, 28, 40),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // ── Linha superior: logo animado + toggle
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                AnimatedBuilder(
+                                  animation: _ctrl,
+                                  builder: (_, child) => FadeTransition(
+                                    opacity: _fade,
+                                    child: ScaleTransition(scale: _scale, child: child),
+                                  ),
+                                  child: const AGLogoMark(
+                                    size: 56,
+                                    bg: AGColors.brandGreen,
+                                    stroke: AGColors.brandTealDeep,
+                                  ),
+                                ),
+                                const ThemeToggleIcon(
+                                  size: 40,
+                                  onDarkBackground: true,
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 36),
+
+                            // ── Área central expandida
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Eyebrow pill
+                                  _EyebrowPill(),
+
+                                  const SizedBox(height: 20),
+
+                                  // Título
+                                  Text(
+                                    'Imprima tudo\nconversando.',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 36,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.08,
+                                      letterSpacing: -1.0,
+                                      color: AGColors.onDark,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  // Subtítulo
+                                  Text(
+                                    'Panfletos, banners, blocos e apostilas direto no chat. '
+                                    'Orçamento em 40 s, prova digital, entrega em 24h.',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w400,
+                                      height: 1.55,
+                                      color: AGColors.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // ── Botões CTA + texto legal
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Botão primário verde
+                                _PrimaryButton(
+                                  label: 'Começar agora',
+                                  onTap: () =>
+                                      Navigator.pushNamed(context, AppRoutes.register),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // Botão secundário outline
+                                OutlinedButton(
+                                  onPressed: () =>
+                                      Navigator.pushNamed(context, AppRoutes.login),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(
+                                      color: Color(0xFF1C2D38), // charcoal
+                                    ),
+                                    minimumSize: const Size.fromHeight(48),
+                                    shape: const StadiumBorder(),
+                                    textStyle: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 22,
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                  child: const Text('Já tenho conta'),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Texto legal
+                                Text(
+                                  'Continuando, você aceita os Termos e Política de Privacidade',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w400,
+                                    color: AGColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      const ThemeToggleIcon(
-                        size: 40,
-                        onDarkBackground: true,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 36),
-
-                  // ── Área central expandida
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Eyebrow pill
-                        _EyebrowPill(),
-
-                        const SizedBox(height: 20),
-
-                        // Título
-                        Text(
-                          'Imprima tudo\nconversando.',
-                          style: GoogleFonts.inter(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w600,
-                            height: 1.08,
-                            letterSpacing: -1.0,
-                            color: AGColors.onDark,
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Subtítulo
-                        Text(
-                          'Panfletos, banners, blocos e apostilas direto no chat. '
-                          'Orçamento em 40 s, prova digital, entrega em 24h.',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                            height: 1.55,
-                            color: AGColors.muted,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
-
-                  // ── Botões CTA + texto legal
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Botão primário verde
-                      _PrimaryButton(
-                        label: 'Começar agora',
-                        onTap: () =>
-                            Navigator.pushNamed(context, AppRoutes.register),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // Botão secundário outline
-                      OutlinedButton(
-                        onPressed: () =>
-                            Navigator.pushNamed(context, AppRoutes.login),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(
-                            color: Color(0xFF1C2D38), // charcoal
-                          ),
-                          minimumSize: const Size.fromHeight(48),
-                          shape: const StadiumBorder(),
-                          textStyle: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 22,
-                            vertical: 14,
-                          ),
-                        ),
-                        child: const Text('Já tenho conta'),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Texto legal
-                      Text(
-                        'Continuando, você aceita os Termos e Política de Privacidade',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          color: AGColors.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],

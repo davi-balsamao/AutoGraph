@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:js' as js; // 👇 Importado para permitir chamadas nativas de JavaScript na Web sem quebrar o Mobile
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';

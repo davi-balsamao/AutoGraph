@@ -43,6 +43,32 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     return _orders.where((o) => o.criadoEm.year == now.year && o.criadoEm.month == now.month).length;
   }
 
+  double get _receitaMes {
+    final now = DateTime.now();
+    return _orders
+        .where((o) =>
+            o.status != StatusOS.cancelada &&
+            o.status != StatusOS.criada &&
+            o.status != StatusOS.aguardandoOrcamento &&
+            o.criadoEm.year == now.year &&
+            o.criadoEm.month == now.month)
+        .fold(0.0, (sum, o) => sum + o.total);
+  }
+
+  double get _ticketMedioMes {
+    final now = DateTime.now();
+    final active = _orders
+        .where((o) =>
+            o.status != StatusOS.cancelada &&
+            o.status != StatusOS.criada &&
+            o.status != StatusOS.aguardandoOrcamento &&
+            o.criadoEm.year == now.year &&
+            o.criadoEm.month == now.month)
+        .toList();
+    if (active.isEmpty) return 0.0;
+    return active.fold(0.0, (sum, o) => sum + o.total) / active.length;
+  }
+
   String get _mesAtual {
     const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
     final now = DateTime.now();
@@ -107,11 +133,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       _MiniKpi('PEDIDOS MÊS', '$_pedidosMes', 'este mês',
                           AGColors.brandGreenMid, cardBg, borderColor,
                           textColor, mutedColor),
-                      _MiniKpi('RECEITA MÊS', 'R\$ —', 'sem dados',
-                          mutedColor, cardBg, borderColor,
+                      _MiniKpi('RECEITA MÊS', 'R\$ ${_receitaMes.toStringAsFixed(2).replaceAll('.', ',')}', 'este mês',
+                          AGColors.brandGreenMid, cardBg, borderColor,
                           textColor, mutedColor),
-                      _MiniKpi('TICKET MÉDIO', 'R\$ —', 'sem dados',
-                          mutedColor, cardBg, borderColor,
+                      _MiniKpi('TICKET MÉDIO', 'R\$ ${_ticketMedioMes.toStringAsFixed(2).replaceAll('.', ',')}', 'este mês',
+                          AGColors.brandGreenMid, cardBg, borderColor,
                           textColor, mutedColor),
                     ],
                   ),
@@ -268,9 +294,16 @@ class _OrderCard extends StatelessWidget {
               Text(os.clienteNome ?? '—',
                   style: GoogleFonts.inter(fontSize: 12, color: mutedColor)),
               const Spacer(),
-              Text('R\$ —',
-                  style: GoogleFonts.inter(
-                    fontSize: 14, fontWeight: FontWeight.w700, color: textColor)),
+              Text(
+                os.total > 0
+                    ? 'R\$ ${os.total.toStringAsFixed(2).replaceAll('.', ',')}'
+                    : 'A definir',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
             ],
           ),
         ],

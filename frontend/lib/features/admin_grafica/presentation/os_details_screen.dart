@@ -10,6 +10,35 @@ import '../../../core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import '../../admin/chat/admin_chat_conversation_screen.dart';
 
+/// Labels amigáveis para chaves técnicas do `especificacoes`.
+const _labelMap = {
+  'produto': 'Produto',
+  'produtoNome': 'Produto',
+  'quantidade': 'Quantidade',
+  'tamanho': 'Tamanho',
+  'cor': 'Cor',
+  'gramatura': 'Gramatura',
+  'acabamento': 'Acabamento',
+  'observacoes': 'Observações',
+  'opcaoEntrega': 'Tipo de entrega',
+  'enderecoEntrega': 'Endereço',
+  'referenciaEntrega': 'Referência',
+  'totalEstimado': 'Total estimado',
+};
+
+String _humanLabel(String key) {
+  return _labelMap[key] ?? (key[0].toUpperCase() + key.substring(1));
+}
+
+String _humanValue(dynamic value) {
+  if (value == null) return '—';
+  if (value is bool) return value ? 'Sim' : 'Não';
+  if (value is num) return value.toString();
+  if (value is List) return value.map((e) => '$e').join(', ');
+  if (value is Map) return value.entries.map((e) => '${e.key}: ${e.value}').join(' · ');
+  return '$value';
+}
+
 class OsDetailsScreen extends StatefulWidget {
   final OrdemServico os;
 
@@ -20,7 +49,6 @@ class OsDetailsScreen extends StatefulWidget {
 }
 
 class _OsDetailsScreenState extends State<OsDetailsScreen> {
-  late TextEditingController _specsController;
   late TextEditingController _obsController;
   late TextEditingController _artUrlController;
   late TextEditingController _totalCtrl;
@@ -30,17 +58,15 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   bool _isApproving = false;
   bool _isRejecting = false;
   String? _sessaoId;
+  late StatusOS _statusAtual;
 
-  bool get _isPendingReview => widget.os.status == StatusOS.aguardandoOrcamento;
+  bool get _isPendingReview => _statusAtual == StatusOS.aguardandoOrcamento;
 
   @override
   void initState() {
     super.initState();
-    final specsCopy = Map<String, dynamic>.from(widget.os.especificacoes);
-    final artUrl = specsCopy.remove('arte_url') as String? ?? '';
-
-    _specsController = TextEditingController(
-        text: const JsonEncoder.withIndent('  ').convert(specsCopy));
+    _statusAtual = widget.os.status;
+    final artUrl = widget.os.especificacoes['arte_url'] as String? ?? '';
     _obsController = TextEditingController(text: widget.os.observacoes ?? '');
     _artUrlController = TextEditingController(text: artUrl);
 
@@ -54,7 +80,6 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
 
   @override
   void dispose() {
-    _specsController.dispose();
     _obsController.dispose();
     _artUrlController.dispose();
     _totalCtrl.dispose();
@@ -84,9 +109,13 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
   Future<void> _saveData() async {
     setState(() => _isSaving = true);
     try {
-      final specsMap = jsonDecode(_specsController.text) as Map<String, dynamic>;
-      if (_artUrlController.text.trim().isNotEmpty) {
-        specsMap['arte_url'] = _artUrlController.text.trim();
+      // Preserva todos os campos existentes; só atualiza arte_url se mudou
+      final specsMap = Map<String, dynamic>.from(widget.os.especificacoes);
+      final artUrl = _artUrlController.text.trim();
+      if (artUrl.isNotEmpty) {
+        specsMap['arte_url'] = artUrl;
+      } else {
+        specsMap.remove('arte_url');
       }
       await OsService().updateOS(
         widget.os.id,
@@ -95,7 +124,7 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
       );
       if (mounted) SnackbarUtil.showSuccess(context, 'Dados salvos com sucesso!');
     } catch (e) {
-      if (mounted) SnackbarUtil.showError(context, 'Erro ao salvar: JSON pode estar inválido.');
+      if (mounted) SnackbarUtil.showError(context, 'Erro ao salvar.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -245,17 +274,17 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(widget.os.status).withValues(alpha: 0.1),
+                    color: _getStatusColor(_statusAtual).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                        color: _getStatusColor(widget.os.status).withValues(alpha: 0.5)),
+                        color: _getStatusColor(_statusAtual).withValues(alpha: 0.5)),
                   ),
                   child: Text(
-                    widget.os.status.label.toUpperCase(),
+                    _statusAtual.label.toUpperCase(),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: _getStatusColor(widget.os.status)),
+                        color: _getStatusColor(_statusAtual)),
                   ),
                 ),
               ],
@@ -482,28 +511,9 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             ),
 
             const SizedBox(height: 40),
-            _SectionHeader(title: 'Especificações Técnicas (JSON)'),
+            _SectionHeader(title: 'Detalhes do Pedido'),
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.brandTealDeep,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: TextField(
-                controller: _specsController,
-                maxLines: 8,
-                style: const TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 13,
-                    color: AppColors.brandGreen),
-                decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.all(16),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
-              ),
-            ),
+            _buildDetalhesPedido(cs),
 
             const SizedBox(height: 40),
             _SectionHeader(title: 'Observações Internas'),
@@ -611,6 +621,81 @@ class _OsDetailsScreenState extends State<OsDetailsScreen> {
             const SizedBox(height: 80),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Renderiza todos os campos do `especificacoes` (exceto os já mostrados
+  /// nas seções específicas: requisitos, orcamento, arte_url) em formato
+  /// chave-valor amigável.
+  Widget _buildDetalhesPedido(ColorScheme cs) {
+    const keysParaIgnorar = {
+      'requisitos',
+      'orcamento',
+      'arte_url',
+      'opcaoEntrega',
+      'enderecoEntrega',
+      'referenciaEntrega',
+    };
+    final entries = widget.os.especificacoes.entries
+        .where((e) => !keysParaIgnorar.contains(e.key))
+        .toList();
+
+    if (entries.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outline),
+        ),
+        child: Text(
+          'Sem detalhes adicionais.',
+          style: TextStyle(
+              fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: entries.map((e) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 130,
+                  child: Text(
+                    _humanLabel(e.key),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    _humanValue(e.value),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
