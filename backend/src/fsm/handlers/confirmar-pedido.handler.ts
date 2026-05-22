@@ -129,6 +129,7 @@ export class ConfirmarPedidoHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     const { context } = await prepareContext(message, sessao, deps);
+    console.log(`🔖 [CONFIRMAR_PEDIDO] osId in=${sessao.contexto.osId?.slice(0, 8) ?? 'null'} prepared=${context.osId?.slice(0, 8) ?? 'null'}`);
 
     const msg = message.trim();
 

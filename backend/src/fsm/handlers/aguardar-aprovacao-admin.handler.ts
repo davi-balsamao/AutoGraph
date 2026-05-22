@@ -67,19 +67,30 @@ export class AguardarAprovacaoAdminHandler implements StateHandler {
       });
       console.log(`📢 [SOCKET] emit 'proposta-pendente' enviado.`);
 
-      // Cria registro de OS no banco para aparecer no Kanban admin
-      const novaOs = await osRepo.create({
-        clienteId: sessao.clienteId,
-        status: StatusOS.AGUARDANDO_ORCAMENTO,
-        especificacoes: {
-          produto: proposta.especificacoes.produto,
-          requisitos: proposta.especificacoes.requisitos,
-          orcamento: proposta.orcamento,
-        },
-      });
-      context.osId = novaOs.id;
-      io.emit('os-nova', novaOs);
-      console.log(`📋 [KANBAN] OS ${novaOs.id.slice(0, 8)} criada — aguardando aprovação admin.`);
+      // Idempotência: se já existir OS associada à sessão e ainda estiver em
+      // AGUARDANDO_ORCAMENTO, reusa em vez de criar duplicata.
+      let osId = context.osId;
+      if (osId) {
+        const existente = await osRepo.findById(osId);
+        if (existente?.status !== StatusOS.AGUARDANDO_ORCAMENTO) osId = undefined;
+      }
+      if (!osId) {
+        const novaOs = await osRepo.create({
+          clienteId: sessao.clienteId,
+          status: StatusOS.AGUARDANDO_ORCAMENTO,
+          especificacoes: {
+            produto: proposta.especificacoes.produto,
+            requisitos: proposta.especificacoes.requisitos,
+            orcamento: proposta.orcamento,
+          },
+        });
+        osId = novaOs.id;
+        io.emit('os-nova', novaOs);
+        console.log(`📋 [KANBAN] OS ${osId.slice(0, 8)} criada — aguardando aprovação admin.`);
+      } else {
+        console.log(`📋 [KANBAN] OS ${osId.slice(0, 8)} já existe — reusando (idempotência).`);
+      }
+      context.osId = osId;
 
       notificationService
         .sendToAdmins(

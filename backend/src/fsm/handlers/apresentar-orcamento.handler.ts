@@ -8,6 +8,7 @@ export class ApresentarOrcamentoHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     const context: ConversationContext = { ...sessao.contexto, orcamentoApresentado: true };
+    console.log(`🔖 [APRESENTAR_ORCAMENTO] osId in=${sessao.contexto.osId?.slice(0, 8) ?? 'null'}`);
     const produto = context.produto || 'seu pedido';
     const total = context.orcamento?.total;
     const prazo = context.orcamento?.prazo || '3 dias úteis';
@@ -31,6 +32,7 @@ export class ApresentarOrcamentoHandler implements StateHandler {
       response = ragResult.answer;
     }
 
+    console.log(`🔖 [APRESENTAR_ORCAMENTO] osId out=${context.osId?.slice(0, 8) ?? 'null'}`);
     return {
       response,
       nextState: ConversationState.AGUARDAR_APROVACAO,

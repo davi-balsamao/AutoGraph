@@ -71,14 +71,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
   }
 
+  /// OSs visíveis no Kanban: exclui canceladas (órfãs limpas pelo backend).
+  List<OrdemServico> get _ativas =>
+      _all.where((o) => o.status != StatusOS.cancelada).toList();
+
   List<OrdemServico> get _filtered {
-    // Filtro simplificado — divide as OSs entre as 5 abas uniformemente para demo
-    if (_all.isEmpty) return [];
-    final chunk = (_all.length / 5).ceil();
+    final ativas = _ativas;
+    if (ativas.isEmpty) return [];
+    final chunk = (ativas.length / 5).ceil();
     final start = _tabIndex * chunk;
-    final end = (start + chunk).clamp(0, _all.length);
-    if (start >= _all.length) return [];
-    return _all.sublist(start, end);
+    final end = (start + chunk).clamp(0, ativas.length);
+    if (start >= ativas.length) return [];
+    return ativas.sublist(start, end);
   }
 
   @override
@@ -114,7 +118,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                                   letterSpacing: -0.3,
                                 )),
                             Text(
-                              '${_all.length} OSs ativas · arraste pra mudar status',
+                              '${_ativas.length} OSs ativas · arraste pra mudar status',
                               style: GoogleFonts.inter(
                                   fontSize: 11, color: mutedColor),
                             ),

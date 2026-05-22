@@ -30,6 +30,7 @@ export class GerarOsHandler implements StateHandler {
     deps: HandlerDeps
   ): Promise<HandlerResult> {
     const context: ConversationContext = { ...sessao.contexto };
+    console.log(`🔖 [GERAR_OS] osId in=${context.osId?.slice(0, 8) ?? 'null (VAI CRIAR NOVA OS)'}`);
 
     const especificacoes = {
       produto: context.produto || 'Produto não informado',
