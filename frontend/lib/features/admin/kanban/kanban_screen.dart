@@ -289,7 +289,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
         );
       },
     );
-=======
   }
 
   @override
