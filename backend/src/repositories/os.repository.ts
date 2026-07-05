@@ -22,10 +22,13 @@ export class OsRepository {
     });
   }
 
-  // Lista OS com filtro opcional de status
-  async findAll(status?: StatusOS) {
+  // Lista OS com filtros opcionais de status e cliente
+  async findAll(status?: StatusOS, clienteId?: string) {
     return prisma.ordensDeServico.findMany({
-      where: status ? { status } : {},
+      where: {
+        ...(status ? { status } : {}),
+        ...(clienteId ? { clienteId } : {}),
+      },
       include: { 
         cliente: {
           select: { nome: true, telefone: true, enderecoCompleto: true, enderecoReferencia: true }

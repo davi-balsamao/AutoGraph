@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { OsRepository } from '../repositories/os.repository';
 import { MensagemRepository } from '../repositories/mensagem.repository';
 import { ClienteRepository } from '../repositories/cliente.repository';
@@ -47,10 +48,12 @@ export class OsController {
   }
 
   // MÉTODO RESTAURADO
-  async list(req: Request, res: Response) {
+  async list(req: AuthenticatedRequest, res: Response) {
     try {
       const status = req.query.status as StatusOS;
-      const ordens = await osRepo.findAll(status);
+      // Cliente só enxerga as próprias OS; gerente vê todas.
+      const clienteId = req.user?.role === 'CLIENTE' ? req.user.id : undefined;
+      const ordens = await osRepo.findAll(status, clienteId);
       return res.json(ordens);
     } catch (error: any) {
       if (error?.name === 'PrismaClientInitializationError' || error?.message?.includes('database server')) {
@@ -95,9 +98,17 @@ export class OsController {
   }
 
   // MÉTODO RESTAURADO
-  async getMensagensDaOs(req: Request, res: Response) {
+  async getMensagensDaOs(req: AuthenticatedRequest, res: Response) {
     try {
       const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+      if (req.user?.role === 'CLIENTE') {
+        const os = await osRepo.findById(id);
+        if (!os || os.clienteId !== req.user.id) {
+          return res.status(404).json({ error: 'OS não encontrada.' });
+        }
+      }
+
       const mensagens = await mensagemRepo.findHistoryByOsId(id);
 
       if (!mensagens) return res.status(404).json({ error: 'OS não encontrada.' });

@@ -26,6 +26,7 @@ import {
   getSessionContext,
   getLastBotResponse,
   getLastOS,
+  loginAsGerenteTeste,
   turno as turnoHelper,
 } from './helpers';
 import { prisma } from '../../config/prisma';
@@ -109,9 +110,13 @@ describeOrSkip('Fluxo 21 · Aprovação Admin do orçamento', () => {
     const sessaoId = await findSessaoId(PHONE);
     expect(sessaoId).not.toBeNull();
 
+    const gerenteToken = await loginAsGerenteTeste();
     const approveRes = await fetch(`${BASE_URL}/api/propostas/${sessaoId}/aprovar`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${gerenteToken}`,
+      },
     });
     expect(approveRes.ok).toBe(true);
     const approveBody = await approveRes.json();

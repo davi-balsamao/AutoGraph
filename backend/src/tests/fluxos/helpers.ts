@@ -9,10 +9,69 @@
  */
 
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/prisma';
 
 export const BASE_URL = `http://127.0.0.1:${process.env.PORT || 3000}`;
 const APP_SECRET = process.env.APP_SECRET || 'test_secret';
+
+/** Credenciais dos usuários de teste usados para obter JWT nas rotas protegidas. */
+export const GERENTE_TESTE = {
+  email: 'gerente-teste@autograph.test',
+  senha: 'gerente-teste-123',
+  telefone: '5531999990021',
+  nome: 'Gerente Teste E2E',
+};
+export const CLIENTE_TESTE = {
+  email: 'cliente-teste@autograph.test',
+  senha: 'cliente-teste-123',
+  telefone: '5531999990022',
+  nome: 'Cliente Teste E2E',
+};
+
+/** Garante que um usuário de teste exista no banco (senha bcrypt). */
+export async function ensureTestUser(
+  user: typeof GERENTE_TESTE,
+  role: 'GERENTE' | 'CLIENTE',
+): Promise<void> {
+  const senhaHash = await bcrypt.hash(user.senha, 10);
+  await prisma.usuario.upsert({
+    where: { email: user.email },
+    update: { senha: senhaHash, role },
+    create: {
+      nome: user.nome,
+      email: user.email,
+      telefone: user.telefone,
+      senha: senhaHash,
+      role,
+    },
+  });
+}
+
+/** Faz login via API e retorna o JWT. */
+export async function loginAs(email: string, senha: string): Promise<string> {
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, senha }),
+  });
+  if (!res.ok) throw new Error(`Login de teste falhou (${res.status}) para ${email}`);
+  const body = await res.json();
+  if (!body.token) throw new Error(`Login de ${email} não retornou token.`);
+  return body.token;
+}
+
+/** Cria (se preciso) o gerente de teste e retorna um JWT de GERENTE. */
+export async function loginAsGerenteTeste(): Promise<string> {
+  await ensureTestUser(GERENTE_TESTE, 'GERENTE');
+  return loginAs(GERENTE_TESTE.email, GERENTE_TESTE.senha);
+}
+
+/** Cria (se preciso) o cliente de teste e retorna um JWT de CLIENTE. */
+export async function loginAsClienteTeste(): Promise<string> {
+  await ensureTestUser(CLIENTE_TESTE, 'CLIENTE');
+  return loginAs(CLIENTE_TESTE.email, CLIENTE_TESTE.senha);
+}
 
 /** Cria payload no formato do webhook da Meta. */
 export function buildPayload(from: string, name: string, text: string, msgId?: string) {

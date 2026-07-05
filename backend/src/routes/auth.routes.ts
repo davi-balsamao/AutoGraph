@@ -1,22 +1,38 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../config/prisma';
+import {
+  signToken,
+  requireAuth,
+  requireGerente,
+  AuthenticatedRequest,
+} from '../middleware/auth.middleware';
 
 const authRoutes = Router();
 
 const SALT_ROUNDS = 10;
 
-/** bcrypt sempre prefixa o hash com $2a$, $2b$ ou $2y$. */
-function looksLikeBcryptHash(senha: string): boolean {
-  return /^\$2[aby]\$/.test(senha);
-}
+/** Campos de usuário seguros para devolver ao frontend (nunca inclui senha). */
+const usuarioPublicSelect = {
+  id: true,
+  nome: true,
+  email: true,
+  telefone: true,
+  role: true,
+  atendimentoHumano: true,
+  fcmToken: true,
+  enderecoCompleto: true,
+  enderecoReferencia: true,
+  criadoEm: true,
+  atualizadoEm: true,
+} as const;
 
 /**
  * POST /api/auth/login
  * Body: { email: string, senha: string }
- * Returns: { user: { id, nome, email, telefone, role } }
+ * Returns: { user: { id, nome, email, telefone, role }, token }
  *
- * Valida credenciais e retorna Custom Claims (role).
+ * Valida credenciais e emite o JWT usado nas rotas protegidas e no Socket.io.
  */
 authRoutes.post('/login', async (req: Request, res: Response) => {
   try {
@@ -32,19 +48,13 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
 
-    // Comparação dupla:
-    //  · senhas geradas pela seed/registro novo são bcrypt → compara via bcrypt;
-    //  · senhas legadas plain-text (cadastradas antes do bcrypt) caem no fallback.
-    // Mantemos os dois caminhos durante a transição para não invalidar usuários
-    // que já estão no banco com senha em texto puro.
-    const senhaArmazenada = usuario.senha;
-    const senhaConfere = looksLikeBcryptHash(senhaArmazenada)
-      ? await bcrypt.compare(senha, senhaArmazenada)
-      : senhaArmazenada === senha;
+    const senhaConfere = await bcrypt.compare(senha, usuario.senha);
 
     if (!senhaConfere) {
       return res.status(401).json({ error: 'Credenciais inválidas.' });
     }
+
+    const token = signToken(usuario);
 
     return res.json({
       user: {
@@ -56,6 +66,7 @@ authRoutes.post('/login', async (req: Request, res: Response) => {
         enderecoCompleto: usuario.enderecoCompleto,
         enderecoReferencia: usuario.enderecoReferencia,
       },
+      token,
     });
   } catch (error) {
     console.error('❌ Erro no login:', error);
@@ -99,6 +110,7 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
       },
     });
 
+    const token = signToken(newUser);
 
     return res.status(201).json({
       user: {
@@ -110,6 +122,7 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
         enderecoCompleto: newUser.enderecoCompleto,
         enderecoReferencia: newUser.enderecoReferencia,
       },
+      token,
     });
   } catch (error) {
     console.error('❌ Erro no registro:', error);
@@ -119,11 +132,12 @@ authRoutes.post('/register', async (req: Request, res: Response) => {
 
 /**
  * GET /api/auth/users
- * Retorna todos os usuários cadastrados no sistema.
+ * Retorna todos os usuários cadastrados no sistema. Restrito ao gerente.
  */
-authRoutes.get('/users', async (req: Request, res: Response) => {
+authRoutes.get('/users', requireAuth, requireGerente, async (req: Request, res: Response) => {
   try {
     const usuarios = await prisma.usuario.findMany({
+      select: usuarioPublicSelect,
       orderBy: { nome: 'asc' },
     });
     return res.json(usuarios);
@@ -137,11 +151,23 @@ authRoutes.get('/users', async (req: Request, res: Response) => {
  * PUT /api/auth/users/:id
  * Body: { nome, email, telefone, role, atendimentoHumano, enderecoCompleto, enderecoReferencia, senha }
  * Atualiza os dados de um usuário pelo ID.
+ * Gerente edita qualquer usuário; cliente só edita o próprio cadastro e
+ * não pode alterar role/atendimentoHumano.
  */
-authRoutes.put('/users/:id', async (req: Request, res: Response) => {
+authRoutes.put('/users/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { nome, email, telefone, role, atendimentoHumano, enderecoCompleto, enderecoReferencia, senha } = req.body;
+
+    const isGerente = req.user!.role === 'GERENTE';
+
+    if (!isGerente && req.user!.id !== id) {
+      return res.status(403).json({ error: 'Você só pode editar o seu próprio cadastro.' });
+    }
+
+    if (!isGerente && (role !== undefined || atendimentoHumano !== undefined)) {
+      return res.status(403).json({ error: 'Apenas o gerente pode alterar perfil de acesso.' });
+    }
 
     const existingUser = await prisma.usuario.findUnique({ where: { id } });
     if (!existingUser) {
@@ -162,14 +188,9 @@ authRoutes.put('/users/:id', async (req: Request, res: Response) => {
       }
     }
 
-    // Quando admin altera a senha, hasheia antes de gravar. Se já vier hash
-    // (improvável vindo da UI, mas defensivo), passa adiante intacto.
+    // Senha nova sempre chega em texto puro da UI e é hasheada aqui.
     const senhaParaGravar =
-      senha === undefined
-        ? existingUser.senha
-        : looksLikeBcryptHash(senha)
-          ? senha
-          : await bcrypt.hash(senha, SALT_ROUNDS);
+      senha === undefined ? existingUser.senha : await bcrypt.hash(senha, SALT_ROUNDS);
 
     const updatedUser = await prisma.usuario.update({
       where: { id },
@@ -209,10 +230,14 @@ authRoutes.put('/users/:id', async (req: Request, res: Response) => {
  *
  * Registra/atualiza o Token do Firebase Cloud Messaging (FCM) de um usuário.
  */
-authRoutes.put('/users/:id/fcm', async (req: Request, res: Response) => {
+authRoutes.put('/users/:id/fcm', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = req.params.id as string;
     const { fcmToken } = req.body;
+
+    if (req.user!.role !== 'GERENTE' && req.user!.id !== id) {
+      return res.status(403).json({ error: 'Você só pode registrar o seu próprio token FCM.' });
+    }
 
     if (fcmToken === undefined) {
       return res.status(400).json({ error: 'Token FCM é obrigatório.' });
@@ -246,4 +271,3 @@ authRoutes.put('/users/:id/fcm', async (req: Request, res: Response) => {
 });
 
 export default authRoutes;
-

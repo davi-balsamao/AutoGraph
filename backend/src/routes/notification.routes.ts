@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { notificationService } from '../services/notification.service';
 import { prisma } from '../config/prisma';
+import { requireAuth, requireGerente } from '../middleware/auth.middleware';
 
 const notificationRoutes = Router();
 
@@ -15,7 +16,7 @@ const notificationRoutes = Router();
  *
  * Permite que gerentes enviem notificações push personalizadas para um ou todos os clientes.
  */
-notificationRoutes.post('/send', async (req: Request, res: Response) => {
+notificationRoutes.post('/send', requireAuth, requireGerente, async (req: Request, res: Response) => {
   try {
     const { clienteId, title, body, data } = req.body;
 
