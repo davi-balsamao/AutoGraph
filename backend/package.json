@@ -12,6 +12,7 @@
     "test:fluxos": "jest src/tests/fluxos",
     "test:guardrails": "ts-node-dev src/scripts/test-guardrails.ts",
     "seed:knowledge": "ts-node-dev src/scripts/seed-knowledge.ts",
+    "backfill:os": "ts-node-dev src/scripts/backfill-os.ts",
     "test:rag": "ts-node-dev src/scripts/test-rag.ts",
     "test:entities": "ts-node-dev src/scripts/test-entity-extraction.ts",
     "test:e2e": "ts-node-dev src/scripts/test-e2e-webhook.ts",

@@ -30,6 +30,35 @@ enum OrigemMensagem {
   GERENTE
 }
 
+enum StatusPagamento {
+  PENDENTE
+  SINAL_PAGO
+  PAGO
+  ESTORNADO
+}
+
+enum MetodoPagamento {
+  PIX
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  DINHEIRO
+  BOLETO
+  TRANSFERENCIA
+}
+
+enum ModalidadeEntrega {
+  RETIRADA
+  ENTREGA
+}
+
+enum TipoArquivo {
+  ARTE_FINAL
+  ARTE_RASCUNHO
+  MOCKUP
+  COMPROVANTE_PAGAMENTO
+  OUTRO
+}
+
 model Usuario {
   id               String     @id @default(uuid())
   nome             String
@@ -47,6 +76,7 @@ model Usuario {
   ordensDeServico OrdensDeServico[]
   mensagens        Mensagens[]
   sessoes          SessaoAtendimento[]
+  enderecos        Endereco[]
 }
 
 model SessaoAtendimento {
@@ -66,6 +96,7 @@ model SessaoAtendimento {
 
 model OrdensDeServico {
   id                String   @id @default(uuid())
+  numero            Int      @unique @default(autoincrement()) // número sequencial humano (OS #1024)
   clienteId         String
   status            StatusOS @default(CRIADA)
   especificacoes    Json
@@ -74,11 +105,39 @@ model OrdensDeServico {
   timerStartedAt    DateTime?
   timerEndedAt      DateTime?
   durationSeconds   Int      @default(0)
+
+  // Pagamento (denormalizado p/ leitura rápida de kanban/relatório; detalhes em Pagamento[])
+  valorTotal        Decimal?        @db.Decimal(10, 2)
+  desconto          Decimal?        @db.Decimal(10, 2)
+  statusPagamento   StatusPagamento @default(PENDENTE)
+
+  // Entrega
+  modalidadeEntrega    ModalidadeEntrega @default(RETIRADA)
+  enderecoEntregaId    String?
+  freteValor           Decimal?          @db.Decimal(10, 2)
+  codigoRastreio       String?
+  transportadora       String?
+  dataEntregaPrevista  DateTime?
+  dataEntregaRealizada DateTime?
+
+  // Arte aprovada (ponteiro rápido; detalhes/versões em ArquivoOS[])
+  arteAprovadaId    String?
+
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
 
   cliente           Usuario  @relation(fields: [clienteId], references: [id])
   mensagens         Mensagens[]
+  itens             ItemOS[]
+  pagamentos        Pagamento[]
+  arquivos          ArquivoOS[]         @relation("ArquivosDaOS")
+  historicoStatus   HistoricoStatusOS[]
+  enderecoEntrega   Endereco?           @relation(fields: [enderecoEntregaId], references: [id])
+
+  @@index([status])
+  @@index([clienteId])
+  @@index([criadoEm])
+  @@index([statusPagamento])
 }
 
 model Mensagens {
@@ -87,6 +146,8 @@ model Mensagens {
   ordemId        String?
   origem         OrigemMensagem
   payload        Json
+  mediaUrl       String?        // sink p/ mídia recebida do WhatsApp (captura real: Fase 2)
+  mediaMimeType  String?
   criadoEm       DateTime       @default(now())
 
   usuario        Usuario         @relation(fields: [usuarioId], references: [id])
@@ -105,7 +166,103 @@ model Produto {
   nome         String   @unique
   descricao    String?
   imagemUrl    String?
-  precoBase    Float    @default(0.0)
+  precoBase    Float    @default(0.0) // NOTE: migrar p/ Decimal na Fase 2 (junto do fix de pricing.adapter)
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
+
+  itens        ItemOS[]
+}
+
+// Item de uma OS: liga o pedido ao catálogo (Produto) e guarda um snapshot
+// de nome/preço no momento da compra, para que relatórios históricos não mudem
+// quando o catálogo for atualizado.
+model ItemOS {
+  id             String   @id @default(uuid())
+  ordemId        String
+  produtoId      String?  // null = produto custom fora do catálogo
+  produtoNome    String   // snapshot do nome no momento do pedido
+  quantidade     Int
+  precoUnitario  Decimal  @db.Decimal(10, 2) // snapshot do preço no momento
+  precoTotal     Decimal  @db.Decimal(10, 2)
+  especificacoes Json     @default("{}") // material/acabamento/medidas deste item
+  criadoEm       DateTime @default(now())
+
+  ordem   OrdensDeServico @relation(fields: [ordemId], references: [id])
+  produto Produto?        @relation(fields: [produtoId], references: [id])
+
+  @@index([ordemId])
+  @@index([produtoId])
+}
+
+// Pagamentos de uma OS (suporta sinal + parcelas). O valorTotal/statusPagamento
+// denormalizados na OrdensDeServico são derivados a partir daqui no write-path.
+model Pagamento {
+  id             String          @id @default(uuid())
+  ordemId        String
+  valor          Decimal         @db.Decimal(10, 2)
+  metodo         MetodoPagamento
+  status         StatusPagamento @default(PENDENTE)
+  ehSinal        Boolean         @default(false) // true = entrada/sinal
+  comprovanteUrl String?
+  pagoEm         DateTime?
+  criadoEm       DateTime        @default(now())
+
+  ordem OrdensDeServico @relation(fields: [ordemId], references: [id])
+
+  @@index([ordemId])
+  @@index([status])
+}
+
+// Arquivos oficiais da OS (arte final, rascunho, mockup, comprovante).
+model ArquivoOS {
+  id           String         @id @default(uuid())
+  ordemId      String
+  tipo         TipoArquivo    @default(ARTE_FINAL)
+  url          String
+  nomeOriginal String?
+  mimeType     String?
+  tamanhoBytes Int?
+  aprovado     Boolean        @default(false)
+  enviadoPor   OrigemMensagem @default(CLIENTE)
+  criadoEm     DateTime       @default(now())
+
+  ordem OrdensDeServico @relation("ArquivosDaOS", fields: [ordemId], references: [id])
+
+  @@index([ordemId])
+}
+
+// Endereço desacoplado do Usuario: permite múltiplos endereços/filiais por cliente
+// e serve como destino de entrega referenciado pela OS.
+model Endereco {
+  id          String   @id @default(uuid())
+  usuarioId   String?  // dono (cliente); null p/ snapshot avulso
+  apelido     String?  // "Matriz", "Filial Centro"
+  cep         String?
+  logradouro  String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  estado      String?
+  referencia  String?
+  criadoEm    DateTime @default(now())
+
+  usuario  Usuario?          @relation(fields: [usuarioId], references: [id])
+  entregas OrdensDeServico[]
+
+  @@index([usuarioId])
+}
+
+// Trilha de auditoria das transições de status da OS (SLA por etapa).
+model HistoricoStatusOS {
+  id          String    @id @default(uuid())
+  ordemId     String
+  de          StatusOS?
+  para        StatusOS
+  alteradoPor String?   // usuarioId do gerente, ou 'sistema'
+  criadoEm    DateTime  @default(now())
+
+  ordem OrdensDeServico @relation(fields: [ordemId], references: [id])
+
+  @@index([ordemId])
 }
