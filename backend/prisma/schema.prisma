@@ -13,6 +13,28 @@ datasource db {
 enum Role {
   CLIENTE
   GERENTE
+  FUNCIONARIO
+}
+
+// Espelha ConversationState (src/fsm/states.ts). Mantê-los em sincronia.
+enum EstadoConversa {
+  BOAS_VINDAS
+  IDENTIFICAR_NECESSIDADE
+  COLETAR_ESPECIFICACOES
+  VALIDAR_ARQUIVO
+  CALCULAR_ORCAMENTO
+  AGUARDAR_APROVACAO_ADMIN
+  APRESENTAR_ORCAMENTO
+  AGUARDAR_APROVACAO
+  NEGOCIAR
+  COLETAR_DADOS_ENTREGA
+  CONFIRMAR_PEDIDO
+  GERAR_OS
+  ESCLARECER_DUVIDA
+  PRODUTO_INDISPONIVEL
+  ESCALAR_HUMANO
+  AGUARDAR_RETORNO
+  ENCERRAR
 }
 
 enum StatusOS {
@@ -72,19 +94,22 @@ model Usuario {
   enderecoReferencia String?
   criadoEm         DateTime   @default(now())
   atualizadoEm     DateTime   @updatedAt
+  deletedAt        DateTime?  // soft-delete
 
-  ordensDeServico OrdensDeServico[]
-  mensagens        Mensagens[]
-  sessoes          SessaoAtendimento[]
-  enderecos        Endereco[]
+  ordensDeServico     OrdensDeServico[]   @relation("Cliente")
+  ordensResponsavel   OrdensDeServico[]   @relation("Responsavel") // OS onde é o funcionário responsável
+  historicoAlteracoes HistoricoStatusOS[] @relation("AlteradoPor")
+  mensagens           Mensagens[]
+  sessoes             SessaoAtendimento[]
+  enderecos           Endereco[]
 }
 
 model SessaoAtendimento {
   id              String   @id @default(uuid())
   clienteId       String
   cliente         Usuario  @relation(fields: [clienteId], references: [id])
-  estadoAtual     String   @default("BOAS_VINDAS")
-  estadoAnterior  String?
+  estadoAtual     EstadoConversa  @default(BOAS_VINDAS)
+  estadoAnterior  EstadoConversa?
   contexto        Json     @default("{}")
   ativa           Boolean  @default(true)
   lembreteEnviado Boolean  @default(false)
@@ -98,6 +123,7 @@ model OrdensDeServico {
   id                String   @id @default(uuid())
   numero            Int      @unique @default(autoincrement()) // número sequencial humano (OS #1024)
   clienteId         String
+  responsavelId     String?  // funcionário responsável (kanban)
   status            StatusOS @default(CRIADA)
   especificacoes    Json
   observacoes       String?  // <-- CAMPO DE OBSERVAÇÕES
@@ -119,23 +145,28 @@ model OrdensDeServico {
   transportadora       String?
   dataEntregaPrevista  DateTime?
   dataEntregaRealizada DateTime?
+  enderecoEntregaSnapshot Json? // cópia imutável do endereço de entrega no fechamento
 
   // Arte aprovada (ponteiro rápido; detalhes/versões em ArquivoOS[])
   arteAprovadaId    String?
 
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
+  deletedAt         DateTime? // soft-delete
 
-  cliente           Usuario  @relation(fields: [clienteId], references: [id])
+  cliente           Usuario     @relation("Cliente", fields: [clienteId], references: [id])
+  responsavel       Usuario?    @relation("Responsavel", fields: [responsavelId], references: [id], onDelete: SetNull)
   mensagens         Mensagens[]
   itens             ItemOS[]
   pagamentos        Pagamento[]
   arquivos          ArquivoOS[]         @relation("ArquivosDaOS")
+  arteAprovada      ArquivoOS?          @relation("ArteAprovada", fields: [arteAprovadaId], references: [id], onDelete: SetNull)
   historicoStatus   HistoricoStatusOS[]
   enderecoEntrega   Endereco?           @relation(fields: [enderecoEntregaId], references: [id])
 
   @@index([status])
   @@index([clienteId])
+  @@index([responsavelId])
   @@index([criadoEm])
   @@index([statusPagamento])
 }
@@ -152,6 +183,10 @@ model Mensagens {
 
   usuario        Usuario         @relation(fields: [usuarioId], references: [id])
   ordemDeServico OrdensDeServico? @relation(fields: [ordemId], references: [id])
+
+  @@index([usuarioId])
+  @@index([ordemId])
+  @@index([criadoEm])
 }
 
 model DocumentosConhecimento {
@@ -166,9 +201,10 @@ model Produto {
   nome         String   @unique
   descricao    String?
   imagemUrl    String?
-  precoBase    Float    @default(0.0) // NOTE: migrar p/ Decimal na Fase 2 (junto do fix de pricing.adapter)
+  precoBase    Decimal  @db.Decimal(10, 2) @default(0) // ⚠️ acopla pricing.adapter + parsing frontend
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
+  deletedAt    DateTime? // soft-delete
 
   itens        ItemOS[]
 }
@@ -186,6 +222,7 @@ model ItemOS {
   precoTotal     Decimal  @db.Decimal(10, 2)
   especificacoes Json     @default("{}") // material/acabamento/medidas deste item
   criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
 
   ordem   OrdensDeServico @relation(fields: [ordemId], references: [id])
   produto Produto?        @relation(fields: [produtoId], references: [id])
@@ -206,6 +243,8 @@ model Pagamento {
   comprovanteUrl String?
   pagoEm         DateTime?
   criadoEm       DateTime        @default(now())
+  atualizadoEm   DateTime        @updatedAt
+  deletedAt      DateTime?       // soft-delete (registro financeiro)
 
   ordem OrdensDeServico @relation(fields: [ordemId], references: [id])
 
@@ -225,8 +264,10 @@ model ArquivoOS {
   aprovado     Boolean        @default(false)
   enviadoPor   OrigemMensagem @default(CLIENTE)
   criadoEm     DateTime       @default(now())
+  atualizadoEm DateTime       @updatedAt
 
-  ordem OrdensDeServico @relation("ArquivosDaOS", fields: [ordemId], references: [id])
+  ordem              OrdensDeServico   @relation("ArquivosDaOS", fields: [ordemId], references: [id])
+  osComoArteAprovada OrdensDeServico[] @relation("ArteAprovada") // OS que apontam p/ este arquivo como arte aprovada
 
   @@index([ordemId])
 }
@@ -246,6 +287,7 @@ model Endereco {
   estado      String?
   referencia  String?
   criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
   usuario  Usuario?          @relation(fields: [usuarioId], references: [id])
   entregas OrdensDeServico[]
@@ -259,10 +301,12 @@ model HistoricoStatusOS {
   ordemId     String
   de          StatusOS?
   para        StatusOS
-  alteradoPor String?   // usuarioId do gerente, ou 'sistema'
+  alteradoPor String?   // FK → Usuario (gerente/funcionário); null = sistema
   criadoEm    DateTime  @default(now())
 
-  ordem OrdensDeServico @relation(fields: [ordemId], references: [id])
+  ordem             OrdensDeServico @relation(fields: [ordemId], references: [id])
+  alteradoPorUsuario Usuario?       @relation("AlteradoPor", fields: [alteradoPor], references: [id], onDelete: SetNull)
 
   @@index([ordemId])
+  @@index([alteradoPor])
 }
